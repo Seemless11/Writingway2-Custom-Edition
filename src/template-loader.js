@@ -17,6 +17,17 @@
                 return this.cache[templateName];
             }
 
+            // Look for an inline <template id="tpl-<name>"> element so the page
+            // works when opened directly via file:// (where fetch() is blocked).
+            const inline = document.getElementById(`tpl-${templateName}`);
+            if (inline && 'content' in inline) {
+                const wrap = document.createElement('div');
+                wrap.appendChild(inline.content.cloneNode(true));
+                const html = wrap.innerHTML;
+                this.cache[templateName] = html;
+                return html;
+            }
+
             try {
                 const response = await fetch(`src/templates/${templateName}.html`);
                 if (!response.ok) {

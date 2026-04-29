@@ -640,10 +640,17 @@
                                     :disabled="workshopIsGenerating"></textarea>
                                 <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
                                     <button class="btn btn-secondary btn-sm"
-                                        @click="useWorkshopContextPanel = !useWorkshopContextPanel"
+                                        @click="useWorkshopContextPanel = true; showContextPanel = true"
                                         :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
-                                        title="Use context from Context Panel">
+                                        title="Open Context Panel (used in this chat)">
                                         📚
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm"
+                                        x-show="useWorkshopContextPanel"
+                                        @click="useWorkshopContextPanel = false"
+                                        title="Stop using Context Panel for this chat"
+                                        style="padding:4px 8px;">
+                                        ✕
                                     </button>
                                     <button class="btn btn-primary btn-sm"
                                         @click="window.workshopChat.sendMessage($data, workshopInput)"
@@ -751,9 +758,9 @@
                                             „ (opening)</button>
                                         <button @click="insertSpecialChar('&quot;')" class="special-char-btn">Low-high
                                             quote " (closing)</button>
-                                        <button @click="insertSpecialChar(&#39;)" class="special-char-btn">Single quote
+                                        <button @click="insertSpecialChar('‘')" class="special-char-btn">Single quote
                                             ' (opening)</button>
-                                        <button @click="insertSpecialChar(&#39;)" class="special-char-btn">Single quote
+                                        <button @click="insertSpecialChar('’')" class="special-char-btn">Single quote
                                             ' (closing)</button>
                                         <button @click="insertSpecialChar(')')" class="special-char-btn">)</button>
                                         <button @click="insertSpecialChar('…')" class="special-char-btn">Ellipsis
@@ -816,305 +823,6 @@
                     </div>
                 </div>
             </div>
-        </template>
-
-        <!-- Rewrite Modal -->
-        <div x-show="showRewriteModal" x-cloak class="modal-overlay" @click.self="discardRewrite()">
-            <div class="rewrite-modal" @click.stop>
-                <div class="modal-header">
-                    <h3 style="margin:0;">Rewrite Selection</h3>
-                    <button class="btn btn-secondary" @click="discardRewrite()">Close</button>
-                </div>
-
-                <div class="modal-body">
-                    <label style="font-size:12px;color:var(--text-secondary);">POV CHARACTER
-                        <input type="text" x-model="povCharacter" placeholder="e.g., Alice" list="character-list"
-                            @blur="saveScene()" @keydown.enter.prevent="saveScene()"
-                            style="width:100%;margin-top:6px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
-                        <datalist id="character-list">
-                            <template x-for="char in (compendiumLists['characters'] || [])"
-                                :key="char.id">
-                                <option :value="char.title"></option>
-                            </template>
-                        </datalist>
-                    </label>
-
-                    <label style="font-size:12px;color:var(--text-secondary);">POV
-                        <select x-model="pov" @change="saveScene()"
-                            style="width:100%;margin-top:6px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
-                            <option>3rd person limited</option>
-                            <option>1st person</option>
-                            <option>omniscient</option>
-                        </select>
-                    </label>
-
-                    <label style="font-size:12px;color:var(--text-secondary);">TENSE
-                        <select x-model="tense" @change="saveScene()"
-                            style="width:100%;margin-top:6px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
-                            <option value="past">past tense</option>
-                            <option value="present">present tense</option>
-                        </select>
-                    </label>
-
-                    <!-- Generation Settings -->
-                    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
-                        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">
-                            Generation Settings
-                        </div>
-
-                        <!-- Model Selection -->
-                        <label style="font-size:12px;color:var(--text-secondary);"
-                            title="The AI model used for generation. Different models have different capabilities and costs.">
-                            MODEL
-                            <select x-model="aiModel" @change="saveGenerationParams()"
-                                style="width:100%;margin-top:6px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
-                                <!-- API mode models -->
-                                <template x-for="model in (aiMode === 'api' ? (providerModels[aiProvider] || []) : [])"
-                                    :key="model.id">
-                                    <option :value="model.id" x-text="model.name + (model.recommended ? ' ⭐' : '')">
-                                    </option>
-                                </template>
-                                <!-- Local mode models -->
-                                <template x-for="modelName in (aiMode === 'local' ? availableLocalModels : [])"
-                                    :key="modelName">
-                                    <option :value="modelName" x-text="modelName"></option>
-                                </template>
-                                <!-- Show current model if not in lists -->
-                                <option
-                                    x-show="aiModel && ((aiMode === 'api' && !(providerModels[aiProvider] || []).find(m => m.id === aiModel)) || (aiMode === 'local' && !availableLocalModels.includes(aiModel)))"
-                                    :value="aiModel" x-text="aiModel"></option>
-                                <!-- Fallback for local mode with no models -->
-                                <option x-show="aiMode === 'local' && availableLocalModels.length === 0 && !aiModel"
-                                    value="" disabled>Local model (via llama-server)</option>
-                            </select>
-                        </label>
-
-                        <!-- Temperature -->
-                        <label style="font-size:12px;color:var(--text-secondary);margin-top:12px;display:block;"
-                            title="Controls randomness. Lower (0.3-0.6) = more focused and consistent. Higher (0.8-1.2) = more creative and varied.">
-                            TEMPERATURE: <span x-text="temperature.toFixed(1)"></span>
-                            <input type="range" x-model.number="temperature" min="0.1" max="1.5" step="0.1"
-                                @input="saveGenerationParams()" style="width:100%;margin-top:6px;">
-                            <div
-                                style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary);margin-top:2px;">
-                                <span>Focused</span>
-                                <span>Balanced</span>
-                                <span>Creative</span>
-                            </div>
-                        </label>
-
-                        <!-- Max Tokens -->
-                        <label style="font-size:12px;color:var(--text-secondary);margin-top:12px;display:block;"
-                            title="Maximum length of generated text. 100-200 = short paragraph, 300-500 = multiple paragraphs, 800-1500 = longer scenes, 2000-5000 = very long, 10000+ = thinking models with reasoning.">
-                            MAX LENGTH: <span x-text="maxTokens"></span> tokens
-                            <input type="range" x-model.number="maxTokens" min="100" max="20000" step="100"
-                                @input="saveGenerationParams()" style="width:100%;margin-top:6px;">
-                            <div
-                                style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary);margin-top:2px;">
-                                <span>Short</span>
-                                <span>Medium</span>
-                                <span>Very Long</span>
-                            </div>
-                        </label>
-
-                        <!-- Quick link to full AI Settings -->
-                        <button class="btn btn-secondary" @click="showSceneOptions = false; showAISettings = true"
-                            style="width:100%;margin-top:12px;font-size:11px;">
-                            ⚙️ Advanced AI Settings
-                        </button>
-                    </div>
-                </div>
-            </div>
-            x-init="$watch('showContextPanel', async (value) => { if (value) { allCompendiumEntries = await
-            getAllCompendiumEntries(); } })"
-            style="background:var(--bg-tertiary);padding:16px;border-radius:6px;border:1px solid
-            var(--border);width:900px;max-width:95vw;max-height:600px;overflow-y:auto;">
-            <div style="display:flex;flex-direction:column;gap:12px;">
-                <div>
-                    <div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px;">
-                        Scene Context Settings
-                    </div>
-                    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">
-                        Select what context to include in every generation prompt
-                    </div>
-                </div>
-
-                <!-- Two Column Layout -->
-                <div style="display:flex;gap:16px;align-items:flex-start;">
-                    <!-- Left Column: Compendium -->
-                    <div style="flex:0 0 350px;display:flex;flex-direction:column;gap:12px;">
-                        <!-- Compendium Entries Section -->
-                        <div
-                            style="background:var(--bg-secondary);padding:12px;border-radius:6px;border:1px solid var(--border);display:flex;flex-direction:column;height:100%;">
-                            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">
-                                📚 Compendium Entries
-                            </div>
-                            <div style="flex:1;overflow-y:auto;">
-                                <template x-if="allCompendiumEntries.length === 0">
-                                    <div
-                                        style="font-size:12px;color:var(--text-tertiary);padding:8px;text-align:center;">
-                                        No compendium entries yet
-                                    </div>
-                                </template>
-                                <template x-for="category in compendiumCategories" :key="category">
-                                    <div x-show="allCompendiumEntries.filter(e => e.category === category).length > 0"
-                                        style="margin-bottom:12px;">
-                                        <div style="font-size:11px;color:var(--text-secondary);text-transform:uppercase;margin-bottom:6px;font-weight:600;"
-                                            x-text="category"></div>
-                                        <template
-                                            x-for="entry in allCompendiumEntries.filter(e => e.category === category)"
-                                            :key="entry.id">
-                                            <label
-                                                style="display:flex;align-items:center;gap:8px;padding:6px;cursor:pointer;border-radius:4px;font-size:13px;"
-                                                @mouseenter="$el.style.background = 'var(--bg-tertiary)'"
-                                                @mouseleave="$el.style.background = 'transparent'">
-                                                <input type="checkbox"
-                                                    :checked="contextPanel.compendiumIds.includes(entry.id)"
-                                                    @change="toggleContextCompendium(entry.id)" style="cursor:pointer;">
-                                                <span x-text="entry.title"></span>
-                                            </label>
-                                        </template>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Right Column: Scenes & Tags -->
-                    <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
-                        <!-- Scenes Section -->
-                        <div
-                            style="background:var(--bg-secondary);padding:12px;border-radius:6px;border:1px solid var(--border);">
-                            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">
-                                📄 Scenes
-                            </div>
-                            <div style="max-height:300px;overflow-y:auto;">
-                                <template x-if="chapters.length === 0">
-                                    <div
-                                        style="font-size:12px;color:var(--text-tertiary);padding:8px;text-align:center;">
-                                        No scenes yet
-                                    </div>
-                                </template>
-                                <template x-for="chapter in chapters" :key="chapter.id">
-                                    <div style="margin-bottom:16px;">
-                                        <!-- Chapter Header -->
-                                        <div
-                                            style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:6px;background:var(--bg-tertiary);border-radius:4px;">
-                                            <div style="font-size:13px;font-weight:600;" x-text="chapter.title">
-                                            </div>
-                                            <div style="display:flex;gap:8px;">
-                                                <button
-                                                    @click="setContextChapter(chapter.id, contextPanel.chapters[chapter.id] === 'full' ? null : 'full')"
-                                                    :style="contextPanel.chapters[chapter.id] === 'full' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
-                                                    class="context-chapter-btn"
-                                                    title="Include full text of all scenes (click again to deselect)">
-                                                    📄 Full Text
-                                                </button>
-                                                <button
-                                                    @click="setContextChapter(chapter.id, contextPanel.chapters[chapter.id] === 'summary' ? null : 'summary')"
-                                                    :style="contextPanel.chapters[chapter.id] === 'summary' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
-                                                    class="context-chapter-btn"
-                                                    title="Include summaries of all scenes (click again to deselect)">
-                                                    📝 Summary
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <!-- Scenes List -->
-                                        <template x-for="scene in chapter.scenes" :key="scene.id">
-                                            <div style="margin-left:16px;margin-bottom:4px;">
-                                                <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;border-radius:4px;"
-                                                    @mouseenter="$el.style.background = 'var(--bg-tertiary)'"
-                                                    @mouseleave="$el.style.background = 'transparent'">
-                                                    <div
-                                                        style="font-size:12px;display:flex;align-items:center;gap:6px;">
-                                                        <span class="summary-dot"
-                                                            :class="{ 'has': scene.summary && !scene.summaryStale, 'stale': scene.summaryStale, 'none': !scene.summary }"
-                                                            style="width:8px;height:8px;"></span>
-                                                        <span x-text="scene.title"></span>
-                                                    </div>
-                                                    <div style="display:flex;gap:6px;"
-                                                        x-show="!contextPanel.chapters[chapter.id]">
-                                                        <button
-                                                            @click="setContextScene(scene.id, contextPanel.scenes[scene.id] === 'full' ? null : 'full')"
-                                                            :style="contextPanel.scenes[scene.id] === 'full' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
-                                                            class="context-scene-btn"
-                                                            title="Include full text (click again to deselect)">
-                                                            📄 Full
-                                                        </button>
-                                                        <button
-                                                            @click="setContextScene(scene.id, contextPanel.scenes[scene.id] === 'summary' ? null : 'summary')"
-                                                            :style="contextPanel.scenes[scene.id] === 'summary' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
-                                                            class="context-scene-btn"
-                                                            title="Include summary (click again to deselect)"
-                                                            :disabled="!scene.summary">
-                                                            📝 Summary
-                                                        </button>
-                                                    </div>
-                                                    <div style="font-size:10px;color:var(--text-tertiary);padding:2px 6px;"
-                                                        x-show="contextPanel.chapters[chapter.id]"
-                                                        x-text="'(via chapter: ' + contextPanel.chapters[chapter.id] + ')'">
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Scene Tags Section -->
-                        <div
-                            style="background:var(--bg-secondary);padding:12px;border-radius:6px;border:1px solid var(--border);">
-                            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">
-                                🏷️ Scene Tags
-                            </div>
-                            <template x-if="getAllTags().length === 0">
-                                <div style="font-size:12px;color:var(--text-tertiary);padding:8px;text-align:center;">
-                                    No scene tags yet. Add tags to scenes in their summary panel.
-                                </div>
-                            </template>
-                            <div x-show="getAllTags().length > 0" style="display:flex;flex-wrap:wrap;gap:10px;">
-                                <template x-for="tag in getAllTags()" :key="tag">
-                                    <button @click="toggleContextTag(tag)"
-                                        :style="contextPanel.tags.includes(tag) ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);'"
-                                        class="context-tag-btn"
-                                        :title="contextPanel.tags.includes(tag) ? 'Click to exclude scenes with tag: ' + tag : 'Click to include scenes with tag: ' + tag"
-                                        @mouseenter="if (!contextPanel.tags.includes(tag)) $el.style.borderColor = 'var(--accent)'"
-                                        @mouseleave="if (!contextPanel.tags.includes(tag)) $el.style.borderColor = 'var(--border)'"
-                                        x-text="tag">
-                                    </button>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Compendium Tags Section -->
-                        <div x-data="{ compTags: [] }" x-init="compTags = await getCompendiumTags()"
-                            style="background:var(--bg-secondary);padding:12px;border-radius:6px;border:1px solid var(--border);">
-                            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:8px;">
-                                📚 Compendium Tags
-                            </div>
-                            <template x-if="compTags.length === 0">
-                                <div style="font-size:12px;color:var(--text-tertiary);padding:8px;text-align:center;">
-                                    No compendium tags yet. Add tags to compendium entries.
-                                </div>
-                            </template>
-                            <div x-show="compTags.length > 0" style="display:flex;flex-wrap:wrap;gap:10px;">
-                                <template x-for="tag in compTags" :key="'comp-'+tag">
-                                    <button @click="toggleContextCompendiumTag(tag)"
-                                        :style="(contextPanel.compendiumTags || []).includes(tag) ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);'"
-                                        class="context-tag-btn"
-                                        :title="(contextPanel.compendiumTags || []).includes(tag) ? 'Click to exclude compendium entries with tag: ' + tag : 'Click to include compendium entries with tag: ' + tag"
-                                        @mouseenter="if (!(contextPanel.compendiumTags || []).includes(tag)) $el.style.borderColor = 'var(--accent)'"
-                                        @mouseleave="if (!(contextPanel.compendiumTags || []).includes(tag)) $el.style.borderColor = 'var(--border)'"
-                                        x-text="tag">
-                                    </button>
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
         </template>
 
         <!-- Rewrite Modal -->
@@ -2060,7 +1768,7 @@
                                 Task-specific instructions for beat expansion, worldbuilding notes, style guidance, etc.
                             </div>
                             <textarea x-model="promptEditorContent"
-                                :placeholder="currentPrompt && currentPrompt.category === 'prose' ? 'e.g., Expand the beat into 2-3 paragraphs. Use sensory details. Show, don\\'t tell...' : 'Enter prompt content...'"
+                                :placeholder="currentPrompt && currentPrompt.category === 'prose' ? 'e.g., Expand the beat into 2-3 paragraphs. Use sensory details. Show, don’t tell...' : 'Enter prompt content...'"
                                 style="width:100%;flex:1;padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;resize:none;font-family:inherit;font-size:13px;"></textarea>
                         </div>
                         
@@ -2948,6 +2656,265 @@
                 </div>
             </div>
     </div>
+    </template>
+
+    <!-- Inline workshop-chat template (so the page works over file://). -->
+    <template id="tpl-workshop-chat">
+<!-- Workshop Chat Component -->
+<!-- Can be used in modal mode or embedded mode -->
+<!-- Pass mode parameter: 'modal' or 'embedded' -->
+<div class="workshop-chat-container" :class="workshopMode === 'embedded' ? 'workshop-embedded' : ''">
+    <!-- Left: Sessions List -->
+    <div class="workshop-sessions">
+        <div class="workshop-sessions-header">
+            <h4 style="margin:0;font-size:14px;">Conversations</h4>
+            <button class="btn btn-secondary btn-sm" @click="createWorkshopSession" title="New Chat">+</button>
+        </div>
+
+        <!-- Session Search/Select Dropdown -->
+        <div style="padding:8px;border-bottom:1px solid var(--border);position:relative;">
+            <input type="text" 
+                x-model="workshopSessionSearchQuery" 
+                @focus="workshopSessionDropdownOpen = true"
+                @input="workshopSessionDropdownOpen = true"
+                @keydown.escape="workshopSessionDropdownOpen = false; workshopSessionSearchQuery = ''"
+                @keydown.arrow-down.prevent="workshopSessionDropdownOpen = true"
+                @keydown.enter.prevent="
+                    const matches = workshopSessions.filter((s, i) => !workshopSessionSearchQuery || s.name.toLowerCase().includes(workshopSessionSearchQuery.toLowerCase()));
+                    if (matches.length > 0) {
+                        const idx = workshopSessions.indexOf(matches[0]);
+                        if (idx >= 0) { currentWorkshopSessionIndex = idx; workshopSessionSearchQuery = ''; workshopSessionDropdownOpen = false; }
+                    }
+                "
+                placeholder="🔍 Search or select chat..."
+                style="width:100%;padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:12px;">
+            
+            <!-- Dropdown List -->
+            <div x-show="workshopSessionDropdownOpen" 
+                x-cloak
+                @click.away="workshopSessionDropdownOpen = false"
+                style="position:absolute;left:8px;right:8px;top:100%;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;max-height:200px;overflow-y:auto;z-index:100;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                <template x-for="(session, idx) in workshopSessions.filter((s) => !workshopSessionSearchQuery || s.name.toLowerCase().includes(workshopSessionSearchQuery.toLowerCase()))" :key="session.id">
+                    <div @click="currentWorkshopSessionIndex = workshopSessions.indexOf(session); workshopSessionSearchQuery = ''; workshopSessionDropdownOpen = false"
+                        :class="{ 'active': workshopSessions.indexOf(session) === currentWorkshopSessionIndex }"
+                        style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;"
+                        :style="workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'background:rgba(74,158,255,0.15);' : ''"
+                        @mouseenter="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(74,158,255,0.2)' : 'rgba(255,255,255,0.05)'"
+                        @mouseleave="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(74,158,255,0.15)' : 'transparent'">
+                        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="session.name"></span>
+                        <span style="font-size:10px;color:var(--text-secondary);" x-text="session.messages ? session.messages.length + ' msgs' : '0 msgs'"></span>
+                    </div>
+                </template>
+                <div x-show="workshopSessions.filter((s) => !workshopSessionSearchQuery || s.name.toLowerCase().includes(workshopSessionSearchQuery.toLowerCase())).length === 0"
+                    style="padding:12px;text-align:center;color:var(--text-secondary);font-size:12px;">
+                    No matching chats
+                </div>
+            </div>
+        </div>
+
+        <div class="workshop-sessions-list">
+            <template x-for="(session, idx) in workshopSessions.filter((s) => !workshopSessionSearchQuery || s.name.toLowerCase().includes(workshopSessionSearchQuery.toLowerCase()))" :key="session.id">
+                <div class="workshop-session-item" :class="{ 'active': workshopSessions.indexOf(session) === currentWorkshopSessionIndex }"
+                    @click="currentWorkshopSessionIndex = workshopSessions.indexOf(session)" x-data="{ menuOpen: false }">
+                    <span x-text="session.name"
+                        style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                    <div style="position:relative;">
+                        <button class="btn-icon-sm" @click.stop="menuOpen = !menuOpen" title="Options">⋯</button>
+                        <div x-show="menuOpen" @click.away="menuOpen = false" x-cloak class="action-menu"
+                            style="right:0;top:100%;margin-top:4px;">
+                            <button @click.stop="renameWorkshopSession(workshopSessions.indexOf(session)); menuOpen=false">Rename</button>
+                            <button @click.stop="clearWorkshopSession(workshopSessions.indexOf(session)); menuOpen=false">Clear Messages</button>
+                            <button @click.stop="exportWorkshopSession(workshopSessions.indexOf(session)); menuOpen=false">Export as Markdown</button>
+                            <button @click.stop="deleteWorkshopSession(workshopSessions.indexOf(session)); menuOpen=false"
+                                style="color:var(--danger,#ef4444);">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Center: Chat Area -->
+    <div class="workshop-chat-main">
+        <!-- Header -->
+        <div class="workshop-chat-header">
+            <div style="display:flex;align-items:center;gap:12px;flex:1;flex-wrap:wrap;">
+                <h3 style="margin:0;font-size:18px;" x-show="workshopMode !== 'embedded'">Workshop Chat</h3>
+                <select x-model="aiModel" @change="saveGenerationParams()" class="workshop-select"
+                    title="AI Model for this chat" x-show="aiMode === 'api' || availableLocalModels.length > 0">
+                    <template x-for="model in (aiMode === 'api' ? (providerModels[aiProvider] || []) : [])"
+                        :key="model.id">
+                        <option :value="model.id" x-text="model.name + (model.recommended ? ' ⭐' : '')">
+                        </option>
+                    </template>
+                    <template x-for="modelName in (aiMode === 'local' ? availableLocalModels : [])" :key="modelName">
+                        <option :value="modelName" x-text="modelName"></option>
+                    </template>
+                    <!-- Show current model if not in lists -->
+                    <option
+                        x-show="aiModel && ((aiMode === 'api' && !(providerModels[aiProvider] || []).find(m => m.id === aiModel)) || (aiMode === 'local' && !availableLocalModels.includes(aiModel)))"
+                        :value="aiModel" x-text="aiModel"></option>
+                </select>
+                <span x-show="aiMode === 'local' && availableLocalModels.length === 0"
+                    style="padding:4px 12px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:6px;font-size:12px;">
+                    ✓ Local GGUF Model Active
+                </span>
+                <select x-model="selectedWorkshopPromptId" @change="saveSelectedWorkshopPrompt" class="workshop-select">
+                    <option value="">Default Workshop Prompt</option>
+                    <template x-for="p in prompts.filter(p => p.category === 'workshop')" :key="p.id">
+                        <option :value="p.id" x-text="p.title"></option>
+                    </template>
+                </select>
+                <select x-model="workshopFidelityMode" class="workshop-select">
+                    <option value="high">High Fidelity</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="compressed">Compressed</option>
+                </select>
+                <button class="btn btn-secondary" @click="useWorkshopContextPanel = true; showContextPanel = true"
+                    :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
+                    title="Open Context Panel (used in this chat)">
+                    📚
+                </button>
+                <button class="btn btn-secondary"
+                    x-show="useWorkshopContextPanel"
+                    @click="useWorkshopContextPanel = false"
+                    title="Stop using Context Panel for this chat"
+                    style="padding:4px 8px;">
+                    ✕
+                </button>
+            </div>
+            <button class="btn btn-secondary" @click="showWorkshopChat = false"
+                x-show="workshopMode !== 'embedded'">Close</button>
+            <button class="btn btn-secondary" @click="showEmbeddedWorkshop = false"
+                x-show="workshopMode === 'embedded'">Close</button>
+        </div>
+
+        <!-- Search Messages -->
+        <div style="padding:8px 12px;border-bottom:1px solid var(--border);">
+            <input type="text" x-model="workshopSearchQuery" placeholder="🔍 Search messages..."
+                style="width:100%;padding:8px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;"
+                @keydown.escape="workshopSearchQuery = ''">
+        </div>
+
+        <!-- Messages -->
+        <div class="workshop-messages" id="workshopMessages">
+            <template
+                x-if="workshopSessions[currentWorkshopSessionIndex] && workshopSessions[currentWorkshopSessionIndex].messages.length === 0 && !workshopSearchQuery">
+                <div class="workshop-empty-state">
+                    <p style="color:var(--text-secondary);margin:0;">Start a conversation with the AI!</p>
+                    <p style="color:var(--text-secondary);font-size:13px;margin:8px 0 0 0;">
+                        Use <code>@name</code> to reference compendium entries or <code>#scene</code>
+                        to reference scenes.
+                    </p>
+                </div>
+            </template>
+            <template
+                x-if="workshopSearchQuery && workshopSessions[currentWorkshopSessionIndex] && workshopSessions[currentWorkshopSessionIndex].messages.filter(m => m.content && m.content.toLowerCase().includes(workshopSearchQuery.toLowerCase())).length === 0">
+                <div class="workshop-empty-state">
+                    <p style="color:var(--text-secondary);margin:0;">No messages match your search.</p>
+                </div>
+            </template>
+            <template x-if="workshopSessions[currentWorkshopSessionIndex]">
+                <template x-for="(msg, idx) in workshopSessions[currentWorkshopSessionIndex].messages.filter(m => !workshopSearchQuery || (m.content && m.content.toLowerCase().includes(workshopSearchQuery.toLowerCase())))" :key="idx">
+                    <div class="workshop-message"
+                        :class="`workshop-message-${msg.role}` + (msg.isError ? ' workshop-message-error' : '')">
+                        <div class="workshop-message-header">
+                            <div class="workshop-message-icon">
+                                <span x-show="msg.role === 'user'">👤</span>
+                                <span x-show="msg.role === 'assistant' && !msg.isError">🤖</span>
+                                <span x-show="msg.isError">⚠️</span>
+                            </div>
+                            <div class="workshop-message-role"
+                                x-text="msg.role === 'user' ? 'You' : (msg.isError ? 'Error' : 'Assistant')">
+                            </div>
+                        </div>
+                        <div class="workshop-message-content md-content"
+                            :class="{ 'md-rendered': msg.role === 'assistant' && msg.content }">
+                            <template x-if="msg.content && msg.role === 'user'">
+                                <span x-text="msg.content"></span>
+                            </template>
+                            <template x-if="msg.content && msg.role === 'assistant'">
+                                <div x-html="markdownToHtml(msg.content)"></div>
+                            </template>
+                            <template x-if="!msg.content && msg.role === 'assistant' && workshopIsGenerating">
+                                <span class="typing-indicator">●●●</span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </template>
+        </div>
+
+        <!-- Input Area -->
+        <div class="workshop-input-area">
+            <div class="workshop-input-wrapper" style="position:relative;">
+                <textarea x-model="workshopInput" @input="window.workshopChat.onWorkshopInput($data, $event)"
+                    @keydown="window.workshopChat.handleWorkshopKeydown($data, $event)" @keydown.enter.prevent="
+                                        if (!$event.shiftKey && workshopInput.trim() && !showWorkshopQuickSearch && !showWorkshopSceneSearch) {
+                                            window.workshopChat.sendMessage($data, workshopInput);
+                                        }
+                                    " placeholder="Type your message... (Use @name for compendium, #scene for scenes)"
+                    rows="3" class="workshop-textarea" :disabled="workshopIsGenerating"></textarea>
+
+                <!-- Compendium Quick Search Dropdown -->
+                <div x-show="showWorkshopQuickSearch" x-cloak class="quick-search-dropdown"
+                    style="position:absolute;bottom:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:4px;margin-bottom:4px;z-index:9999;">
+                    <template x-for="(item, idx) in workshopQuickSearchMatches" :key="item.id">
+                        <div class="quick-search-item"
+                            @click="window.workshopChat.selectWorkshopQuickMatch($data, item)"
+                            :class="{ 'active': idx === workshopQuickSearchSelectedIndex }"
+                            style="padding:8px;cursor:pointer;font-size:13px;">
+                            <div style="font-weight:600;" x-text="item.title"></div>
+                            <div style="font-size:11px;color:var(--text-secondary);" x-text="item.category">
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Scene Search Dropdown -->
+                <div x-show="showWorkshopSceneSearch" x-cloak class="scene-search-dropdown"
+                    style="position:absolute;bottom:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:4px;margin-bottom:4px;z-index:9999;">
+                    <template x-for="(scene, idx) in workshopSceneSearchMatches" :key="scene.id">
+                        <div class="scene-search-item"
+                            @click="window.workshopChat.selectWorkshopSceneMatch($data, scene)"
+                            :class="{ 'active': idx === workshopSceneSearchSelectedIndex }"
+                            style="padding:8px;cursor:pointer;font-size:13px;">
+                            <div style="font-weight:600;" x-text="scene.title"></div>
+                            <div style="font-size:11px;color:var(--text-secondary);">
+                                <template x-if="scene.summary">
+                                    <span x-text="scene.summary.substring(0, 60) + '...'"></span>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <button class="btn btn-primary" @click="window.workshopChat.sendMessage($data, workshopInput)"
+                    :disabled="!workshopInput.trim() || workshopIsGenerating"
+                    style="align-self:flex-end;margin-top:8px;">
+                    <span x-show="!workshopIsGenerating">Send</span>
+                    <span x-show="workshopIsGenerating">Sending...</span>
+                </button>
+            </div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">
+                Press Enter to send, Shift+Enter for new line. Type @ for compendium, # for scenes.
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Context Panel (Optional - can be toggled) -->
+    <div class="workshop-context" x-show="showWorkshopContext" x-cloak>
+        <div class="workshop-context-header">
+            <h4 style="margin:0;font-size:14px;">Quick Reference</h4>
+            <button class="btn-icon-sm" @click="showWorkshopContext = false">×</button>
+        </div>
+        <div class="workshop-context-content">
+            <p style="font-size:13px;color:var(--text-secondary);">
+                Mentioned items will appear here for quick reference.
+            </p>
+        </div>
+    </div>
+</div>
     </template>
 
     <!-- Workshop Chat Modal -->

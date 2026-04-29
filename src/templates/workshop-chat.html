@@ -108,10 +108,17 @@
                     <option value="balanced">Balanced</option>
                     <option value="compressed">Compressed</option>
                 </select>
-                <button class="btn btn-secondary" @click="useWorkshopContextPanel = !useWorkshopContextPanel"
+                <button class="btn btn-secondary" @click="useWorkshopContextPanel = true; showContextPanel = true"
                     :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
-                    title="Use context from Context Panel">
+                    title="Open Context Panel (used in this chat)">
                     📚
+                </button>
+                <button class="btn btn-secondary"
+                    x-show="useWorkshopContextPanel"
+                    @click="useWorkshopContextPanel = false"
+                    title="Stop using Context Panel for this chat"
+                    style="padding:4px 8px;">
+                    ✕
                 </button>
             </div>
             <button class="btn btn-secondary" @click="showWorkshopChat = false"
