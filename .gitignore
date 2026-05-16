@@ -25,3 +25,7 @@ todo.md
 .update/
 # Node modules
 node_modules/
+.claude/
+projects/
+project-backups/
+REFACTORING.md
