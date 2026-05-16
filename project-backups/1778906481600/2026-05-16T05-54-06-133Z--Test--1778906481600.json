@@ -1,6 +1,6 @@
 {
   "version": "2.1-filesystem",
-  "exportedAt": "2026-05-16T06:00:39.173Z",
+  "exportedAt": "2026-05-16T05:54:06.133Z",
   "project": {
     "id": "1778906481600",
     "name": "Test",
@@ -29,13 +29,13 @@
       "pov": "3rd person limited",
       "tense": "past",
       "created": "2026-05-16T04:41:21.637Z",
-      "modified": "2026-05-16T06:00:39.168Z",
-      "updatedAt": 1778911239168,
-      "wordCount": 5
+      "modified": "2026-05-16T04:59:21.964Z",
+      "updatedAt": 1778907561963,
+      "wordCount": 4
     }
   ],
   "sceneContents": {
-    "1778906481637": "test test test test test"
+    "1778906481637": "test test test test"
   },
   "compendium": [],
   "prompts": [],
@@ -51,6 +51,6 @@
       "updatedAt": "2026-05-16T04:41:21.635Z"
     }
   ],
-  "filesystemSavedAt": "2026-05-16T06:00:39.177612+00:00",
-  "filesystemSaveVersion": 1
+  "localBackupSavedAt": "2026-05-16T05:54:06.139469+00:00",
+  "localBackupVersion": 1
 }

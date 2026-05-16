@@ -518,14 +518,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div x-show="filesystemSaveStatus" x-cloak
-                            style="display:flex;justify-content:flex-end;align-items:center;width:100%;margin-top:8px;font-size:12px;font-weight:600;">
-                            <div :style="filesystemSaveTone === 'error'
-                                    ? 'color:#ff8a80;'
-                                    : (filesystemSaveTone === 'info' ? 'color:var(--text-secondary);' : 'color:#66bb6a;')">
-                                <span x-text="filesystemSaveStatus"></span>
-                            </div>
-                        </div>
                     </div>
 
                     <!-- Formatting Toolbar (compact dropdown) -->
@@ -544,6 +536,14 @@
                             <span x-show="!showMarkdownPreview">👁️ Preview</span>
                             <span x-show="showMarkdownPreview">✏️ Edit</span>
                         </button>
+
+                        <div x-show="filesystemSaveStatus" x-cloak
+                            style="font-size:12px;font-weight:600;margin-left:8px;"
+                            :style="filesystemSaveTone === 'error'
+                                ? 'color:#ff8a80;'
+                                : (filesystemSaveTone === 'info' ? 'color:var(--text-secondary);' : 'color:#66bb6a;')">
+                            <span x-text="filesystemSaveStatus"></span>
+                        </div>
 
                         <!-- Rewrite Selection Button (only visible when text is selected) -->
                         <button x-show="showRewriteBtn && !showMarkdownPreview" @click="handleRewriteButtonClick()"

@@ -1253,7 +1253,10 @@ document.addEventListener('alpine:init', () => {
 
             async saveProjectToDisk() {
                 if (window.FileSystemSave && typeof window.FileSystemSave.saveCurrentProject === 'function') {
-                    await window.FileSystemSave.saveCurrentProject(this);
+                    const result = await window.FileSystemSave.saveCurrentProject(this, { allowReadOnly: true });
+                    if (!result || result.ok === false) {
+                        alert('Manual save failed: ' + ((result && result.error) || 'Unknown error'));
+                    }
                 } else {
                     alert('Filesystem save module is not loaded.');
                 }

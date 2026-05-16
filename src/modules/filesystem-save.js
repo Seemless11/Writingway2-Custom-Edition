@@ -84,12 +84,14 @@
         };
     }
 
-    async function saveCurrentProject(app) {
+    async function saveCurrentProject(app, options = {}) {
         if (!app || !app.currentProject) {
             return { ok: false, error: 'No project selected' };
         }
 
-        if (window.TabSync && !window.TabSync.isPrimaryTab()) {
+        const allowReadOnly = !!options.allowReadOnly;
+
+        if (!allowReadOnly && window.TabSync && !window.TabSync.isPrimaryTab()) {
             return { ok: false, error: 'Cannot save to disk from a read-only tab' };
         }
 
@@ -98,7 +100,7 @@
 
         try {
             if (window.Save && typeof window.Save.saveScene === 'function' && app.currentScene) {
-                const saved = await window.Save.saveScene(app, { autosave: false });
+                const saved = await window.Save.saveScene(app, { autosave: false, allowReadOnly });
                 if (!saved) {
                     throw new Error(app.saveStatus || 'Scene save failed');
                 }

@@ -5,7 +5,7 @@
         opts = opts || {};
 
         // Prevent saving from read-only tabs (non-primary tabs)
-        if (window.TabSync && !window.TabSync.isPrimaryTab()) {
+        if (!opts.allowReadOnly && window.TabSync && !window.TabSync.isPrimaryTab()) {
             console.warn('🚫 Cannot save from read-only tab');
             app.saveStatus = 'Read-only tab';
             return false;
