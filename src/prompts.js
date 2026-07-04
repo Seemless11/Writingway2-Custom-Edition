@@ -1,13 +1,90 @@
 // Prompts module — exposes window.Prompts with functions that operate on the shared `db` instance
 (function () {
+    const GLOBAL_PROJECT_ID = '__global__';
+
+    const DEFAULT_PROMPTS = [
+        {
+            category: 'prose',
+            title: 'Default Prose Prompt',
+            content: 'Write the next scene continuing from the provided text. Maintain the established tone, style, POV, and tense. Use sensory details and vivid imagery. Show, don\'t tell. Focus on the beat provided and expand it naturally into about {length}.',
+            systemContent: 'You are a creative writing assistant. Write vivid, engaging prose that expands the given beat into a full scene. Match the author\'s style and tone.'
+        },
+        {
+            category: 'summary',
+            title: 'Default Summary Prompt',
+            content: 'You are a literary analysis assistant. Analyze the text below in depth — explore character motivations, emotional undercurrents, thematic significance, and narrative craft. Explain why moments matter, what they reveal, and how they serve the larger story. Do not simply recount events. Write as much as needed for a thorough analysis.'
+        },
+        {
+            category: 'workshop',
+            title: 'Default Workshop Prompt',
+            content: 'You are a creative writing workshop assistant. Help the author brainstorm ideas, develop characters, improve prose, and explore narrative possibilities. Be supportive, constructive, and specific in your feedback. Draw on writing craft principles.'
+        }
+    ];
+
+    async function seedDefaultPrompts(app) {
+        if (!app.currentProject) return;
+        try {
+            for (const def of DEFAULT_PROMPTS) {
+                const existing = await db.prompts
+                    .where({ category: def.category, title: def.title })
+                    .filter(p => p.projectId === GLOBAL_PROJECT_ID || p.projectId === app.currentProject.id)
+                    .first();
+                if (!existing) {
+                    const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+                    const now = new Date();
+                    await db.prompts.add({
+                        id,
+                        projectId: GLOBAL_PROJECT_ID,
+                        category: def.category,
+                        title: def.title,
+                        content: def.content || '',
+                        systemContent: def.systemContent || '',
+                        created: now,
+                        modified: now
+                    });
+                }
+            }
+
+            // Seed genre-specific prompts for the current project
+            if (app.currentProject.genres?.length && window.GenreDefs) {
+                for (const gid of app.currentProject.genres) {
+                    const defaults = window.GenreDefs.getDefaultPromptsForGenre(gid);
+                    if (!defaults) continue;
+                    for (const [category, def] of Object.entries(defaults)) {
+                        const existing = await db.prompts
+                            .where({ projectId: app.currentProject.id, category, title: def.title })
+                            .first();
+                        if (!existing) {
+                            const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+                            await db.prompts.add({
+                                id,
+                                projectId: app.currentProject.id,
+                                category,
+                                title: def.title,
+                                content: def.content || '',
+                                systemContent: def.systemContent || '',
+                                created: new Date(),
+                                modified: new Date()
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to seed default prompts:', e);
+        }
+    }
+
     async function loadPrompts(app) {
         if (!app.currentProject) {
             app.prompts = [];
             return;
         }
         try {
-            app.prompts = await db.prompts.where('projectId').equals(app.currentProject.id).sortBy('modified');
-            // ensure collapsed map has entries
+            await seedDefaultPrompts(app);
+            const projectPrompts = await db.prompts.where('projectId').equals(app.currentProject.id).sortBy('modified');
+            const globalPrompts = await db.prompts.where('projectId').equals(GLOBAL_PROJECT_ID).sortBy('modified');
+            app.prompts = [...globalPrompts, ...projectPrompts];
             for (let c of app.promptCategories) {
                 if (app.promptCollapsed[c] === undefined) app.promptCollapsed[c] = false;
             }
@@ -36,13 +113,10 @@
         app.promptEditorContent = p.content || '';
         app.promptEditorSystemContent = p.systemContent || '';
 
-        // If this is a prose prompt, persist it as the selected project-level prose prompt
-        try {
-            if (p.category === 'prose' && app && typeof app.saveSelectedProsePrompt === 'function') {
+        if (p.category === 'prose' && app && typeof app.saveSelectedProsePrompt === 'function') {
+            try {
                 app.saveSelectedProsePrompt(p.id);
-            }
-        } catch (e) {
-            // ignore persistence failures
+            } catch (e) { /* ignore */ }
         }
     }
 
@@ -58,7 +132,6 @@
                 modified: now
             });
             await loadPrompts(app);
-            // refresh currentPrompt reference
             app.currentPrompt = await db.prompts.get(app.currentPrompt.id);
             app.promptEditorContent = app.currentPrompt.content || '';
             app.promptEditorSystemContent = app.currentPrompt.systemContent || '';
@@ -73,7 +146,6 @@
         try {
             await db.prompts.delete(id);
             if (app.currentPrompt && app.currentPrompt.id === id) app.currentPrompt = null;
-            // If this prompt was the selected project-level prose prompt, clear the persisted selection
             try {
                 if (app && app.selectedProsePromptId === id && typeof app.saveSelectedProsePrompt === 'function') {
                     app.saveSelectedProsePrompt(null);
@@ -85,7 +157,23 @@
         }
     }
 
-    // Rename a prompt by id; prompts the user for a new title if not provided
+    async function toggleGlobal(app, id) {
+        if (!id || !app.currentProject) return;
+        try {
+            const p = await db.prompts.get(id);
+            if (!p) return;
+            const isGlobal = p.projectId === GLOBAL_PROJECT_ID;
+            const newProjectId = isGlobal ? app.currentProject.id : GLOBAL_PROJECT_ID;
+            await db.prompts.update(id, { projectId: newProjectId });
+            await loadPrompts(app);
+            if (app.currentPrompt && app.currentPrompt.id === id) {
+                app.currentPrompt = await db.prompts.get(id);
+            }
+        } catch (e) {
+            console.error('Failed to toggle global:', e);
+        }
+    }
+
     async function renamePrompt(app, id, newTitle) {
         if (!id) return;
         try {
@@ -94,7 +182,7 @@
                 const p = await db.prompts.get(id);
                 title = prompt('Rename prompt:', p && p.title ? p.title : '');
             }
-            if (title === null || title === undefined) return; // user cancelled
+            if (title === null || title === undefined) return;
             title = String(title).trim();
             if (title.length === 0) return;
             const now = new Date();
@@ -108,14 +196,13 @@
         }
     }
 
-    // Move prompt up within its category by swapping modified timestamps with the previous item
     async function movePromptUp(app, id) {
         try {
             const p = await db.prompts.get(id);
-            if (!p || !app.currentProject) return;
-            const list = await db.prompts.where('projectId').equals(app.currentProject.id).and(x => x.category === p.category).sortBy('modified');
+            if (!p) return;
+            const list = await db.prompts.where('projectId').equals(p.projectId).and(x => x.category === p.category).sortBy('modified');
             const idx = list.findIndex(x => x.id === id);
-            if (idx <= 0) return; // already at top
+            if (idx <= 0) return;
             const above = list[idx - 1];
             const aMod = above.modified || new Date();
             const pMod = p.modified || new Date();
@@ -127,14 +214,13 @@
         }
     }
 
-    // Move prompt down within its category by swapping modified timestamps with the next item
     async function movePromptDown(app, id) {
         try {
             const p = await db.prompts.get(id);
-            if (!p || !app.currentProject) return;
-            const list = await db.prompts.where('projectId').equals(app.currentProject.id).and(x => x.category === p.category).sortBy('modified');
+            if (!p) return;
+            const list = await db.prompts.where('projectId').equals(p.projectId).and(x => x.category === p.category).sortBy('modified');
             const idx = list.findIndex(x => x.id === id);
-            if (idx === -1 || idx >= list.length - 1) return; // already at bottom
+            if (idx === -1 || idx >= list.length - 1) return;
             const below = list[idx + 1];
             const bMod = below.modified || new Date();
             const pMod = p.modified || new Date();
@@ -146,7 +232,6 @@
         }
     }
 
-    // Export all prompts for the current project as JSON
     async function exportPrompts(app) {
         if (!app.currentProject) {
             alert('No project selected.');
@@ -158,8 +243,6 @@
                 alert('No prompts to export.');
                 return;
             }
-            
-            // Prepare export data (strip projectId as it will be reassigned on import)
             const exportData = {
                 version: '1.0',
                 type: 'prompts',
@@ -174,8 +257,6 @@
                     modified: p.modified
                 }))
             };
-            
-            // Create and download JSON file
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -191,34 +272,22 @@
         }
     }
 
-    // Import prompts from a JSON file
     async function importPrompts(app, fileInput) {
         if (!app.currentProject) {
             alert('No project selected.');
             return;
         }
-        
         const file = fileInput.files && fileInput.files[0];
-        if (!file) {
-            return;
-        }
-        
+        if (!file) return;
         try {
             const text = await file.text();
             const data = JSON.parse(text);
-            
-            // Validate format
             if (!data.type || data.type !== 'prompts' || !Array.isArray(data.prompts)) {
                 alert('Invalid prompts file format.');
                 return;
             }
-            
             const count = data.prompts.length;
-            if (!confirm(`Import ${count} prompt(s) into the current project?`)) {
-                return;
-            }
-            
-            // Import each prompt with new IDs
+            if (!confirm(`Import ${count} prompt(s) into the current project?`)) return;
             const now = new Date();
             for (const p of data.prompts) {
                 const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 7);
@@ -232,27 +301,26 @@
                     created: now,
                     modified: now
                 });
-                // Small delay to ensure unique IDs
                 await new Promise(r => setTimeout(r, 1));
             }
-            
             await loadPrompts(app);
             alert(`Successfully imported ${count} prompt(s).`);
         } catch (e) {
             console.error('Failed to import prompts:', e);
             alert('Failed to import prompts: ' + e.message);
         } finally {
-            // Reset file input
             fileInput.value = '';
         }
     }
 
     window.Prompts = {
+        seedDefaultPrompts,
         loadPrompts,
         createPrompt,
         openPrompt,
         savePrompt,
         deletePrompt,
+        toggleGlobal,
         movePromptUp,
         movePromptDown,
         renamePrompt,

@@ -13,6 +13,23 @@
         const povText = options.pov || '3rd person limited';
         const povSentence = `You are a co-author tasked with assisting your partner. You are writing a story from the point of view of ${povName} in ${tenseText}, in ${povText}.`;
 
+        // Build genre descriptor sentence from project genres
+        let genreSentence = '';
+        if (options.projectGenres && options.projectGenres.length > 0 && window.GenreDefs) {
+            const descriptors = window.GenreDefs.getPromptDescriptor(options.projectGenres);
+            if (descriptors.length > 0) {
+                const labels = options.projectGenres
+                    .map(gid => window.GenreDefs.findGenre(gid)?.label || gid)
+                    .join(' ');
+                genreSentence = `\nThis is a ${labels} story. Write with ${descriptors.join(', and ')}.`;
+            }
+        }
+
+        // Translate the word-count target into a length instruction for the prompt.
+        // The slider/buttons store a word target, not a token limit.
+        const targetWords = options.maxTokens || 300;
+        const lengthInstruction = `at least ${targetWords} words`;
+
         // Use custom system prompt if provided, otherwise fall back to default
         let systemPrompt;
         if (options.systemPrompt && typeof options.systemPrompt === 'string' && options.systemPrompt.trim()) {
@@ -20,10 +37,15 @@
             systemPrompt = options.systemPrompt.trim()
                 .replace(/\{povName\}/gi, povName)
                 .replace(/\{tense\}/gi, tenseText)
-                .replace(/\{pov\}/gi, povText);
+                .replace(/\{pov\}/gi, povText)
+                .replace(/\{length\}/gi, lengthInstruction)
+                .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '');
+            if (genreSentence) {
+                systemPrompt += genreSentence;
+            }
         } else {
             // Default fallback system prompt
-            systemPrompt = `${povSentence} You are a creative writing assistant. The author provides a BEAT (what happens next) and you expand it into vivid, engaging prose. Write 2-3 paragraphs that bring the beat to life. Match the author's tone and style. Use sensory details. Show, don't tell.`;
+            systemPrompt = `${povSentence}${genreSentence} You are a creative writing assistant. The author provides a BEAT (what happens next) and you expand it into vivid, engaging prose. Write ${lengthInstruction} that bring the beat to life. Match the author's tone and style. Use sensory details. Show, don't tell.`;
         }
 
         let contextText = '';
@@ -89,7 +111,7 @@
         // Clean up extra whitespace
         cleanedBeat = cleanedBeat.replace(/\s+/g, ' ').trim();
 
-        userContent += `\n\nBEAT TO EXPAND:\n${cleanedBeat}\n\nWrite the next 2-3 paragraphs:`;
+        userContent += `\n\nBEAT TO EXPAND:\n${cleanedBeat}\n\nWrite ${lengthInstruction} continuing from here:`;
 
         // Return object with both messages array (for APIs) and string format (for local)
         const result = {
@@ -105,7 +127,7 @@
         return result;
     }
 
-    async function streamGeneration(prompt, onToken, app) {
+    async function streamGeneration(prompt, onToken, app, abortSignal) {
         // Get AI settings from app if provided
         const aiMode = app?.aiMode || 'local';
         const aiProvider = app?.aiProvider || 'anthropic';
@@ -138,10 +160,10 @@
 
         if (aiMode === 'api') {
             // API Mode - use configured provider with messages
-            return await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults);
+            return await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal);
         } else {
             // Local Mode - use llama-server with string prompt
-            return await streamGenerationLocal(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults);
+            return await streamGenerationLocal(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal);
         }
     }
 
@@ -162,7 +184,7 @@
         return result;
     }
 
-    async function streamGenerationLocal(prompt, onToken, endpoint, temperature, maxTokens, useProviderDefaults) {
+    async function streamGenerationLocal(prompt, onToken, endpoint, temperature, maxTokens, useProviderDefaults, abortSignal) {
         // Local llama-server completion
         const requestBody = {
             prompt: prompt,
@@ -173,14 +195,16 @@
 
         // Only include temperature and maxTokens if not using provider defaults
         if (!useProviderDefaults) {
-            requestBody.n_predict = maxTokens || 300;
+            const tokenBudget = Math.max(4096, Math.round((maxTokens || 300) / 0.75 * 2));
+            requestBody.n_predict = tokenBudget;
             requestBody.temperature = temperature || 0.8;
         }
 
         const response = await fetch(endpoint + '/completion', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal: abortSignal
         });
 
         if (!response.ok) {
@@ -218,7 +242,7 @@
         }
     }
 
-    async function streamGenerationAPI(prompt, onToken, provider, apiKey, model, customEndpoint, temperature, maxTokens, app, useProviderDefaults) {
+    async function streamGenerationAPI(prompt, onToken, provider, apiKey, model, customEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal) {
         // API Mode - construct request based on provider
         let url, headers, body;
 
@@ -233,7 +257,8 @@
         }
 
         const temp = temperature || 0.8;
-        const maxTok = maxTokens || 300;
+        const rawWordTarget = maxTokens || 300;
+        const maxTok = Math.max(4096, Math.round(rawWordTarget / 0.75 * 2));
 
         // Check if user has explicitly forced non-streaming mode
         const userForcedNonStreaming = app?.forceNonStreaming || false;
@@ -398,13 +423,14 @@
         if (useProviderDefaults) {
             console.log('⚙️ Using provider defaults (temperature and max_tokens not specified)');
         } else {
-            console.log('⚙️ Temperature:', temp, 'Max Tokens:', maxTok);
+            console.log('⚙️ Temperature:', temp, 'Word Target:', rawWordTarget, 'Token Cap:', maxTok);
         }
 
         const response = await fetch(url, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(body)
+            body: JSON.stringify(body),
+            signal: abortSignal
         });
 
         if (!response.ok) {
@@ -437,7 +463,7 @@
                     console.warn('   - Max tokens was hit during reasoning phase');
                     console.warn('   - Model never produced final answer');
                     console.warn('   - Try increasing max_tokens significantly (10000+) for thinking models');
-                    throw new Error('Thinking model returned empty response. The model likely hit max_tokens during its reasoning phase before generating an answer. Try increasing Max Length to 10000+ tokens in AI Settings.');
+                    throw new Error('Thinking model returned empty response. The model likely hit max_tokens during its reasoning phase before generating an answer. Try increasing the target length to a higher value in AI Settings.');
                 }
             } else if (provider === 'anthropic') {
                 content = data.content?.[0]?.text;
@@ -591,10 +617,25 @@
      * @param {Object} app - Alpine app instance
      */
     async function generateFromBeat(app) {
-        if (!app.beatInput || app.aiStatus !== 'ready') return;
+        const beatText = app.getCurrentBeat();
+        if (!beatText || app.aiStatus !== 'ready') return;
         app.isGenerating = true;
         try {
-            app.lastBeat = app.beatInput;
+            app.lastBeat = beatText;
+
+            // In default mode, strip the last ##  beat line from content before generating
+            let sceneContent = (app.currentScene && app.currentScene.content) || '';
+            if (!app.showMiniBeatInput) {
+                const lines = sceneContent.split('\n');
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    if (lines[i].trim().startsWith('## ')) {
+                        lines.splice(i, 1);
+                        break;
+                    }
+                }
+                sceneContent = lines.join('\n');
+            }
+
             // Resolve prose prompt text and system prompt (in-memory first, then DB fallback)
             const proseInfo = await app.resolveProsePromptInfo();
             const prosePromptText = proseInfo && proseInfo.text ? proseInfo.text : null;
@@ -604,8 +645,8 @@
             // Resolve compendium entries and scene summaries from beat mentions (@/#)
             let beatCompEntries = [];
             let beatSceneSummaries = [];
-            try { beatCompEntries = await app.resolveCompendiumEntriesFromBeat(app.beatInput || ''); } catch (e) { beatCompEntries = []; }
-            try { beatSceneSummaries = await app.resolveSceneSummariesFromBeat(app.beatInput || ''); } catch (e) { beatSceneSummaries = []; }
+            try { beatCompEntries = await app.resolveCompendiumEntriesFromBeat(beatText); } catch (e) { beatCompEntries = []; }
+            try { beatSceneSummaries = await app.resolveSceneSummariesFromBeat(beatText); } catch (e) { beatSceneSummaries = []; }
             // Merge context: panel context + beat mentions
             // Use Map to deduplicate by ID
             const compMap = new Map();
@@ -617,8 +658,8 @@
             panelContext.sceneSummaries.forEach(s => sceneMap.set(s.title, s));
             beatSceneSummaries.forEach(s => sceneMap.set(s.title, s));
             const sceneSummaries = Array.from(sceneMap.values());
-            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries };
-            let prompt = buildPrompt(app.beatInput, app.currentScene?.content || '', genOpts);
+            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres };
+            let prompt = buildPrompt(beatText, sceneContent, genOpts);
             // Save prompt to history
             try {
                 await db.promptHistory.add({
@@ -626,22 +667,30 @@
                     projectId: app.currentProject?.id,
                     sceneId: app.currentScene?.id,
                     timestamp: new Date(),
-                    beat: app.beatInput,
+                    beat: beatText,
                     prompt: typeof prompt === 'object' && prompt.asString ? prompt.asString() : String(prompt)
                 });
             } catch (e) {
                 console.warn('Failed to save prompt history:', e);
             }
+
+            // Update current scene content to stripped version (beat line removed)
+            if (!app.showMiniBeatInput) {
+                app.currentScene.content = sceneContent;
+            }
+
             // remember where generated text will start
             const prevLen = app.currentScene ? (app.currentScene.content ? app.currentScene.content.length : 0) : 0;
             app.lastGenStart = prevLen;
             app.lastGenText = '';
             app.showGenActions = false;
+            // Create abort controller for this generation
+            app.beatAbortController = new AbortController();
             // Stream tokens and append into the current scene
             await streamGeneration(prompt, (token) => {
                 app.currentScene.content += token;
                 app.lastGenText += token;
-            }, app);
+            }, app, app.beatAbortController.signal);
             // Generation complete — expose accept/retry/discard actions
             app.showGenActions = true;
             app.showGeneratedHighlight = true;
@@ -666,22 +715,160 @@
                     app.showGeneratedHighlight = false;
                 }, 5000);
             });
-            // Clear beat input (we keep lastBeat so retry can reuse it)
-            app.beatInput = '';
+            // Clear beat input only in legacy mode
+            if (app.showMiniBeatInput) app.beatInput = '';
             // Auto-save after generation
             await app.saveScene();
         } catch (error) {
-            console.error('Generation error:', error);
-            alert('Failed to generate text. Make sure llama-server is running.\n\nError: ' + (error && error.message ? error.message : error));
+            if (error.name === 'AbortError') {
+                console.log('Generation stopped by user');
+                app.showGenActions = true;
+            } else {
+                console.error('Generation error:', error);
+                alert('Failed to generate text. Make sure llama-server is running.\n\nError: ' + (error && error.message ? error.message : error));
+            }
         } finally {
+            app.beatAbortController = null;
             app.isGenerating = false;
         }
     }
 
+    /**
+     * Stop an in-progress beat generation.
+     * @param {Object} app - Alpine app instance
+     */
+    function stopBeatGeneration(app) {
+        if (app.beatAbortController) {
+            app.beatAbortController.abort();
+            app.beatAbortController = null;
+        }
+    }
+
+    /**
+     * Category-specific generation directives for compendium entries.
+     */
+    const CATEGORY_DIRECTIVES = {
+        'characters': 'Generate a character — appearance, personality, backstory, motivations, flaws, and role in the story.',
+        'places': 'Generate a location — physical description, atmosphere, notable features, history, and significance to the narrative.',
+        'items': 'Generate an item — appearance, origin, properties or abilities, history, and role in the story.',
+        'lore': 'Generate a piece of lore — history, myth or legend, cultural beliefs, and how it influences the present.',
+        'notes': 'Generate free-form worldbuilding notes, development ideas, or thematic reflections on this topic.',
+        'Magic Systems': 'Generate a magic system — how it works, rules and limitations, costs or trade-offs, who can use it, and its cultural and narrative implications.',
+        'Bestiary': 'Generate a creature — appearance, habitat, behavior, diet, abilities, and its role in the story world.',
+        'Pantheons': 'Generate a deity or divine being — domains, symbols, myths, worship practices, and relationships with other powers.',
+        'Factions': 'Generate a faction or organization — goals, membership, hierarchy, territory, resources, and relationships with other groups.',
+        'Races': 'Generate a race or species — physiology, culture, history, homeland, and relations with other races.',
+        'Technology': 'Generate a piece of technology — how it works, who uses it, limitations, societal impact, and narrative significance.',
+        'Ships & Craft': 'Generate a ship or vehicle — design, capabilities, crew, history, and role in the story.',
+        'Planets & Locations': 'Generate a planet, space station, or location — environment, inhabitants, strategic importance, and notable features.',
+        'Alien Species': 'Generate an alien species — biology, culture, technology, history, and relationship with other species.',
+        'Governments': 'Generate a government or political entity — structure, ideology, territory, leaders, and conflicts or alliances.',
+        'Timeline': 'Generate a timeline entry — date or period, key events, causes and consequences, and historical significance.',
+        'Historical Figures': 'Generate a historical figure — biography, personality, achievements, relationships, and their impact on the era.',
+        'Period Glossary': 'Generate a term definition — period-specific vocabulary, context, and usage notes for authentic writing.',
+        'Customs & Society': 'Generate a custom or social norm — origins, practices, significance, and how characters would experience it.',
+        'Entities & Creatures': 'Generate a terrifying entity or creature — appearance, origin, abilities or curse, weaknesses, and the dread it inspires.',
+        'Tension Trackers': 'Generate a tension or dread tracker — what causes unease, escalation triggers, and safe thresholds for the narrative.',
+        'Haunted Locations': 'Generate a haunted or cursed location — history, paranormal phenomena, rules, and why it is dangerous.',
+        'Artifacts': 'Generate a cursed or dangerous artifact — appearance, origin, powers, cost of use, and the horror it brings.',
+        'Relationship Beats': 'Generate a relationship beat or milestone — emotional significance, character growth, and how it advances the romantic arc.',
+        'Chemistry Notes': 'Generate chemistry notes — what draws these characters together, tension points, shared values, and complementary traits.',
+        'Tropes': 'Generate a romance trope — how it manifests in this story, subversion or embrace, and character dynamics it creates.',
+        'Love Languages': 'Generate a love language profile — how this character gives and receives love, emotional needs, and potential conflicts.',
+        'Locations': 'Generate a western location — landscape, climate, notable features, settlements, and the way it shapes the people who live there.',
+        'Outlaws': 'Generate an outlaw or desperado — appearance, reputation, crimes, hideout, and the law\'s pursuit.',
+        'Cybernetics & Tech': 'Generate cybernetic augmentation or tech — function, manufacturer, side effects, cost, and social status implications.',
+        'Corporations': 'Generate a corporation — industry, power structure, products, reputation, and their influence on society.',
+        'Districts': 'Generate a city district — atmosphere, architecture, population, economy, and the dangers or opportunities it offers.',
+        'Hacker Culture': 'Generate a hacker group or subculture — identity, methods, hideouts, targets, and their relationship with the corps.',
+        'Survivors & Factions': 'Generate a survivor group or faction — composition, philosophy, territory, resources, and how they endure.',
+        'Hazards': 'Generate a hazard or threat — origin, danger level, avoidance strategies, and stories of those who encountered it.',
+        'Ruins & Locations': 'Generate a ruined location — what it was, what it is now, dangers, resources, and stories from the before-times.',
+        'Resources': 'Generate a resource — scarcity, uses, who controls it, trade value, and conflicts it sparks.',
+        'Powers & Abilities': 'Generate a superpower or ability — how it works, limitations, emotional cost, and how it reflects the character.',
+        'Heroes & Villains': 'Generate a hero or villain — identity, origin, powers, motivation, costume or appearance, and key relationships.',
+        'Teams & Factions': 'Generate a team or faction — purpose, members, headquarters, history, and dynamics with other groups.',
+        'Secret Identities': 'Generate a secret identity — civilian persona, cover story, close contacts who know the truth, and risks of exposure.'
+    };
+
+    /**
+     * Build a prompt for generating a new compendium entry via AI.
+     * Includes genre context, existing entries as reference, and a category-specific directive.
+     * @param {Object} entry - The compendium entry being generated (title, category)
+     * @param {Array} context - Array of existing entries to include as reference
+     * @param {Object} app - Alpine app instance
+     * @returns {Object} { messages, asString }
+     */
+    function buildCompendiumPrompt(entry, context, app) {
+        const targetWords = 250;
+        const cap = Math.min(targetWords, 400);
+        const floor = Math.max(100, Math.round(cap * 0.5));
+        const lengthInstruction = `Write approximately ${floor}-${cap} words`;
+
+        const project = app.currentProject;
+        const genreLabels = project?.genres?.length
+            ? project.genres.map(gid => window.GenreDefs?.findGenre(gid)?.label || gid).join(' + ')
+            : 'general';
+        const genreDescriptors = window.GenreDefs?.getPromptDescriptor(project?.genres || []) || [];
+        const genreSentence = genreDescriptors.length > 0
+            ? `The writing should reflect ${genreDescriptors.join(', and ')}.`
+            : '';
+
+        const category = entry.category || 'lore';
+        const categoryDirective = CATEGORY_DIRECTIVES[category]
+            || `Generate content for a compendium entry about ${category}.`;
+
+        const title = (entry.title && entry.title !== 'New Entry') ? entry.title : '';
+        const needsTitle = !title;
+
+        let contextText = '';
+        if (context && context.length > 0) {
+            const lines = [];
+            for (const ce of context) {
+                const t = ce.title || 'Untitled';
+                const b = (ce.body || '').trim();
+                if (b) {
+                    lines.push(`-- ${t} --\n${b}`);
+                }
+            }
+            if (lines.length > 0) {
+                contextText = '\nHere are existing entries from this world for reference:\n\n' + lines.join('\n\n');
+            }
+        }
+
+        const titleInstruction = needsTitle
+            ? '\nFirst, suggest a fitting title for this entry based on the content. Output the title on its own line prefixed with "TITLE:", then a blank line, then the body content.'
+            : '';
+
+        const preBody = app?.compGenPreBody || '';
+        const bodyInstruction = preBody.trim()
+            ? `\nThe user has provided the following notes to guide this entry:\n${preBody.trim()}\nUse these as a starting point and expand into a full entry accordingly.`
+            : '';
+
+        const systemContent = `You are a creative writing assistant helping to develop a ${genreLabels} story. ${genreSentence} Be thorough, detailed, and consistent with the existing material.`;
+
+        const userContent = `Please create a new compendium entry for the category "${category}".${title ? `\n\nThe entry is titled "${title}".` : ''}
+
+${categoryDirective}${contextText}
+Write ${lengthInstruction}, rich with specific details that fit the world.${titleInstruction}${bodyInstruction}`;
+
+        return {
+            messages: [
+                { role: 'system', content: systemContent },
+                { role: 'user', content: userContent }
+            ],
+            asString: function () {
+                return `<|im_start|>system\n${systemContent}<|im_end|>\n<|im_start|>user\n${userContent}<|im_end|>\n<|im_start|>assistant\n`;
+            }
+        };
+    }
+
     window.Generation = {
         buildPrompt,
+        buildCompendiumPrompt,
         streamGeneration,
         loadPromptHistory,
-        generateFromBeat
+        generateFromBeat,
+        stopBeatGeneration
     };
 })();

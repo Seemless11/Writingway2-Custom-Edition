@@ -34,6 +34,7 @@ function createAppState() {
         chapterActionsTarget: null,
         newChapterName: '',
         newProjectName: '',
+        selectedGenres: [],
         newSceneName: '',
         renameChapterId: null,
         renameChapterName: '',
@@ -52,7 +53,8 @@ function createAppState() {
         showWorkshopChat: false,
         showEmbeddedWorkshop: false,
         workshopSplitterPosition: 50, // percentage
-        beatPanelHeight: 280, // pixels - height of the beat panel
+        showMiniBeatInput: false, // false = floating bar mode, true = legacy bottom panel
+        sidebarCollapsed: false,
         workshopSessions: [],
         currentWorkshopSessionIndex: 0,
         workshopInput: '',
@@ -120,7 +122,7 @@ function createAppState() {
         currentChapter: null,
 
         // ========== Beat Input & Generation ==========
-        beatInput: '',
+        beatInput: '', // Used in legacy panel mode (showMiniBeatInput=true)
         isGenerating: false,
         isSaving: false,
         saveStatus: 'Saved',
@@ -193,8 +195,35 @@ function createAppState() {
         selectedProsePromptId: '', // Selected prose prompt for generation (empty string = fallback)
         promptsPanelWidth: 700, // Default width in pixels, resizable
 
+        // ========== Character Creator State ==========
+        showCharacterCreator: false,
+        charCreatorGenre: 'fantasy',
+        charCreatorName: '',
+        charCreatorNotes: '',
+        charCreatorInput: '',
+        charCreatorGenerating: false,
+        openCharCreatorCategories: [],
+        charCreatorSelectedTraits: {},
+        charCreatorChatHistory: [],
+        showCharCreatorPreview: false,
+        charCreatorPreviewHtml: '',
+        charCreatorAddTraitForm: null,
+        charCreatorAddTraitName: '',
+        charCreatorAddTraitHint: '',
+        charCreatorTraitVersion: 0,
+        charCreatorEditingEntryId: null,
+        charCreatorEditingIdx: null,
+        charCreatorEditingBuffer: '',
+
         // ========== Compendium State ==========
-        compendiumCategories: ['characters', 'places', 'items', 'lore', 'notes'],
+        get compendiumCategories() {
+            const base = ['characters', 'places', 'items', 'lore', 'notes'];
+            if (this.currentProject?.genres?.length && window.GenreDefs) {
+                const extra = window.GenreDefs.getExtraCompendiumCategories(this.currentProject.genres);
+                return [...base, ...extra.filter(c => !base.includes(c))];
+            }
+            return base;
+        },
         compendiumCounts: {},
         openCompCategories: [], // Array of open category names (supports multiple)
         compendiumLists: {}, // Object mapping category -> entries array
@@ -206,6 +235,14 @@ function createAppState() {
         compendiumOriginalEntry: null, // Snapshot of entry when loaded for comparison
         showCompendiumUnsavedModal: false, // Show the unsaved changes confirmation modal
         pendingCompendiumAction: null, // { type: 'select', id } | { type: 'close' } | { type: 'category', category }
+        // Abort controllers for AI generation
+        beatAbortController: null,
+        compendiumAbortController: null,
+        // Compendium AI generation state
+        compendiumGenerating: false, // True while AI is generating entry content
+        showCompGenActions: false, // Show Accept/Retry/Discard after generation
+        compGenPreTitle: '', // Snapshot of entry title before generation
+        compGenPreBody: '', // Snapshot of entry body before generation
 
         // ========== AI Worker State ==========
         aiWorker: null,
@@ -319,7 +356,8 @@ function createAppState() {
                 total += (s.wordCount || 0);
             }
             return total;
-        }
+        },
+
     };
 }
 

@@ -63,10 +63,25 @@ Generation.loadPromptHistory = async function (app) {
 };
 
 Generation.generateFromBeat = async function (app) {
-    if (!app.beatInput || app.aiStatus !== 'ready') return;
+    const beatText = app.getCurrentBeat();
+    if (!beatText || app.aiStatus !== 'ready') return;
     app.isGenerating = true;
     try {
-        app.lastBeat = app.beatInput;
+        app.lastBeat = beatText;
+
+        // In default mode, strip the last ##  beat line from content before generating
+        let sceneContent = (app.currentScene && app.currentScene.content) || '';
+        if (!app.showMiniBeatInput) {
+            const lines = sceneContent.split('\n');
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].trim().startsWith('## ')) {
+                    lines.splice(i, 1);
+                    break;
+                }
+            }
+            sceneContent = lines.join('\n');
+        }
+
         // Resolve prose prompt text and system prompt (in-memory first, then DB fallback)
         const proseInfo = await app.resolveProsePromptInfo();
         const prosePromptText = proseInfo && proseInfo.text ? proseInfo.text : null;
@@ -76,8 +91,8 @@ Generation.generateFromBeat = async function (app) {
         // Resolve compendium entries and scene summaries from beat mentions (@/#)
         let beatCompEntries = [];
         let beatSceneSummaries = [];
-        try { beatCompEntries = await app.resolveCompendiumEntriesFromBeat(app.beatInput || ''); } catch (e) { beatCompEntries = []; }
-        try { beatSceneSummaries = await app.resolveSceneSummariesFromBeat(app.beatInput || ''); } catch (e) { beatSceneSummaries = []; }
+        try { beatCompEntries = await app.resolveCompendiumEntriesFromBeat(beatText); } catch (e) { beatCompEntries = []; }
+        try { beatSceneSummaries = await app.resolveSceneSummariesFromBeat(beatText); } catch (e) { beatSceneSummaries = []; }
         // Merge context: panel context + beat mentions
         // Use Map to deduplicate by ID
         const compMap = new Map();
@@ -90,7 +105,7 @@ Generation.generateFromBeat = async function (app) {
         beatSceneSummaries.forEach(s => sceneMap.set(s.title, s));
         const sceneSummaries = Array.from(sceneMap.values());
         const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries };
-        let prompt = Generation.buildPrompt(app.beatInput, app.currentScene?.content || '', genOpts);
+        let prompt = Generation.buildPrompt(beatText, sceneContent, genOpts);
         // Save prompt to history
         try {
             await db.promptHistory.add({
@@ -98,12 +113,18 @@ Generation.generateFromBeat = async function (app) {
                 projectId: app.currentProject?.id,
                 sceneId: app.currentScene?.id,
                 timestamp: new Date(),
-                beat: app.beatInput,
+                beat: beatText,
                 prompt: typeof prompt === 'object' && prompt.asString ? prompt.asString() : String(prompt)
             });
         } catch (e) {
             console.warn('Failed to save prompt history:', e);
         }
+
+        // Update current scene content to stripped version (beat line removed)
+        if (!app.showMiniBeatInput) {
+            app.currentScene.content = sceneContent;
+        }
+
         // remember where generated text will start
         const prevLen = app.currentScene ? (app.currentScene.content ? app.currentScene.content.length : 0) : 0;
         app.lastGenStart = prevLen;
@@ -138,8 +159,8 @@ Generation.generateFromBeat = async function (app) {
                 app.showGeneratedHighlight = false;
             }, 5000);
         });
-        // Clear beat input (we keep lastBeat so retry can reuse it)
-        app.beatInput = '';
+        // Clear beat input only in legacy mode
+        if (app.showMiniBeatInput) app.beatInput = '';
         // Auto-save after generation
         await app.saveScene();
     } catch (error) {

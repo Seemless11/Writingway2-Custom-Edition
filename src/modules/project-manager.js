@@ -14,6 +14,7 @@
             const project = {
                 id: now.toString(),
                 name: projectName,
+                genres: (app.selectedGenres || []).slice(),
                 created: new Date(),
                 modified: new Date(),
                 updatedAt: now
@@ -32,6 +33,7 @@
             app.currentProject = project;
             app.showNewProjectModal = false;
             app.newProjectName = '';
+            app.selectedGenres = [];
 
             // refresh projects list and select the new project
             await this.loadProjects(app);

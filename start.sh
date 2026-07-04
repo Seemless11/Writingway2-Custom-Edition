@@ -57,7 +57,7 @@ if not entries:
     raise RuntimeError("Update archive is empty")
 
 source_root = entries[0] if len(entries) == 1 and entries[0].is_dir() else extract_dir
-exclude_dirs = {".update", ".git", "projects", "backups", "models", "llama", "node_modules", ".vscode", ".idea", ".continue", ".claude"}
+exclude_dirs = {".update", ".git", "projects", "backups", "project-backups", "models", "llama", "node_modules", ".vscode", ".idea", ".continue", ".claude"}
 
 for item in source_root.iterdir():
     if item.name in exclude_dirs:

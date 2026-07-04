@@ -57,7 +57,13 @@
         window.__test.triggerGenerate = async function (beat) {
             const app = window.__test.getApp();
             if (!app) throw new Error('app not ready');
-            app.beatInput = beat || app.beatInput || '';
+            // Set beat in legacy mode or append ## beat line in default mode
+            if (app.showMiniBeatInput) {
+                app.beatInput = beat || app.beatInput || '';
+            } else if (beat && app.currentScene) {
+                const content = app.currentScene.content || '';
+                app.currentScene.content = content + (content ? '\n' : '') + '## ' + beat;
+            }
             if (typeof app.generateFromBeat === 'function') {
                 await app.generateFromBeat();
                 return true;

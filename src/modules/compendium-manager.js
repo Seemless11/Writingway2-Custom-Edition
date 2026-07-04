@@ -334,6 +334,9 @@
                     imageUrl: app.currentCompEntry.imageUrl || null,
                     alwaysInContext: app.currentCompEntry.alwaysInContext || false
                 };
+                if (app.currentCompEntry._charData) {
+                    updates._charData = app.currentCompEntry._charData;
+                }
                 await window.Compendium.updateEntry(app.currentCompEntry.id, updates);
                 // Refresh only the entry's category without toggling
                 await this.refreshCategoryList(app, entryCategory);
@@ -552,6 +555,201 @@
             } catch (e) {
                 console.error('Failed to move compendium entry to category:', e);
             }
+        },
+        /**
+         * Import a SillyTavern character card (JSON or PNG) into the compendium
+         * Opens a file picker, parses the card, and saves it as a 'characters' entry
+         * @param {Object} app - Alpine app instance
+         */
+        async importCharacterCard(app) {
+            if (!app.currentProject) {
+                alert('Please open a project first.');
+                return;
+            }
+
+            // Create a hidden file input
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,.png';
+            input.style.display = 'none';
+            document.body.appendChild(input);
+
+            input.addEventListener('change', async () => {
+                const file = input.files && input.files[0];
+                if (!file) {
+                    document.body.removeChild(input);
+                    return;
+                }
+
+                try {
+                    if (!window.CharacterCardImporter) {
+                        throw new Error('CharacterCardImporter module not loaded');
+                    }
+
+                    // Parse the card file
+                    const importData = await window.CharacterCardImporter.importFile(file);
+
+                    // Convert to compendium entry format
+                    const entry = window.CharacterCardImporter.convertToCompendiumEntry(importData);
+
+                    // Save to DB
+                    const saved = await window.Compendium.import(app.currentProject.id, [entry]);
+
+                    // Refresh the characters category
+                    if (!app.openCompCategories.includes('characters')) {
+                        app.openCompCategories.push('characters');
+                    }
+                    await this.refreshCategoryList(app, 'characters');
+                    await this.loadCompendiumCounts(app);
+
+                    // Select the new entry
+                    if (saved && saved.length > 0) {
+                        await this._doSelectCompendiumEntry(app, saved[0].id);
+                    }
+
+                    const charName = importData.name || 'Character';
+                    const imgInfo = importData.image_base64 ? ' + avatar' : '';
+                    alert(`Imported "${charName}" into the Characters category.${imgInfo}`);
+                } catch (err) {
+                    alert('Import failed: ' + err.message);
+                    console.error('Character card import error:', err);
+                } finally {
+                    document.body.removeChild(input);
+                }
+            });
+
+            input.click();
+        },
+
+        /**
+         * Generate compendium entry content using AI.
+         * Gathers context from same-category entries + alwaysInContext entries,
+         * streams the result, then shows Accept/Retry/Discard on completion.
+         * @param {Object} app - Alpine app instance
+         */
+        async generateCompendiumEntry(app) {
+            if (!app.currentCompEntry || app.compendiumGenerating || app.aiStatus !== 'ready') return;
+
+            app.compendiumGenerating = true;
+            app.showCompGenActions = false;
+            app.compendiumSaveStatus = 'Generating...';
+
+            app.compGenPreTitle = app.currentCompEntry.title || '';
+            app.compGenPreBody = app.currentCompEntry.body || '';
+
+            try {
+                const category = app.currentCompEntry.category;
+
+                let context = [];
+                try {
+                    const sameCat = await window.Compendium.listByCategory(app.currentProject.id, category) || [];
+                    context = sameCat.filter(e => e.id !== app.currentCompEntry.id);
+                } catch (e) {
+                    console.warn('Failed to load same-category entries:', e);
+                }
+
+                try {
+                    const allEntries = await db.compendium.where('projectId').equals(app.currentProject.id).toArray();
+                    const existingIds = new Set(context.map(e => e.id));
+                    for (const e of allEntries) {
+                        if (e.alwaysInContext && !existingIds.has(e.id)) {
+                            context.push(e);
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to load alwaysInContext entries:', e);
+                }
+
+                const prompt = window.Generation.buildCompendiumPrompt(app.currentCompEntry, context, app);
+
+                app.compendiumAbortController = new AbortController();
+                let generatedText = '';
+                await window.Generation.streamGeneration(prompt, (token) => {
+                    generatedText += token;
+                    app.currentCompEntry.body = generatedText;
+                }, app, app.compendiumAbortController.signal);
+
+                const needsTitle = !app.compGenPreTitle || app.compGenPreTitle === 'New Entry';
+                if (needsTitle && generatedText) {
+                    const titleMatch = generatedText.match(/^TITLE:\s*(.+)/im);
+                    if (titleMatch) {
+                        app.currentCompEntry.title = titleMatch[1].trim();
+                        app.currentCompEntry.body = generatedText.replace(/^TITLE:\s*.+[\r\n]+/i, '').trim();
+                    } else {
+                        const lines = generatedText.split('\n').filter(l => l.trim());
+                        if (lines.length > 1) {
+                            app.currentCompEntry.title = lines[0].replace(/^#+\s*/, '').trim();
+                            app.currentCompEntry.body = lines.slice(1).join('\n').trim();
+                        }
+                    }
+                }
+
+                app.showCompGenActions = true;
+                app.compendiumSaveStatus = '';
+                app.compendiumDirty = true;
+            } catch (e) {
+                if (e.name === 'AbortError') {
+                    console.log('Compendium generation stopped by user');
+                    // Partial content stays, show accept/retry/discard
+                    app.showCompGenActions = true;
+                    app.compendiumDirty = true;
+                } else {
+                    console.error('Compendium generation error:', e);
+                    app.compendiumSaveStatus = 'Generation failed';
+                    app.compendiumDirty = true;
+                    setTimeout(() => { app.compendiumSaveStatus = ''; }, 3000);
+                }
+            } finally {
+                app.compendiumAbortController = null;
+                app.compendiumGenerating = false;
+            }
+        },
+
+        /**
+         * Stop an in-progress compendium generation.
+         * @param {Object} app - Alpine app instance
+         */
+        stopCompendiumGeneration(app) {
+            if (app.compendiumAbortController) {
+                app.compendiumAbortController.abort();
+                app.compendiumAbortController = null;
+            }
+        },
+
+        /**
+         * Accept the generated compendium entry content.
+         * @param {Object} app - Alpine app instance
+         */
+        acceptCompendiumGen(app) {
+            app.showCompGenActions = false;
+            app.compGenPreTitle = '';
+            app.compGenPreBody = '';
+            app.compendiumDirty = true;
+        },
+
+        /**
+         * Retry — restore pre-generation state and re-generate.
+         * @param {Object} app - Alpine app instance
+         */
+        retryCompendiumGen(app) {
+            app.currentCompEntry.title = app.compGenPreTitle;
+            app.currentCompEntry.body = app.compGenPreBody;
+            app.showCompGenActions = false;
+            this.generateCompendiumEntry(app);
+        },
+
+        /**
+         * Discard the generated content and restore pre-generation state.
+         * @param {Object} app - Alpine app instance
+         */
+        discardCompendiumGen(app) {
+            app.currentCompEntry.title = app.compGenPreTitle;
+            app.currentCompEntry.body = app.compGenPreBody;
+            app.showCompGenActions = false;
+            app.compGenPreTitle = '';
+            app.compGenPreBody = '';
+            this.storeCompendiumOriginal(app);
+            this.updateCompendiumDirtyFlag(app);
         }
     };
 

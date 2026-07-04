@@ -11,6 +11,7 @@
     <!-- Phase 1 Refactoring: Database and test helpers extracted -->
     <script defer src="src/db.js"></script>
     <script defer src="src/test-helpers.js"></script>
+    <script defer src="src/genres.js"></script>
     <!-- Phase 2 Refactoring: State management extracted -->
     <script defer src="src/state/app-state.js"></script>
     <script defer src="src/state/watchers.js"></script>
@@ -37,6 +38,8 @@
     <script defer src="src/update-checker.js"></script>
     <script defer src="src/tts.js"></script>
     <script defer src="src/w1-importer.js"></script>
+    <script defer src="src/character-card-importer.js"></script>
+    <script defer src="src/character-creator.js"></script>
     <script defer src="src/app.js"></script>
     <script defer src="src/compendium.js"></script>
     <!-- Local vendor Alpine (use a real alpine.min.js here for offline runs) -->
@@ -268,9 +271,9 @@
 
         <!-- Main App -->
         <template x-if="currentProject && !showModelLoading && !showProjectsView">
-            <div class="app-container">
+            <div class="app-container" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
                 <!-- Sidebar -->
-                <div class="sidebar">
+                <div class="sidebar" :class="{ 'collapsed': sidebarCollapsed }">
                     <div class="sidebar-header" style="position:relative;">
                         <h1>Writingway</h1>
                         <p>AI-Powered Creative Writing</p>
@@ -360,6 +363,16 @@
                                     @mouseleave="$el.style.background='transparent'">
                                     <span x-text="currentProject.name"></span>
                                     <span style="margin-left:8px;opacity:0.7;font-size:16px;">📚</span>
+                                    <template x-if="currentProject.genres?.length">
+                                        <span style="margin-left:6px;font-size:11px;opacity:0.6;font-weight:400;">
+                                            <template x-for="(gid, gi) in currentProject.genres" :key="gid">
+                                                <span>
+                                                    <span x-text="(window.GenreDefs?.findGenre(gid)?.icon || '')"></span>
+                                                    <span x-text="window.GenreDefs?.findGenre(gid)?.label || gid"></span><span x-show="gi < currentProject.genres.length - 1"> · </span>
+                                                </span>
+                                            </template>
+                                        </span>
+                                    </template>
                                 </button>
                             </h2>
 
@@ -492,14 +505,7 @@
                     </div>
 
                     <!-- Editor -->
-                    <div class="editor-container" x-data="{ beatSplitterDragging: false }"
-                    @mouseup.window="beatSplitterDragging = false" @mousemove.window="if (beatSplitterDragging) {
-                        const container = $el;
-                        const rect = container.getBoundingClientRect();
-                        const y = $event.clientY - rect.top;
-                        const newHeight = rect.height - y;
-                        beatPanelHeight = Math.max(150, Math.min(600, newHeight));
-                    }">
+                    <div class="editor-container">
                     <div class="editor-header">
                         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
                             <div class="editor-title" x-text="currentScene ? currentScene.title : 'No scene selected'">
@@ -636,10 +642,187 @@
                                         <!-- Edit Mode: Textarea -->
                                         <textarea x-show="!showMarkdownPreview" class="editor-textarea"
                                             :class="{ 'has-generated-text': showGeneratedHighlight }"
-                                            @input="onEditorChange($event); handleAutoReplace($event)"
+                                            @input="onBeatInput($event); onEditorChange($event); handleAutoReplace($event)"
+                                            @keydown="onBeatKey($event)"
+                                            @keydown.ctrl.enter.prevent="if (getCurrentBeat() && !isGenerating && aiStatus === 'ready') generateFromBeat()"
+                                            @keydown.meta.enter.prevent="if (getCurrentBeat() && !isGenerating && aiStatus === 'ready') generateFromBeat()"
                                             @paste="handlePaste" x-model="currentScene.content"
                                             style="outline:none;direction:ltr;resize:none;" dir="ltr"
-                                            placeholder="Start writing your scene here..."></textarea>
+                                            placeholder="Start writing your scene here... Use ## for scene beats. Use @name for compendium entries, #scene for scenes."></textarea>
+
+                                        <!-- Mention Autocomplete Dropdowns (@ compendium, # scene) -->
+                                        <div class="quick-search-dropdown" x-show="showQuickSearch && !showMiniBeatInput" x-cloak
+                                            style="position:absolute;bottom:100%;left:30px;right:30px;z-index:5000;pointer-events:none;">
+                                            <div
+                                                style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
+                                                <template x-for="(m,mi) in quickSearchMatches" :key="m.id">
+                                                    <div class="quick-search-item"
+                                                        :class="{ 'active': mi === quickSearchSelectedIndex }"
+                                                        @click="selectQuickMatch(m)"
+                                                        style="padding:6px;border-radius:4px;cursor:pointer;">
+                                                        <div style="font-weight:600" x-text="m.title"></div>
+                                                        <div style="font-size:12px;color:var(--text-secondary);"
+                                                            x-text="(m.category || '')"></div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <div class="scene-search-dropdown" x-show="showSceneSearch && !showMiniBeatInput" x-cloak
+                                            style="position:absolute;bottom:100%;left:30px;right:30px;z-index:5000;pointer-events:none;">
+                                            <div
+                                                style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent-blue,#60a5fa);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
+                                                <template x-for="(scene,si) in sceneSearchMatches" :key="scene.id">
+                                                    <div class="scene-search-item"
+                                                        :class="{ 'active': si === sceneSearchSelectedIndex }"
+                                                        @click="selectSceneMatch(scene)"
+                                                        style="padding:6px;border-radius:4px;cursor:pointer;">
+                                                        <div style="display:flex;align-items:center;gap:6px;">
+                                                            <span
+                                                                x-text="scene.hasSummary ? (scene.summaryStale ? '⚠️' : '✅') : '❌'"
+                                                                :title="scene.hasSummary ? (scene.summaryStale ? 'Summary is outdated' : 'Summary available') : 'No summary'"></span>
+                                                            <span style="font-weight:600" x-text="scene.title"></span>
+                                                        </div>
+                                                        <div style="font-size:12px;color:var(--text-secondary);"
+                                                            x-text="scene.chapterName || 'Unknown Chapter'"></div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <!-- Floating Beat Control Bar (default mode) -->
+                                        <div x-show="!showMarkdownPreview && currentScene && !showMiniBeatInput"
+                                            class="floating-beat-bar">
+                                            <div class="floating-beat-bar-inner">
+                                                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                                    <div class="beat-length-presets" style="display:flex;gap:3px;align-items:center;">
+                                                        <template x-for="len in [200, 400, 600]" :key="len">
+                                                            <button class="btn btn-secondary" type="button"
+                                                                @click="maxTokens = len; saveGenerationParams()"
+                                                                :style="'font-size:11px;padding:3px 7px;' + (maxTokens === len ? 'border-color:var(--accent);color:var(--accent);' : '')"
+                                                                :title="'Target ~' + len + ' words of output'"
+                                                                x-text="len"></button>
+                                                        </template>
+                                                        <input type="number" x-model.number="maxTokens"
+                                                            @input="saveGenerationParams()" min="1" max="20000" step="50"
+                                                            style="width:50px;font-size:11px;padding:3px 5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;"
+                                                            title="Custom target length in words">
+                                                    </div>
+
+                                                    <span style="font-size:10px;color:var(--text-secondary);white-space:nowrap;">Prompt:</span>
+                                                    <select x-model="selectedProsePromptId"
+                                                        @change="saveSelectedProsePrompt(selectedProsePromptId)"
+                                                        style="padding:3px 6px;font-size:11px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);max-width:140px;"
+                                                        title="Select prose prompt for generation">
+                                                        <option value="">Default</option>
+                                                        <template x-for="pr in prompts.filter(p => p.category === 'prose')" :key="pr.id">
+                                                            <option :value="pr.id" x-text="pr.title"></option>
+                                                        </template>
+                                                    </select>
+
+                                                    <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
+                                                        title="Context Panel" style="font-size:12px;padding:3px 7px;">📚</button>
+                                                    <button class="btn btn-secondary" @click="showSceneOptions = !showSceneOptions"
+                                                        title="Scene options" style="font-size:12px;padding:3px 7px;">⚙️</button>
+                                                    <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
+                                                        title="Prompt History" style="font-size:12px;padding:3px 7px;">🕐</button>
+                                                    <button class="btn btn-secondary" @click="previewPrompt"
+                                                        :disabled="!getCurrentBeat() || aiStatus !== 'ready'"
+                                                        title="Preview Prompt" style="font-size:12px;padding:3px 7px;">👁️</button>
+
+                                                    <button class="btn btn-primary" @click="generateFromBeat"
+                                                        x-show="!isGenerating"
+                                                        :disabled="!getCurrentBeat() || aiStatus !== 'ready'"
+                                                        title="Generate Text" style="font-size:12px;padding:3px 10px;">
+                                                        ✨ Gen
+                                                    </button>
+                                                    <button class="btn btn-danger" @click="stopBeatGeneration"
+                                                        x-show="isGenerating"
+                                                        title="Stop generation" style="font-size:12px;padding:3px 10px;">
+                                                        ⏹ Stop
+                                                    </button>
+
+                                                    <button class="btn btn-secondary" @click="toggleBeatMode()"
+                                                        title="Switch to legacy beat input panel" style="font-size:12px;padding:3px 7px;">
+                                                        ⌨️
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Floating Generation Actions (accept/retry/discard) -->
+                                        <div x-show="!showMarkdownPreview && showGenActions" x-cloak
+                                            class="floating-gen-actions">
+                                            <div class="floating-gen-actions-inner">
+                                                <button class="btn btn-primary" @click="acceptGeneration" style="font-size:12px;padding:4px 12px;">Accept</button>
+                                                <button class="btn btn-secondary" @click="retryGeneration" style="font-size:12px;padding:4px 12px;">Retry</button>
+                                                <button class="btn btn-secondary" @click="discardGeneration" style="font-size:12px;padding:4px 12px;">Discard</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Legacy Beat Panel -->
+                                        <div x-show="!showMarkdownPreview && showMiniBeatInput" class="legacy-beat-panel">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                                                <h3 style="margin:0;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:700;">Beat Input</h3>
+                                                <button class="btn btn-secondary" @click="toggleBeatMode()"
+                                                    title="Switch to floating bar mode" style="font-size:11px;padding:2px 6px;">
+                                                    ⌨️ Floating Bar
+                                                </button>
+                                            </div>
+                                            <div style="display:flex;gap:8px;margin-bottom:8px;">
+                                                <textarea class="beat-input" x-model="beatInput" @input="onBeatInput($event)"
+                                                    @keydown="onBeatKey($event)"
+                                                    @keydown.ctrl.enter.prevent="if (beatInput && !isGenerating && aiStatus === 'ready') generateFromBeat()"
+                                                    @keydown.meta.enter.prevent="if (beatInput && !isGenerating && aiStatus === 'ready') generateFromBeat()"
+                                                    placeholder="Describe what happens next... Use @name for compendium, #scene for scenes."
+                                                    spellcheck="true" rows="1"
+                                                    style="flex:1;padding:8px;background:rgba(58,58,58,0.6);border:1px solid rgba(74,158,255,0.2);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:inherit;resize:none;min-height:36px;"></textarea>
+                                                <button class="btn btn-primary" @click="generateFromBeat"
+                                                    x-show="!isGenerating"
+                                                    :disabled="!beatInput || aiStatus !== 'ready'"
+                                                    style="font-size:12px;padding:4px 12px;white-space:nowrap;">✨ Generate</button>
+                                                <button class="btn btn-danger" @click="stopBeatGeneration"
+                                                    x-show="isGenerating"
+                                                    style="font-size:12px;padding:4px 12px;white-space:nowrap;">⏹ Stop</button>
+                                            </div>
+                                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                                <div class="beat-length-presets" style="display:flex;gap:3px;align-items:center;">
+                                                    <template x-for="len in [200, 400, 600]" :key="len">
+                                                        <button class="btn btn-secondary" type="button"
+                                                            @click="maxTokens = len; saveGenerationParams()"
+                                                            :style="'font-size:11px;padding:2px 6px;' + (maxTokens === len ? 'border-color:var(--accent);color:var(--accent);' : '')"
+                                                            x-text="len"></button>
+                                                    </template>
+                                                    <input type="number" x-model.number="maxTokens"
+                                                        @input="saveGenerationParams()" min="1" max="20000" step="50"
+                                                        style="width:48px;font-size:11px;padding:2px 4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;">
+                                                </div>
+                                                <span style="font-size:10px;color:var(--text-secondary);">Prompt:</span>
+                                                <select x-model="selectedProsePromptId"
+                                                    @change="saveSelectedProsePrompt(selectedProsePromptId)"
+                                                    style="padding:2px 6px;font-size:11px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);max-width:140px;">
+                                                    <option value="">Default</option>
+                                                    <template x-for="pr in prompts.filter(p => p.category === 'prose')" :key="pr.id">
+                                                        <option :value="pr.id" x-text="pr.title"></option>
+                                                    </template>
+                                                </select>
+                                                <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
+                                                    title="Context Panel" style="font-size:11px;padding:2px 6px;">📚</button>
+                                                <button class="btn btn-secondary" @click="showSceneOptions = !showSceneOptions"
+                                                    title="Scene options" style="font-size:11px;padding:2px 6px;">⚙️</button>
+                                                <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
+                                                    title="Prompt History" style="font-size:11px;padding:2px 6px;">🕐</button>
+                                                <button class="btn btn-secondary" @click="previewPrompt"
+                                                    :disabled="!beatInput || aiStatus !== 'ready'"
+                                                    title="Preview Prompt" style="font-size:11px;padding:2px 6px;">👁️</button>
+                                            </div>
+                                            <!-- Generation actions inside legacy panel -->
+                                            <div x-show="showGenActions" x-cloak style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+                                                <button class="btn btn-primary" @click="acceptGeneration" style="font-size:11px;padding:3px 10px;">Accept</button>
+                                                <button class="btn btn-secondary" @click="retryGeneration" style="font-size:11px;padding:3px 10px;">Retry</button>
+                                                <button class="btn btn-secondary" @click="discardGeneration" style="font-size:11px;padding:3px 10px;">Discard</button>
+                                            </div>
+                                        </div>
 
                                         <!-- Preview Mode: Rendered HTML -->
                                         <div x-show="showMarkdownPreview" class="editor-preview"
@@ -734,168 +917,16 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- Beat Panel -->
-                    <div class="beat-separator" aria-hidden="true"
-                        @mousedown="beatSplitterDragging = true; $event.preventDefault();"></div>
-                    <div class="beat-panel"
-                        :style="`height: ${beatPanelHeight}px; min-height: ${beatPanelHeight}px; max-height: ${beatPanelHeight}px;`">
-                        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px;">
-                            <h3 style="margin:0;">Generate from Beat</h3>
-                            <div style="display:flex;align-items:center;gap:6px;">
-                                <span style="font-size:11px;color:var(--text-secondary);white-space:nowrap;">Prompt:</span>
-                                <select x-model="selectedProsePromptId"
-                                    @change="saveSelectedProsePrompt(selectedProsePromptId)"
-                                    style="padding:4px 8px;font-size:12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);max-width:180px;"
-                                    title="Select prose prompt for generation">
-                                    <option value="">Default (fallback)</option>
-                                    <template x-for="pr in prompts.filter(p => p.category === 'prose')" :key="pr.id">
-                                        <option :value="pr.id" x-text="pr.title"></option>
-                                    </template>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="beat-input-group" style="position:relative;">
-                            <textarea class="beat-input" x-model="beatInput" @input="onBeatInput($event)"
-                                @keydown="onBeatKey($event)"
-                                placeholder="Describe what happens next (e.g., 'She grabs her bag and leaves'). Use @name for compendium entries, #scene for scenes."
-                                spellcheck="true" rows="2"></textarea>
-
-                            <div class="quick-search-dropdown" x-show="showQuickSearch" x-cloak
-                                style="position:relative;width:100%;">
-                                <div
-                                    style="position:absolute;bottom:100%;left:0;right:0;z-index:5000;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
-                                    <template x-for="(m,mi) in quickSearchMatches" :key="m.id">
-                                        <div class="quick-search-item"
-                                            :class="{ 'active': mi === quickSearchSelectedIndex }"
-                                            @click="selectQuickMatch(m)"
-                                            style="padding:6px;border-radius:4px;cursor:pointer;">
-                                            <div style="font-weight:600" x-text="m.title"></div>
-                                            <div style="font-size:12px;color:var(--text-secondary);"
-                                                x-text="(m.category || '')"></div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-
-                            <div class="scene-search-dropdown" x-show="showSceneSearch" x-cloak
-                                style="position:relative;width:100%;">
-                                <div
-                                    style="position:absolute;bottom:100%;left:0;right:0;z-index:5000;background:var(--bg-primary);border:1px solid var(--accent-blue,#60a5fa);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
-                                    <template x-for="(scene,si) in sceneSearchMatches" :key="scene.id">
-                                        <div class="scene-search-item"
-                                            :class="{ 'active': si === sceneSearchSelectedIndex }"
-                                            @click="selectSceneMatch(scene)"
-                                            style="padding:6px;border-radius:4px;cursor:pointer;">
-                                            <div style="display:flex;align-items:center;gap:6px;">
-                                                <span
-                                                    x-text="scene.hasSummary ? (scene.summaryStale ? '⚠️' : '✅') : '❌'"
-                                                    :title="scene.hasSummary ? (scene.summaryStale ? 'Summary is outdated' : 'Summary available') : 'No summary'"></span>
-                                                <span style="font-weight:600" x-text="scene.title"></span>
-                                            </div>
-                                            <div style="font-size:12px;color:var(--text-secondary);"
-                                                x-text="scene.chapterName || 'Unknown Chapter'"></div>
-                                        </div>
-                                    </template>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="beat-controls"
-                            style="display:flex;flex-direction:column;gap:8px;align-items:flex-start;margin-bottom:0;">
-                            <div class="beat-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                                <div style="position:relative;">
-                                    <button class="btn btn-secondary" @click="showSpecialChars = !showSpecialChars"
-                                        title="Insert special character"
-                                        :disabled="!currentScene || showMarkdownPreview"
-                                        style="font-size:14px;padding:6px 12px;">
-                                        ⌘
-                                    </button>
-                                    <div x-show="showSpecialChars" @click.outside="showSpecialChars = false" x-cloak
-                                        style="position:absolute;left:0;bottom:100%;margin-bottom:4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;padding:8px;min-width:280px;z-index:1000;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
-                                        <div
-                                            style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;font-weight:600;">
-                                            INSERT SPECIAL CHARACTER</div>
-                                        <button @click="insertSpecialChar('—')" class="special-char-btn">Em dash — (long
-                                            dash)</button>
-                                        <button @click="insertSpecialChar('–')" class="special-char-btn">En dash –
-                                            (short dash)</button>
-                                        <button @click="insertSpecialChar('\u00A0')"
-                                            class="special-char-btn">Non-breaking space</button>
-                                        <button @click="insertSpecialChar('«')" class="special-char-btn">French quote «
-                                            (opening)</button>
-                                        <button @click="insertSpecialChar('»')" class="special-char-btn">French quote »
-                                            (closing)</button>
-                                        <button @click="insertSpecialChar('„')" class="special-char-btn">Low-high quote
-                                            „ (opening)</button>
-                                        <button @click="insertSpecialChar('&quot;')" class="special-char-btn">Low-high
-                                            quote " (closing)</button>
-                                        <button @click="insertSpecialChar('‘')" class="special-char-btn">Single quote
-                                            ' (opening)</button>
-                                        <button @click="insertSpecialChar('’')" class="special-char-btn">Single quote
-                                            ' (closing)</button>
-                                        <button @click="insertSpecialChar(')')" class="special-char-btn">)</button>
-                                        <button @click="insertSpecialChar('…')" class="special-char-btn">Ellipsis
-                                            …</button>
-                                        <button @click="insertSpecialChar('\u2003')" class="special-char-btn">Em space
-                                        </button>
-                                        <button @click="insertSpecialChar('\u2002')" class="special-char-btn">En space
-                                        </button>
-                                        <button @click="insertSpecialChar('\u2009')" class="special-char-btn">Thin space
-                                        </button>
-                                        <div
-                                            style="font-size:10px;color:var(--text-secondary);margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
-                                            Tip: Type -- for em dash (—)</div>
-                                    </div>
-                                </div>
-
-                                <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
-                                    title="View Prompt History" aria-label="View prompt history">
-                                    🕐
-                                </button>
-
-                                <button class="btn btn-secondary" @click="showSceneOptions = !showSceneOptions"
-                                    title="Scene options">
-                                    ⚙️
-                                </button>
-
-                                <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
-                                    title="Context Panel" aria-label="Toggle context panel">
-                                    📚
-                                </button>
-
-                                <button class="btn btn-secondary" @click="previewPrompt"
-                                    :disabled="!beatInput || aiStatus !== 'ready'" title="Preview Prompt">
-                                    👁️
-                                </button>
-
-                                <button class="btn btn-secondary" @click="generateFromBeat"
-                                    :disabled="!beatInput || isGenerating || aiStatus !== 'ready'"
-                                    title="Generate Text">
-                                    ✨
-                                </button>
-                            </div>
-
-                            <div class="context-info">
-                                <span x-show="aiStatus === 'ready'">✓ AI ready • Will use current scene as
-                                    context</span>
-                                <span x-show="aiStatus === 'loading'">⏳ Loading model...</span>
-                                <span x-show="aiStatus === 'error'">⚠️ Model not loaded (using placeholder text for
-                                    now)</span>
-                            </div>
-
-                            <!-- Generation actions (accept/retry/discard) -->
-                            <div x-show="showGenActions" x-cloak style="display:flex;gap:8px;justify-content:flex-end;">
-                                <button class="btn btn-primary" @click="acceptGeneration">Accept</button>
-                                <button class="btn btn-secondary" @click="retryGeneration">Retry</button>
-                                <button class="btn btn-secondary" @click="discardGeneration">Discard</button>
-                            </div>
-                        </div>
-                    </div>
                     </div>
                 </div>
             </div>
         </template>
+
+        <!-- Sidebar toggle tab (always visible) -->
+        <button class="sidebar-toggle-tab" @click="toggleSidebar()" :title="sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'" x-cloak>
+            <span x-show="!sidebarCollapsed">◀</span>
+            <span x-show="sidebarCollapsed">▶</span>
+        </button>
 
         <!-- Rewrite Modal -->
         <div x-show="showRewriteModal" x-cloak class="modal-overlay" @click.self="discardRewrite()">
@@ -1000,6 +1031,18 @@
                     <h3>New Project</h3>
                     <input type="text" x-model="newProjectName" placeholder="Project name (e.g., 'My Novel')"
                         @keydown.enter="createProject">
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">Genre (optional, pick multiple)</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+                            <template x-for="g in (window.GenreDefs?.GENRES || [])" :key="g.id">
+                                <span class="tag-chip"
+                                    :class="{ 'tag-chip-active': selectedGenres.includes(g.id) }"
+                                    @click="selectedGenres = selectedGenres.includes(g.id) ? selectedGenres.filter(x => x !== g.id) : [...selectedGenres, g.id]"
+                                    x-text="g.icon + ' ' + g.label">
+                                </span>
+                            </template>
+                        </div>
+                    </div>
                     <div class="modal-buttons">
                         <button class="btn btn-secondary" @click="showNewProjectModal = false">Cancel</button>
                         <button class="btn btn-primary" @click="createProject">Create</button>
@@ -1815,7 +1858,10 @@
                                             tabindex="0">
                                             <div style="display:flex;justify-content:space-between;align-items:center;">
                                                 <div style="flex:1;cursor:pointer;" @click.stop="openPrompt(pr.id)">
-                                                    <div class="comp-entry-title" x-text="pr.title"></div>
+                                                    <div class="comp-entry-title">
+                                                        <span x-text="pr.title"></span>
+                                                        <span x-show="pr.projectId === '__global__'" title="Global — available in all projects" style="margin-left:4px;font-size:11px;">🌐</span>
+                                                    </div>
                                                     <div class="comp-entry-meta"
                                                         style="font-size:11px;color:var(--text-secondary);"
                                                         x-text="new Date(pr.modified).toLocaleString()"></div>
@@ -1833,6 +1879,9 @@
                                                             down</button>
                                                         <button
                                                             @click.stop="renamePrompt(pr.id); openMenu=false">Rename</button>
+                                                        <button
+                                                            @click.stop="toggleGlobal(pr.id); openMenu=false"
+                                                            x-text="pr.projectId === '__global__' ? 'Make project-only' : 'Make global 🌐'"></button>
                                                         <button
                                                             @click.stop="deletePrompt(pr.id); openMenu=false">Delete</button>
                                                     </div>
@@ -1911,6 +1960,8 @@
                 <h3 style="margin:0;">Compendium</h3>
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span x-show="compendiumDirty" x-cloak style="font-size:12px;color:var(--warning);">Unsaved changes</span>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openCharacterCreator()" title="Create a new character with AI assistance">🎭 Create</button>
+                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="importCharacterCard()" title="Import a SillyTavern character card (JSON or PNG)">📥 Import</button>
                     <button class="btn btn-secondary" @click="closeCompendium()">Close</button>
                 </div>
             </div>
@@ -2037,6 +2088,23 @@
                                         @input="updateCompendiumDirtyFlag()"
                                         style="margin-top:12px;"></textarea>
 
+                                    <!-- Always in Context checkbox -->
+                                    <div
+                                        style="margin-top:12px;padding:12px;background:rgba(74,158,255,0.05);border:1px solid rgba(74,158,255,0.2);border-radius:6px;">
+                                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                            <input type="checkbox" x-model="currentCompEntry.alwaysInContext"
+                                                @change="updateCompendiumDirtyFlag()"
+                                                style="cursor:pointer;">
+                                            <span style="font-size:14px;color:rgba(255,255,255,0.9);">Always include in
+                                                prose prompts</span>
+                                        </label>
+                                        <p
+                                            style="margin:6px 0 0 26px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.4;">
+                                            When enabled, this entry will be automatically included in all prose
+                                            generation prompts (useful for style guides, world rules, etc.)
+                                        </p>
+                                    </div>
+
                                     <!-- Tags and image remove button -->
                                     <div
                                         style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:12px;">
@@ -2056,29 +2124,35 @@
                                             <!-- Image removal handled by clicking the image itself -->
                                         </div>
                                     </div>
-
-                                    <!-- Always in Context checkbox -->
-                                    <div
-                                        style="margin-top:12px;padding:12px;background:rgba(74,158,255,0.05);border:1px solid rgba(74,158,255,0.2);border-radius:6px;">
-                                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
-                                            <input type="checkbox" x-model="currentCompEntry.alwaysInContext"
-                                                @change="updateCompendiumDirtyFlag()"
-                                                style="cursor:pointer;">
-                                            <span style="font-size:14px;color:rgba(255,255,255,0.9);">Always include in
-                                                prose prompts</span>
-                                        </label>
-                                        <p
-                                            style="margin:6px 0 0 26px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.4;">
-                                            When enabled, this entry will be automatically included in all prose
-                                            generation prompts (useful for style guides, world rules, etc.)
-                                        </p>
-                                    </div>
                                 </div>
                             </template>
                         </div>
                         <div style="flex:0 0 auto;display:flex;gap:8px;margin-top:8px;align-items:center;">
+                            <button class="btn btn-secondary" @click="editCharacterInCreator(currentCompEntry)"
+                                x-show="currentCompEntry && currentCompEntry._charData"
+                                title="Re-open this character in the creator to edit traits"
+                                style="font-size:12px;padding:4px 10px;">🎭 Edit in Creator</button>
+                            <button class="btn btn-secondary" @click="generateCompendiumEntry"
+                                x-show="currentCompEntry && !compendiumGenerating && !showCompGenActions"
+                                :disabled="!currentCompEntry || aiStatus !== 'ready'"
+                                style="font-size:12px;padding:4px 10px;" title="Generate entry content with AI">✨ Generate</button>
+                            <template x-if="compendiumGenerating">
+                                <button class="btn btn-danger" @click="stopCompendiumGeneration"
+                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                            </template>
+                            <template x-if="showCompGenActions">
+                                <div style="display:inline-flex;gap:4px;">
+                                    <button class="btn btn-primary" @click="acceptCompendiumGen"
+                                        style="font-size:12px;padding:4px 10px;">Accept</button>
+                                    <button class="btn btn-secondary" @click="retryCompendiumGen"
+                                        style="font-size:12px;padding:4px 10px;">Retry</button>
+                                    <button class="btn btn-danger" @click="discardCompendiumGen"
+                                        style="font-size:12px;padding:4px 10px;">Discard</button>
+                                </div>
+                            </template>
                             <button class="btn btn-primary" @click="saveCompendiumEntry"
-                                :disabled="!currentCompEntry || !compendiumDirty">Save</button>
+                                :disabled="!currentCompEntry || !compendiumDirty"
+                                x-show="!showCompGenActions">Save</button>
                             <span style="margin-left:8px;font-size:13px;color:var(--text-secondary);"
                                 class="compendium-save-status"
                                 :class="{ 'saving': compendiumSaveStatus === 'Saving...' }"
@@ -2311,7 +2385,7 @@
                                         </div>
                                     </div>
                                     <button class="btn btn-primary"
-                                        @click="beatInput = item.beat; showPromptHistory = false"
+                                        @click="if (showMiniBeatInput) { beatInput = item.beat; } else if (currentScene) { currentScene.content = (currentScene.content || '') + '\n## ' + item.beat; } showPromptHistory = false"
                                         style="font-size:11px;padding:4px 8px;">
                                         Reuse Beat
                                     </button>
@@ -2530,7 +2604,7 @@
                                 </label>
                                 <p
                                     style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;padding-left:24px;">
-                                    When enabled, temperature and max length won't be sent to the AI provider.
+                                    When enabled, temperature and the token cap won't be sent to the AI provider.
                                     The model will use its own default settings. Useful for letting providers optimize
                                     each model.
                                 </p>
@@ -2552,11 +2626,11 @@
                                 </div>
                             </label>
 
-                            <!-- Max Tokens -->
+                            <!-- Target Length -->
                             <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:12px;"
-                                title="Maximum length of generated text. 100-200 = short paragraph, 300-500 = multiple paragraphs, 800-1500 = longer scenes, 2000-5000 = very long, 10000+ = thinking models with reasoning."
+                                title="Desired minimum length of generated text in words. 100-200 = short paragraph, 300-500 = multiple paragraphs, 800-1500 = longer scenes, 2000-5000 = very long."
                                 :style="useProviderDefaults ? 'opacity:0.5;pointer-events:none;' : ''">
-                                MAX LENGTH: <span x-text="maxTokens"></span> tokens
+                                TARGET LENGTH: <span x-text="maxTokens"></span> words
                                 <input type="range" x-model.number="maxTokens" min="100" max="20000" step="100"
                                     @input="saveGenerationParams()" style="width:100%;margin-top:6px;"
                                     :disabled="useProviderDefaults">
@@ -2971,8 +3045,9 @@
         <div class="workshop-input-area">
             <div class="workshop-input-wrapper" style="position:relative;">
                 <textarea x-model="workshopInput" @input="window.workshopChat.onWorkshopInput($data, $event)"
-                    @keydown="window.workshopChat.handleWorkshopKeydown($data, $event)" @keydown.enter.prevent="
+                    @keydown="window.workshopChat.handleWorkshopKeydown($data, $event)" @keydown.enter="
                                         if (!$event.shiftKey && workshopInput.trim() && !showWorkshopQuickSearch && !showWorkshopSceneSearch) {
+                                            $event.preventDefault();
                                             window.workshopChat.sendMessage($data, workshopInput);
                                         }
                                     " placeholder="Type your message... (Use @name for compendium, #scene for scenes)"
@@ -3056,6 +3131,212 @@
             <div class="workshop-template-container" x-show="workshopTemplateLoaded"></div>
         </div>
     </template>
+    <template x-if="showCharacterCreator">
+        <div class="modal-overlay" @click.self="showCharacterCreator = false" style="z-index:9500;">
+            <div style="width:min(1200px,96%);height:min(800px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span style="font-size:20px;">🎭</span>
+                        <h3 style="margin:0;font-size:18px;">Character Creator</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="closeCharacterCreator()">Close</button>
+                </div>
+                <div style="flex:1;display:flex;overflow:hidden;">
+                    <div style="width:45%;overflow:auto;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:12px;">
+                        <input type="text" x-model="charCreatorName" placeholder="Character name"
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:15px;font-weight:600;">
+
+                        <textarea x-model="charCreatorNotes" placeholder="Freeform notes, ideas, or backstory snippets..."
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;min-height:72px;resize:vertical;"></textarea>
+
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <select x-model="charCreatorGenre" @change="setCharCreatorGenre(charCreatorGenre)" class="cc-genre-select"
+                                style="flex:1;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;font-weight:600;">
+                                <template x-for="genre in window.CharacterCreator.GENRES" :key="genre.id">
+                                    <option :value="genre.id" x-text="genre.icon + ' ' + genre.label"></option>
+                                </template>
+                            </select>
+                            <button class="btn btn-secondary" @click="randomizeCharCreator()" title="Randomize all traits" style="font-size:12px;padding:6px 12px;">🎲</button>
+                            <button class="btn btn-secondary" @click="clearCharCreatorTraits()" title="Clear all traits" style="font-size:12px;padding:6px 12px;">✕</button>
+                        </div>
+
+                        <template x-for="cat in getFilteredCharCreatorCategories()" :key="cat.id">
+                            <div>
+                                <div @click="toggleCharCreatorCategory(cat.id)"
+                                    style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none;">
+                                    <span style="font-weight:700;font-size:14px;color:var(--text-primary);" x-text="cat.label"></span>
+                                    <span style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;background:rgba(74,158,255,0.1);padding:2px 10px;border-radius:999px;"
+                                            x-text="'(' + ((charCreatorSelectedTraits[cat.id] || []).length) + ')'"></span>
+                                        <span style="font-size:10px;color:var(--text-secondary);" x-text="openCharCreatorCategories.includes(cat.id) ? '▾' : '▸'"></span>
+                                    </span>
+                                </div>
+                                <div x-show="openCharCreatorCategories.includes(cat.id)" x-cloak style="margin-top:8px;padding-left:6px;">
+                                    <template x-for="group in cat.groups" :key="group.label">
+                                        <div style="margin-bottom:10px;">
+                                            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;padding-left:8px;border-left:3px solid var(--accent);text-transform:uppercase;letter-spacing:0.05em;" x-text="group.label"></div>
+                                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                                <template x-for="trait in group.traits" :key="trait.id">
+                                                    <span @click="toggleCharCreatorTrait(cat.id, trait.id)"
+                                                        :title="trait.hint || ''"
+                                                        class="cc-trait-pill"
+                                                        style="padding:5px 14px;border-radius:999px;font-size:13px;border:1px solid;line-height:1.4;display:inline-flex;align-items:center;gap:4px;"
+                                                        :style="(charCreatorSelectedTraits[cat.id] || []).includes(trait.id)
+                                                            ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;'
+                                                            : trait.id.startsWith('custom_')
+                                                                ? 'background:var(--bg-primary);color:var(--text-primary);border-color:rgba(74,158,255,0.35);border-style:dashed;opacity:0.85;'
+                                                                : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);opacity:0.85;'">
+                                                        <span x-show="(charCreatorSelectedTraits[cat.id] || []).includes(trait.id)">✓</span>
+                                                        <span x-text="trait.label"></span>
+                                                        <span x-show="trait.id.startsWith('custom_')"
+                                                            @click.stop="removeCustomTrait(cat.id, group.label, trait.id)"
+                                                            style="margin-left:2px;font-size:14px;line-height:1;cursor:pointer;opacity:0.5;display:inline-block;"
+                                                            @mouseenter="$el.style.opacity='1'"
+                                                            @mouseleave="$el.style.opacity='0.5'">×</span>
+                                                    </span>
+                                                </template>
+                                                <span @click="openAddTraitForm(cat.id, group.label)"
+                                                    x-show="!charCreatorAddTraitForm || charCreatorAddTraitForm.catId !== cat.id || charCreatorAddTraitForm.groupLabel !== group.label"
+                                                    style="padding:4px 12px;border-radius:999px;font-size:12px;border:1px dashed var(--border);line-height:1.4;display:inline-flex;align-items:center;cursor:pointer;color:var(--text-secondary);background:transparent;">
+                                                    + Add
+                                                </span>
+                                                <div x-show="charCreatorAddTraitForm && charCreatorAddTraitForm.catId === cat.id && charCreatorAddTraitForm.groupLabel === group.label"
+                                                    style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:2px;">
+                                                    <input type="text" x-model="charCreatorAddTraitName" placeholder="Trait name" @keydown.enter="submitAddTraitForm"
+                                                        style="padding:4px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);width:100%;box-sizing:border-box;" />
+                                                    <input type="text" x-model="charCreatorAddTraitHint" placeholder="Optional hint" @keydown.enter="submitAddTraitForm"
+                                                        style="padding:4px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);width:100%;box-sizing:border-box;" />
+                                                    <div style="display:flex;gap:4px;">
+                                                        <button @click="submitAddTraitForm"
+                                                            style="padding:3px 14px;font-size:12px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;">Save</button>
+                                                        <button @click="closeAddTraitForm"
+                                                            style="padding:3px 14px;font-size:12px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;cursor:pointer;">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="Object.keys(charCreatorSelectedTraits).some(k => charCreatorSelectedTraits[k].length > 0)"
+                            style="padding:12px 16px;background:rgba(74,158,255,0.08);border:1px solid rgba(74,158,255,0.2);border-radius:8px;">
+                            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Selected Traits</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                <template x-for="(ids, catId) in charCreatorSelectedTraits" :key="catId">
+                                    <template x-for="traitId in ids" :key="traitId">
+                                        <span style="display:inline-block;font-size:12px;color:var(--text-secondary);background:var(--bg-primary);padding:2px 8px;border-radius:4px;border:1px solid var(--border);"
+                                            x-text="window.CharacterCreator.getTraitLabel(catId, traitId)"></span>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                        <div style="flex:1;overflow:auto;padding:16px 20px;" id="charCreatorChat">
+                            <div x-show="charCreatorChatHistory.length === 0"
+                                style="text-align:center;color:var(--text-secondary);font-size:13px;padding:40px 20px;">
+                                <div style="font-size:48px;margin-bottom:12px;">🎭</div>
+                                <p>Select traits on the left, then use the chat below to flesh out your character with AI assistance.</p>
+                            </div>
+                            <template x-for="(msg, idx) in charCreatorChatHistory" :key="idx">
+                                <div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;max-width:85%;"
+                                    :style="msg.role === 'user' ? 'background:rgba(74,158,255,0.12);margin-left:auto;border:1px solid rgba(74,158,255,0.25);' : 'background:var(--bg-primary);border:1px solid var(--border);'">
+                                    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+                                        <span x-text="msg.role === 'user' ? 'You' : 'Assistant'"></span>
+                                        <button x-show="msg.role === 'assistant' && msg.content && charCreatorEditingIdx !== idx"
+                                            @click="charCreatorEditingIdx = idx; charCreatorEditingBuffer = msg.content"
+                                            style="cursor:pointer;background:none;border:none;padding:0;font-size:12px;opacity:0.4;transition:opacity 0.15s;"
+                                            @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0.4'"
+                                            title="Edit response">✏️</button>
+                                    </div>
+                                    <template x-if="charCreatorEditingIdx !== idx">
+                                        <div style="font-size:13px;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;"
+                                            x-text="msg.content || (msg.role === 'assistant' ? 'Thinking...' : '')"></div>
+                                    </template>
+                                    <template x-if="charCreatorEditingIdx === idx">
+                                        <div>
+                                            <textarea x-model="charCreatorEditingBuffer"
+                                                style="width:100%;min-height:80px;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                                            <div style="display:flex;gap:6px;margin-top:6px;">
+                                                <button class="btn btn-primary" style="font-size:11px;padding:4px 12px;"
+                                                    @click="charCreatorChatHistory[charCreatorEditingIdx].content = charCreatorEditingBuffer; charCreatorChatHistory = charCreatorChatHistory.slice(); charCreatorEditingIdx = null">Save</button>
+                                                <button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;"
+                                                    @click="charCreatorEditingIdx = null">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <div style="padding:8px 20px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0;">
+                            <template x-for="tpl in window.CharacterCreator.INSTRUCTION_TEMPLATES" :key="tpl.id">
+                                <button class="btn btn-secondary"
+                                    style="font-size:11px;padding:4px 10px;"
+                                    @click="sendCharCreatorInstruction(tpl)"
+                                    x-text="tpl.label"></button>
+                            </template>
+                        </div>
+                        <div style="padding:10px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;">
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" x-model="charCreatorInput" placeholder="Type a message or custom instruction..."
+                                    style="flex:1;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;"
+                                    @keydown.enter.prevent="sendCharCreatorMessage()">
+                                <button class="btn btn-primary" @click="sendCharCreatorMessage()"
+                                    :disabled="charCreatorGenerating || !charCreatorInput.trim()">
+                                    <span x-show="!charCreatorGenerating">Send</span>
+                                    <span x-show="charCreatorGenerating">...</span>
+                                </button>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                                <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;"
+                                    @click="previewCharCreatorEntry()" :disabled="!charCreatorName && Object.keys(charCreatorSelectedTraits).every(k => charCreatorSelectedTraits[k].length === 0) && charCreatorChatHistory.length === 0">
+                                    👁️ Preview
+                                </button>
+                                <button class="btn btn-primary" style="font-size:13px;padding:8px 20px;"
+                                    @click="adoptCharCreatorEntry()"
+                                    :disabled="!charCreatorName">
+                                    📚 Adopt into Compendium
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="showCharCreatorPreview">
+        <div class="modal-overlay" @click.self="showCharCreatorPreview = false" style="z-index:9600;">
+            <div style="width:min(900px,96%);height:min(700px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:20px;">📖</span>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Compendium Preview</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="showCharCreatorPreview = false">Close</button>
+                </div>
+                <div style="flex:1;overflow:auto;padding:20px 24px;" class="cc-preview-body">
+                    <div x-html="charCreatorPreviewHtml" class="compendium-rendered"></div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+                    <button class="btn btn-secondary" @click="showCharCreatorPreview = false">← Back to Editor</button>
+                    <button class="btn btn-primary"
+                        @click="showCharCreatorPreview = false; adoptCharCreatorEntry()"
+                        :disabled="!charCreatorName">📚 Adopt into Compendium</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+<style>
+.cc-trait-pill { cursor:pointer; transition:all 0.15s; }
+.cc-trait-pill:hover { transform:translateY(-1px); box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+.cc-trait-pill:active { transform:translateY(0); }
+.cc-genre-select { cursor:pointer; appearance:auto; }
+</style>
+
     </div>
 
 

@@ -1,10 +1,4 @@
-/* Scene options/generation panel scroll fix */
-.beat-panel {
-    max-height: calc(100vh - 180px);
-    /* Adjust 180px if your header/toolbars are taller/shorter */
-    overflow-y: auto;
-    min-height: 0;
-}
+
 
 * {
     margin: 0;
@@ -26,6 +20,8 @@
     --success: #4ade80;
     --warning: #fbbf24;
 }
+
+[x-cloak] { display: none !important; }
 
 /* Light Mode Theme - applied to html or body */
 html.light-mode,
@@ -178,7 +174,7 @@ html.light-mode .modal-overlay {
 /* Light mode - text with text-shadow for better readability on varied backgrounds */
 html.light-mode .sidebar-header h1,
 html.light-mode .chapter-header,
-html.light-mode .beat-panel h3 {
+html.light-mode .legacy-beat-panel h3 {
     text-shadow: none;
 }
 
@@ -202,9 +198,9 @@ html.light-mode .beat-input::placeholder,
     color: #6c757d;
 }
 
-/* Light mode - beat panel background */
-html.light-mode .beat-panel,
-.light-mode .beat-panel {
+/* Light mode - legacy beat panel background */
+html.light-mode .legacy-beat-panel,
+.light-mode .legacy-beat-panel {
     background: linear-gradient(180deg, var(--bg-secondary) 0%, rgba(248, 249, 250, 0.95) 100%);
     border-top-color: rgba(37, 99, 235, 0.15);
 }
@@ -220,8 +216,13 @@ body {
 
 .app-container {
     display: grid;
-    grid-template-columns: 300px 1fr;
+    grid-template-columns: var(--sidebar-width, 300px) 1fr;
     height: 100vh;
+    transition: grid-template-columns 0.25s ease;
+}
+
+.app-container.sidebar-collapsed {
+    --sidebar-width: 0px;
 }
 
 /* Sidebar */
@@ -232,6 +233,11 @@ body {
     flex-direction: column;
     overflow: hidden;
     position: relative;
+    white-space: nowrap;
+}
+
+.sidebar.collapsed {
+    overflow: hidden;
 }
 
 .sidebar-header {
@@ -630,6 +636,11 @@ body {
     border-radius: 999px;
     font-size: 12px;
     cursor: pointer;
+}
+
+.tag-chip-active {
+    background: var(--accent);
+    color: #fff;
 }
 
 .tag-input {
@@ -1110,117 +1121,91 @@ html.light-mode .backup-warning-banner,
     color: var(--text-secondary);
 }
 
-.beat-panel {
-    background: linear-gradient(180deg, var(--bg-secondary) 0%, rgba(26, 26, 26, 0.95) 100%);
-    border-top: 1px solid rgba(74, 158, 255, 0.15);
-    padding: 16px 30px 16px 30px;
+/* Floating beat control bar (default mode - overlaid on editor) */
+.floating-beat-bar {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    z-index: 20;
     display: flex;
-    flex-direction: column;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
-    flex-shrink: 0;
-    /* Prevent the beat panel from shrinking */
-    overflow: visible;
-    /* Allow popups to extend beyond panel bounds */
+    justify-content: center;
+    pointer-events: none;
 }
 
-.beat-panel h3 {
-    font-size: 13px;
-    margin-bottom: 12px;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-weight: 700;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-}
-
-.beat-input-group {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 10px;
-    /* Prevent the group from expanding upward when textarea is resized */
-    align-items: flex-start;
-}
-
-/* Push beat controls to the bottom of the beat panel without extra spacing */
-.beat-controls {
-    width: 100%;
-    margin-top: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    align-items: flex-start;
-}
-
-.beat-input {
-    flex: 1;
-    padding: 14px;
-    background: rgba(58, 58, 58, 0.6);
+.floating-beat-bar-inner {
+    background: rgba(30, 30, 30, 0.92);
     border: 1px solid rgba(74, 158, 255, 0.2);
     border-radius: 8px;
-    color: var(--text-primary);
-    font-size: 14px;
-    font-family: inherit;
-    /* allow vertical resizing so users can make the beat field taller */
-    resize: vertical;
-    min-height: 56px;
-    max-height: 480px;
-    transition: border-color 0.2s ease, background 0.2s ease;
-    /* Prevent the textarea from pushing content above it when resizing */
-    align-self: flex-start;
+    padding: 8px 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    pointer-events: auto;
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
 }
 
-/* Mirror overlay to render styled tokens above the textarea. The textarea's text is kept transparent so the mirror shows through. */
-.beat-input-group {
-    position: relative;
+/* Floating accept/retry/discard bar */
+.floating-gen-actions {
+    position: absolute;
+    bottom: 56px;
+    left: 12px;
+    right: 12px;
+    z-index: 20;
+    display: flex;
+    justify-content: center;
+    pointer-events: none;
 }
 
-.beat-input {
-    position: relative;
-    z-index: 1;
-    color: var(--text-primary);
-    caret-color: var(--text-primary);
-    line-height: 20px;
+.floating-gen-actions-inner {
+    background: rgba(30, 30, 30, 0.92);
+    border: 1px solid rgba(74, 158, 255, 0.2);
+    border-radius: 8px;
+    padding: 6px 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    pointer-events: auto;
+    backdrop-filter: blur(8px);
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }
 
-.beat-input:focus {
+/* Legacy beat panel (compact bottom panel mode) */
+.legacy-beat-panel {
+    flex-shrink: 0;
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, rgba(26, 26, 26, 0.95) 100%);
+    border-top: 1px solid rgba(74, 158, 255, 0.15);
+    padding: 10px 20px;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    overflow: visible;
+}
+
+/* Beat input in legacy panel */
+.legacy-beat-panel .beat-input:focus {
     outline: none;
     border-color: var(--accent);
     background: rgba(58, 58, 58, 0.8);
     box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
 }
 
-/* thin visual separator between editor and beat panel */
-.beat-separator {
-    height: 10px;
-    background: transparent;
-    margin: 0;
-    padding: 4px 30px;
-    cursor: row-resize;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    transition: background 0.2s;
+/* Padding bottom on editor textarea to account for floating bar overlay */
+.editor-textarea {
+    padding-bottom: 70px;
 }
 
-.beat-separator:hover {
-    background: rgba(74, 158, 255, 0.1);
-}
-
-.beat-separator::before {
-    content: '';
-    width: 100%;
-    max-width: 640px;
-    height: 2px;
-    background: var(--border);
-    border-radius: 2px;
-    opacity: 0.9;
-    transition: background 0.2s;
-}
-
-.beat-separator:hover::before {
-    background: var(--accent);
-    opacity: 1;
+/* Preview mode: style ## lines as beat blocks */
+.editor-preview h2 {
+    border-left: 4px solid rgba(74, 158, 255, 0.5);
+    padding-left: 16px;
+    background: rgba(74, 158, 255, 0.06);
+    margin: 16px 0;
+    font-size: 15px;
+    font-weight: 500;
+    font-style: italic;
+    color: var(--accent);
+    text-transform: none;
+    letter-spacing: normal;
+    line-height: 1.6;
 }
 
 /* Rewrite modal removed */
@@ -2231,4 +2216,138 @@ html.light-mode .backup-warning-banner,
     cursor: pointer;
     transition: all 0.2s;
     font-weight: 500;
+}
+
+.cc-preview-body {
+    white-space: normal;
+    line-height: 1.7;
+}
+
+.cc-preview-body .compendium-rendered p {
+    margin: 0 0 0.75em 0;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.cc-preview-body .compendium-rendered p:last-child {
+    margin-bottom: 0;
+}
+
+.cc-preview-body .compendium-rendered h1,
+.cc-preview-body .compendium-rendered h2,
+.cc-preview-body .compendium-rendered h3 {
+    margin: 1em 0 0.5em 0;
+    line-height: 1.3;
+    color: var(--accent);
+}
+
+.cc-preview-body .compendium-rendered h1:first-child,
+.cc-preview-body .compendium-rendered h2:first-child,
+.cc-preview-body .compendium-rendered h3:first-child {
+    margin-top: 0;
+}
+
+.cc-preview-body .compendium-rendered h1 { font-size: 1.5em; }
+.cc-preview-body .compendium-rendered h2 { font-size: 1.3em; }
+.cc-preview-body .compendium-rendered h3 { font-size: 1.1em; }
+
+.cc-preview-body .compendium-rendered strong { font-weight: 700; }
+.cc-preview-body .compendium-rendered em { font-style: italic; }
+.cc-preview-body .compendium-rendered del { text-decoration: line-through; opacity: 0.7; }
+
+.cc-preview-body .compendium-rendered blockquote {
+    border-left: 3px solid var(--accent);
+    padding-left: 12px;
+    margin: 0.75em 0;
+    font-style: italic;
+    opacity: 0.9;
+}
+
+.cc-preview-body .compendium-rendered ul,
+.cc-preview-body .compendium-rendered ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+}
+
+.cc-preview-body .compendium-rendered li {
+    margin: 0.25em 0;
+}
+
+.cc-preview-body .compendium-rendered hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1em 0;
+}
+
+.cc-preview-body .compendium-rendered a {
+    color: var(--accent);
+    text-decoration: underline;
+}
+
+.cc-preview-body .compendium-rendered a:hover {
+    opacity: 0.8;
+}
+
+.cc-preview-body .compendium-rendered .md-inline-code {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 0.9em;
+}
+
+.cc-preview-body .compendium-rendered .md-code-block {
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 8px;
+    padding: 12px;
+    margin: 0.75em 0;
+    overflow-x: auto;
+}
+
+.cc-preview-body .compendium-rendered .md-code-block code {
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-size: 0.85em;
+}
+
+/* Sidebar toggle tab */
+.sidebar-toggle-tab {
+    position: fixed;
+    left: 0;
+    top: 50vh;
+    transform: translateY(-50%);
+    z-index: 100;
+    width: 28px;
+    height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(30, 30, 30, 0.85);
+    border: 1px solid var(--border);
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-size: 14px;
+    transition: background 0.2s ease, color 0.2s ease;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    user-select: none;
+}
+
+.sidebar-toggle-tab:hover {
+    background: rgba(58, 58, 58, 0.95);
+    color: var(--accent);
+}
+
+html.light-mode .sidebar-toggle-tab,
+.light-mode .sidebar-toggle-tab {
+    background: rgba(240, 240, 240, 0.9);
+    border-color: var(--border);
+    color: var(--text-secondary);
+}
+
+html.light-mode .sidebar-toggle-tab:hover,
+.light-mode .sidebar-toggle-tab:hover {
+    background: rgba(220, 220, 220, 0.95);
+    color: var(--accent);
 }

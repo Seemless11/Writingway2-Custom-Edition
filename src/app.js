@@ -308,8 +308,11 @@ document.addEventListener('alpine:init', () => {
                 // Add listeners for selection changes in textarea
                 document.addEventListener('mouseup', handleTextareaSelection);
                 document.addEventListener('keyup', handleTextareaSelection);
-                // Mount the beat splitter which allows resizing the beat textarea
-                try { this.mountBeatSplitter(); } catch (err) { /* ignore */ }
+                // Restore legacy beat panel preference
+                try {
+                    const saved = localStorage.getItem('ww2_showMiniBeatInput');
+                    if (saved !== null) this.showMiniBeatInput = saved === 'true';
+                } catch (err) { /* ignore */ }
 
                 // Add global enforcement of LTR direction on editor
                 document.addEventListener('DOMNodeInserted', () => {
@@ -600,92 +603,33 @@ document.addEventListener('alpine:init', () => {
                 document.body.classList.toggle('light-mode', this.lightMode);
             },
 
-            // Wire up the draggable beat splitter. Runs after Alpine has mounted.
-            mountBeatSplitter() {
-                const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-
-                const wireSplitter = () => {
-                    const separator = document.querySelector('.beat-separator');
-                    const beat = document.querySelector('.beat-input');
-                    if (!separator || !beat) return false;
-
-                    // Try restore saved height
-                    try {
-                        const raw = localStorage.getItem('ww2_beatHeight');
-                        if (raw) {
-                            const parsed = parseInt(raw, 10);
-                            if (!isNaN(parsed)) {
-                                const style = window.getComputedStyle(beat);
-                                const minH = parseInt(style.minHeight) || 40;
-                                const maxH = parseInt(style.maxHeight) || 1000;
-                                const restored = clamp(parsed, minH, maxH);
-                                beat.style.height = restored + 'px';
-                            }
-                        }
-                    } catch (err) { /* ignore storage errors */ }
-
-                    let dragging = false;
-                    let startY = 0;
-                    let startHeight = 0;
-
-                    const mouseMove = (e) => {
-                        if (!dragging) return;
-                        const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
-                        const delta = startY - clientY;
-                        let newH = startHeight + delta;
-                        const style = window.getComputedStyle(beat);
-                        const minH = parseInt(style.minHeight) || 40;
-                        const maxH = parseInt(style.maxHeight) || 1000;
-                        newH = clamp(newH, minH, maxH);
-                        beat.style.height = newH + 'px';
-                        beat.dataset._lastHeight = String(newH);
-                        e.preventDefault();
-                    };
-
-                    const stop = () => {
-                        if (!dragging) return;
-                        dragging = false;
-                        document.removeEventListener('mousemove', mouseMove);
-                        document.removeEventListener('touchmove', mouseMove);
-                        document.removeEventListener('mouseup', stop);
-                        document.removeEventListener('touchend', stop);
-                        document.body.style.userSelect = '';
-                        try {
-                            const finalH = parseInt(beat.dataset._lastHeight || beat.clientHeight || 0, 10);
-                            if (!isNaN(finalH) && finalH > 0) {
-                                localStorage.setItem('ww2_beatHeight', String(finalH));
-                            }
-                        } catch (err) { /* ignore storage errors */ }
-                    };
-
-                    const start = (e) => {
-                        dragging = true;
-                        startY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
-                        startHeight = beat.clientHeight;
-                        document.addEventListener('mousemove', mouseMove, { passive: false });
-                        document.addEventListener('touchmove', mouseMove, { passive: false });
-                        document.addEventListener('mouseup', stop);
-                        document.addEventListener('touchend', stop);
-                        document.body.style.userSelect = 'none';
-                        e.preventDefault();
-                    };
-
-                    separator.addEventListener('mousedown', start);
-                    separator.addEventListener('touchstart', start, { passive: false });
-                    return true;
-                };
-
-                const tryWire = () => {
-                    if (wireSplitter()) return;
-                    const t = setInterval(() => {
-                        if (wireSplitter()) clearInterval(t);
-                    }, 150);
-                };
-
-                tryWire();
+            // Get the active beat text: from beatInput in legacy mode, or scan content for last ## line
+            getCurrentBeat() {
+                if (this.showMiniBeatInput) {
+                    return this.beatInput || '';
+                }
+                // In default mode, scan content backwards for last ##  line
+                const content = (this.currentScene && this.currentScene.content) || '';
+                const lines = content.split('\n');
+                for (let i = lines.length - 1; i >= 0; i--) {
+                    const trimmed = lines[i].trim();
+                    if (trimmed.startsWith('## ')) {
+                        return trimmed.slice(3).trim();
+                    }
+                }
+                return '';
             },
 
+            // Toggle between floating bar mode and legacy beat panel
+            toggleBeatMode() {
+                this.showMiniBeatInput = !this.showMiniBeatInput;
+                try { localStorage.setItem('ww2_showMiniBeatInput', String(this.showMiniBeatInput)); } catch (err) { /* ignore */ }
+            },
 
+            // Toggle sidebar collapse
+            toggleSidebar() {
+                this.sidebarCollapsed = !this.sidebarCollapsed;
+            },
 
             async loadLastProject() {
                 await window.ProjectManager.loadLastProject(this);
@@ -749,7 +693,7 @@ document.addEventListener('alpine:init', () => {
                             // Build proper messages array with system instruction and user content
                             const messages = [
                                 { role: 'system', content: promptText },
-                                { role: 'user', content: `Please summarize the following scene text:\n\n${text}` }
+                                { role: 'user', content: `Analyze the following scene text in depth. Focus on character motivations, emotional arcs, and narrative significance — not just a recap of events:\n\n${text}` }
                             ];
 
                             // Debug logging to verify which prompt is being used
@@ -772,7 +716,30 @@ document.addEventListener('alpine:init', () => {
                         }
                     }
 
-                    // Fallback: Simple heuristic: take first 2 sentences or first 200 chars
+                    // Fallback: use a hardcoded summary prompt if AI is available
+                    if (window.Generation && this.aiStatus === 'ready') {
+                        try {
+                            this.summaryText = 'Generating summary...';
+                            const hardcodedPrompt = 'You are a literary analysis assistant. Analyze the text below in depth — explore character motivations, emotional undercurrents, thematic significance, and narrative craft. Explain why moments matter, what they reveal, and how they serve the larger story. Do not simply recount events. Write as much as needed for a thorough analysis.';
+                            const messages = [
+                                { role: 'system', content: hardcodedPrompt },
+                                { role: 'user', content: `Analyze the following scene text in depth. Focus on character motivations, emotional arcs, and narrative significance — not just a recap of events:\n\n${text}` }
+                            ];
+                            let result = '';
+                            await window.Generation.streamGeneration(messages, (token) => {
+                                if (result === '' && this.summaryText === 'Generating summary...') {
+                                    this.summaryText = '';
+                                }
+                                result += token;
+                                this.summaryText = result;
+                            }, this);
+                            return;
+                        } catch (aiError) {
+                            console.warn('AI summary fallback also failed:', aiError);
+                        }
+                    }
+
+                    // Last resort: Simple heuristic - take first 2 sentences or first 200 chars
                     const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
                     let summary = '';
                     if (sentences.length >= 2) {
@@ -781,7 +748,6 @@ document.addEventListener('alpine:init', () => {
                         summary = text.replace(/\s+/g, ' ').trim().slice(0, 200);
                         if (text.length > 200) summary += '…';
                     }
-
                     this.summaryText = summary;
                 } catch (e) {
                     console.error('summarizeScene error', e);
@@ -903,7 +869,7 @@ document.addEventListener('alpine:init', () => {
                             // Build proper messages array with system instruction and user content
                             const messages = [
                                 { role: 'system', content: promptText },
-                                { role: 'user', content: `Please create a cohesive chapter summary from these scene summaries:\n\n${sceneSummaries}` }
+                                { role: 'user', content: `Synthesize these scene summaries into a cohesive chapter analysis. Identify overarching character arcs, thematic threads, and narrative momentum that connect the scenes — not just a sequence of events:\n\n${sceneSummaries}` }
                             ];
 
                             console.log('🎯 Summarizing chapter with prompt:', usePrompt.title);
@@ -925,7 +891,30 @@ document.addEventListener('alpine:init', () => {
                         }
                     }
 
-                    // Fallback: Simple concatenation of scene summaries
+                    // Fallback: use a hardcoded summary prompt if AI is available
+                    if (window.Generation && this.aiStatus === 'ready') {
+                        try {
+                            this.summaryText = 'Generating chapter summary...';
+                            const hardcodedPrompt = 'You are a literary analysis assistant. Analyze the text below in depth — explore character motivations, emotional undercurrents, thematic significance, and narrative craft. Explain why moments matter, what they reveal, and how they serve the larger story. Do not simply recount events. Write as much as needed for a thorough analysis.';
+                            const messages = [
+                                { role: 'system', content: hardcodedPrompt },
+                                { role: 'user', content: `Synthesize these scene summaries into a cohesive chapter analysis. Identify overarching character arcs, thematic threads, and narrative momentum that connect the scenes — not just a sequence of events:\n\n${sceneSummaries}` }
+                            ];
+                            let result = '';
+                            await window.Generation.streamGeneration(messages, (token) => {
+                                if (result === '' && this.summaryText === 'Generating chapter summary...') {
+                                    this.summaryText = '';
+                                }
+                                result += token;
+                                this.summaryText = result;
+                            }, this);
+                            return;
+                        } catch (aiError) {
+                            console.warn('AI chapter summary fallback also failed:', aiError);
+                        }
+                    }
+
+                    // Last resort: concatenation of scene summaries
                     this.summaryText = sceneSummaries;
                 } catch (e) {
                     console.error('summarizeChapter error', e);
@@ -1395,6 +1384,290 @@ document.addEventListener('alpine:init', () => {
             async createCompendiumEntry(category) {
                 await window.CompendiumManager.createCompendiumEntry(this, category);
             },
+            async importCharacterCard() {
+                await window.CompendiumManager.importCharacterCard(this);
+            },
+
+            // ========== Character Creator Methods ==========
+            getFilteredCharCreatorCategories() {
+                const v = this.charCreatorTraitVersion;
+                return window.CharacterCreator.getFilteredCategories(this.charCreatorGenre);
+            },
+            openCharacterCreator() {
+                this.charCreatorGenre = 'fantasy';
+                this.charCreatorName = '';
+                this.charCreatorNotes = '';
+                this.charCreatorInput = '';
+                this.charCreatorGenerating = false;
+                this.openCharCreatorCategories = [];
+                this.charCreatorSelectedTraits = {};
+                this.charCreatorChatHistory = [];
+                this.charCreatorEditingEntryId = null;
+                this.showCharacterCreator = true;
+                this.openAllCharacterCreatorCategories();
+            },
+            closeCharacterCreator() {
+                this.showCharacterCreator = false;
+            },
+            editCharacterInCreator(compEntry) {
+                if (!compEntry || !compEntry._charData) return;
+                try {
+                    const data = typeof compEntry._charData === 'string'
+                        ? JSON.parse(compEntry._charData)
+                        : compEntry._charData;
+                    if (data.genre && typeof data.genre === 'string' && data.genre.length > 0) {
+                        this.charCreatorGenre = data.genre;
+                    }
+                    this.charCreatorName = data.name || compEntry.title || '';
+                    this.charCreatorNotes = data.notes || '';
+                    this.charCreatorSelectedTraits = data.selectedTraits || {};
+                    this.charCreatorEditingEntryId = compEntry.id || null;
+                    this.charCreatorChatHistory = data.chatHistory || [];
+                    this.charCreatorInput = '';
+                    this.charCreatorGenerating = false;
+                    this.openCharCreatorCategories = window.CharacterCreator.getFilteredCategories(this.charCreatorGenre).map(c => c.id);
+                    this.charCreatorTraitVersion++;
+                    this.showCharacterCreator = true;
+                } catch (e) {
+                    alert('Failed to load character data: ' + e.message);
+                }
+            },
+            openAllCharacterCreatorCategories() {
+                const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenre);
+                this.openCharCreatorCategories = cats.map(c => c.id);
+            },
+            setCharCreatorGenre(genreId) {
+                if (genreId === this.charCreatorGenre) return;
+                this.charCreatorGenre = genreId;
+                this.charCreatorSelectedTraits = {};
+                const cats = window.CharacterCreator.getFilteredCategories(genreId);
+                this.openCharCreatorCategories = cats.map(c => c.id);
+            },
+            toggleCharCreatorCategory(id) {
+                const idx = this.openCharCreatorCategories.indexOf(id);
+                if (idx === -1) {
+                    this.openCharCreatorCategories.push(id);
+                } else {
+                    this.openCharCreatorCategories.splice(idx, 1);
+                }
+            },
+            toggleCharCreatorTrait(catId, traitId) {
+                if (!this.charCreatorSelectedTraits[catId]) {
+                    this.charCreatorSelectedTraits[catId] = [];
+                }
+                const arr = this.charCreatorSelectedTraits[catId];
+                const idx = arr.indexOf(traitId);
+                if (idx === -1) {
+                    arr.push(traitId);
+                } else {
+                    arr.splice(idx, 1);
+                }
+                this.charCreatorSelectedTraits = Object.assign({}, this.charCreatorSelectedTraits);
+            },
+            randomizeCharCreator() {
+                this.charCreatorSelectedTraits = window.CharacterCreator.randomTraitsForGenre(this.charCreatorGenre);
+            },
+            clearCharCreatorTraits() {
+                this.charCreatorSelectedTraits = {};
+            },
+            openAddTraitForm(catId, groupLabel) {
+                this.charCreatorAddTraitForm = { catId, groupLabel };
+                this.charCreatorAddTraitName = '';
+                this.charCreatorAddTraitHint = '';
+            },
+            closeAddTraitForm() {
+                this.charCreatorAddTraitForm = null;
+                this.charCreatorAddTraitName = '';
+                this.charCreatorAddTraitHint = '';
+            },
+            submitAddTraitForm() {
+                const name = (this.charCreatorAddTraitName || '').trim();
+                if (!name) return;
+                const hint = (this.charCreatorAddTraitHint || '').trim();
+                const form = this.charCreatorAddTraitForm;
+                if (!form) return;
+                const traitId = window.CharacterCreator.addUserTrait(form.catId, form.groupLabel, name, hint);
+                this.closeAddTraitForm();
+                this.charCreatorTraitVersion++;
+            },
+            removeCustomTrait(catId, groupLabel, traitId) {
+                window.CharacterCreator.removeUserTrait(catId, groupLabel, traitId);
+                const selected = this.charCreatorSelectedTraits[catId];
+                if (selected) {
+                    const idx = selected.indexOf(traitId);
+                    if (idx !== -1) {
+                        selected.splice(idx, 1);
+                        this.charCreatorSelectedTraits = Object.assign({}, this.charCreatorSelectedTraits);
+                    }
+                }
+                this.charCreatorTraitVersion++;
+            },
+            async sendCharCreatorMessage() {
+                const msg = (this.charCreatorInput || '').trim();
+                if (!msg || this.charCreatorGenerating) return;
+                this.charCreatorGenerating = true;
+                this.charCreatorInput = '';
+
+                this.charCreatorChatHistory.push({ role: 'user', content: msg, timestamp: new Date().toISOString() });
+                const assistantIdx = this.charCreatorChatHistory.length;
+                this.charCreatorChatHistory.push({ role: 'assistant', content: '', timestamp: new Date().toISOString() });
+                this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
+
+                try {
+                    const promptMessages = [];
+                    promptMessages.push({ role: 'system', content: window.CharacterCreator.CHARACTER_SYSTEM_PROMPT });
+
+                    const traitParts = [];
+                    for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
+                        const ids = this.charCreatorSelectedTraits[cat.id] || [];
+                        if (ids.length === 0) continue;
+                        const labels = [];
+                        for (const g of cat.groups) {
+                            for (const t of g.traits) {
+                                if (ids.includes(t.id)) {
+                                    labels.push(g.label + ': ' + t.label);
+                                }
+                            }
+                        }
+                        if (labels.length > 0) {
+                            traitParts.push('  - ' + cat.label + ': ' + labels.join(', '));
+                        }
+                    }
+                    if (traitParts.length > 0) {
+                        promptMessages.push({ role: 'system', content: 'The character has the following selected traits:\n' + traitParts.join('\n') });
+                    }
+                    if (this.charCreatorName) {
+                        promptMessages.push({ role: 'system', content: 'The character\'s name is "' + this.charCreatorName + '".' });
+                    }
+                    if (this.charCreatorNotes) {
+                        promptMessages.push({ role: 'system', content: 'Additional notes about the character:\n' + this.charCreatorNotes });
+                    }
+
+                    const genreObj = (window.CharacterCreator.GENRES || []).find(g => g.id === this.charCreatorGenre);
+                    if (genreObj) {
+                        const genreDesc = window.GenreDefs ? window.GenreDefs.getCharDescription(genreObj.id) : '';
+                        promptMessages.push({ role: 'system', content: 'The story genre is ' + genreObj.label + '. ' + (genreDesc || 'Tailor descriptions to fit this genre.') });
+                    }
+
+                    const recentHistory = this.charCreatorChatHistory.slice(0, -1);
+                    for (const m of recentHistory) {
+                        promptMessages.push({ role: m.role, content: m.content });
+                    }
+
+                    let fullResponse = '';
+                    await window.Generation.streamGeneration(promptMessages, (token) => {
+                        fullResponse += token;
+                        this.charCreatorChatHistory[assistantIdx].content = fullResponse;
+                        this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
+                    }, this);
+                } catch (err) {
+                    this.charCreatorChatHistory[assistantIdx].content = 'Error: ' + (err.message || err);
+                    this.charCreatorChatHistory[assistantIdx].isError = true;
+                    this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
+                } finally {
+                    this.charCreatorGenerating = false;
+                    this.$nextTick(() => {
+                        const chat = document.getElementById('charCreatorChat');
+                        if (chat) chat.scrollTop = chat.scrollHeight;
+                    });
+                }
+            },
+            sendCharCreatorInstruction(tpl) {
+                if (tpl.id === 'custom') return;
+                if (this.charCreatorGenerating) return;
+                const genreObj = (window.GenreDefs?.GENRES || []).find(g => g.id === this.charCreatorGenre);
+                const genreSuffix = genreObj ? ' (This character is from a ' + genreObj.label + ' world.)' : '';
+                let fullMsg = tpl.message + genreSuffix;
+                if (tpl.relevantCategories && tpl.relevantCategories.length > 0) {
+                    const traitParts = [];
+                    for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
+                        if (!tpl.relevantCategories.includes(cat.id)) continue;
+                        const ids = this.charCreatorSelectedTraits[cat.id] || [];
+                        if (ids.length === 0) continue;
+                        const labels = [];
+                        for (const g of cat.groups) {
+                            for (const t of g.traits) {
+                                if (ids.includes(t.id)) {
+                                    labels.push(t.label);
+                                }
+                            }
+                        }
+                        if (labels.length > 0) {
+                            traitParts.push(cat.label + ': ' + labels.join(', '));
+                        }
+                    }
+                    if (traitParts.length > 0) {
+                        fullMsg += '\n\nRelevant traits to weave in: ' + traitParts.join(' | ');
+                    }
+                }
+                this.charCreatorInput = fullMsg;
+                this.sendCharCreatorMessage();
+            },
+            previewCharCreatorEntry() {
+                const entry = window.CharacterCreator.buildCompendiumEntry(
+                    this.charCreatorName,
+                    this.charCreatorNotes,
+                    this.charCreatorGenre,
+                    this.charCreatorSelectedTraits,
+                    this.charCreatorChatHistory
+                );
+                this.charCreatorPreviewHtml = this.markdownToHtml(entry.body || '(empty)');
+                this.showCharCreatorPreview = true;
+            },
+            async adoptCharCreatorEntry() {
+                if (!this.currentProject) {
+                    alert('Please open a project first.');
+                    return;
+                }
+                const entry = window.CharacterCreator.buildCompendiumEntry(
+                    this.charCreatorName,
+                    this.charCreatorNotes,
+                    this.charCreatorGenre,
+                    this.charCreatorSelectedTraits,
+                    this.charCreatorChatHistory
+                );
+                if (!entry.title.trim()) {
+                    alert('Please give the character a name.');
+                    return;
+                }
+                try {
+                    if (this.charCreatorEditingEntryId) {
+                        const editingId = this.charCreatorEditingEntryId;
+                        await window.Compendium.updateEntry(editingId, {
+                            title: entry.title,
+                            body: entry.body,
+                            _charData: entry._charData
+                        });
+                        this.charCreatorEditingEntryId = null;
+                        if (window.CompendiumManager) {
+                            await window.CompendiumManager.refreshCategoryList(this, 'characters');
+                            await window.CompendiumManager.loadCompendiumCounts(this);
+                            await window.CompendiumManager._doSelectCompendiumEntry(this, editingId);
+                        }
+                        this.showCharacterCreator = false;
+                        this.showCodexPanel = true;
+                        alert('Character "' + entry.title + '" updated!');
+                    } else {
+                        const saved = await window.Compendium.import(this.currentProject.id, [entry]);
+                        if (!this.openCompCategories.includes('characters')) {
+                            this.openCompCategories.push('characters');
+                        }
+                        if (window.CompendiumManager) {
+                            await window.CompendiumManager.refreshCategoryList(this, 'characters');
+                            await window.CompendiumManager.loadCompendiumCounts(this);
+                            if (saved && saved.length > 0) {
+                                await window.CompendiumManager._doSelectCompendiumEntry(this, saved[0].id);
+                            }
+                        }
+                        this.showCharacterCreator = false;
+                        this.showCodexPanel = true;
+                        alert('Character "' + entry.title + '" adopted into Compendium!');
+                    }
+                } catch (err) {
+                    alert('Failed to save character: ' + err.message);
+                    console.error('Character creator adopt error:', err);
+                }
+            },
             async selectCompendiumEntry(id) {
                 await window.CompendiumManager.selectCompendiumEntry(this, id);
             },
@@ -1440,6 +1713,25 @@ document.addEventListener('alpine:init', () => {
             },
             updateCompendiumDirtyFlag() {
                 window.CompendiumManager.updateCompendiumDirtyFlag(this);
+            },
+            // Compendium AI generation methods
+            async generateCompendiumEntry() {
+                await window.CompendiumManager.generateCompendiumEntry(this);
+            },
+            acceptCompendiumGen() {
+                window.CompendiumManager.acceptCompendiumGen(this);
+            },
+            retryCompendiumGen() {
+                window.CompendiumManager.retryCompendiumGen(this);
+            },
+            discardCompendiumGen() {
+                window.CompendiumManager.discardCompendiumGen(this);
+            },
+            stopCompendiumGeneration() {
+                window.CompendiumManager.stopCompendiumGeneration(this);
+            },
+            stopBeatGeneration() {
+                window.Generation.stopBeatGeneration(this);
             },
 
             // Workshop Chat methods (delegated to src/modules/workshop.js)
@@ -1519,6 +1811,12 @@ document.addEventListener('alpine:init', () => {
             async importPrompts(fileInput) {
                 if (window.Prompts && typeof window.Prompts.importPrompts === 'function') {
                     await window.Prompts.importPrompts(this, fileInput);
+                }
+            },
+
+            async toggleGlobal(id) {
+                if (window.Prompts && typeof window.Prompts.toggleGlobal === 'function') {
+                    await window.Prompts.toggleGlobal(this, id);
                 }
             },
 
@@ -1902,8 +2200,9 @@ document.addEventListener('alpine:init', () => {
             // Temporary: build and show the exact prompt that will be sent to the LLM.
             // This honors POV, tense, selected prose prompt, and includes scene context.
             async previewPrompt() {
-                if (!this.beatInput) {
-                    alert('No beat provided to preview.');
+                const beatText = this.getCurrentBeat();
+                if (!beatText) {
+                    alert('No beat provided to preview. Type ## your beat or switch to legacy mode.');
                     return;
                 }
 
@@ -1919,8 +2218,8 @@ document.addEventListener('alpine:init', () => {
                     // Resolve compendium entries and scene summaries from beat mentions
                     let beatCompEntries = [];
                     let beatSceneSummaries = [];
-                    try { beatCompEntries = await this.resolveCompendiumEntriesFromBeat(this.beatInput || ''); } catch (e) { beatCompEntries = []; }
-                    try { beatSceneSummaries = await this.resolveSceneSummariesFromBeat(this.beatInput || ''); } catch (e) { beatSceneSummaries = []; }
+                    try { beatCompEntries = await this.resolveCompendiumEntriesFromBeat(beatText); } catch (e) { beatCompEntries = []; }
+                    try { beatSceneSummaries = await this.resolveSceneSummariesFromBeat(beatText); } catch (e) { beatSceneSummaries = []; }
 
                     // Merge context
                     const compMap = new Map();
@@ -1937,14 +2236,14 @@ document.addEventListener('alpine:init', () => {
                     if (window.Generation && typeof window.Generation.buildPrompt === 'function') {
                         // DEBUG: log resolved prose info and options
                         try { console.debug('[preview] proseInfo=', proseInfo); } catch (e) { }
-                        const optsPreview = { povCharacter: this.povCharacter, pov: this.pov, tense: this.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, preview: true };
+                        const optsPreview = { povCharacter: this.povCharacter, pov: this.pov, tense: this.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: this.maxTokens, preview: true };
                         try { console.debug('[preview] buildPrompt opts:', { proseType: typeof optsPreview.prosePrompt, len: optsPreview.prosePrompt ? optsPreview.prosePrompt.length : 0 }); } catch (e) { }
                         try { console.debug('[preview] prosePrompt raw:', JSON.stringify(optsPreview.prosePrompt)); } catch (e) { }
-                        prompt = window.Generation.buildPrompt(this.beatInput, this.currentScene?.content || '', optsPreview);
+                        prompt = window.Generation.buildPrompt(beatText, this.currentScene?.content || '', optsPreview);
                         try { console.debug('[preview] builtPrompt preview:', String(prompt).slice(0, 600).replace(/\n/g, '\\n')); } catch (e) { }
                     } else {
                         // Fallback textual representation if generation module isn't loaded
-                        prompt = `=== PREVIEW PROMPT ===\nBEAT:\n${this.beatInput}\n\nPOV CHARACTER: ${this.povCharacter || ''}\nPOV: ${this.pov}\nTENSE: ${this.tense}\n\n---\n(Scene content below)\n${this.currentScene?.content || ''}\n\n---\n(System prompt)\n${systemPromptText || '(default)'}\n\n---\n(User prompt)\n${prosePromptText || '(none)'}\n`;
+                        prompt = `=== PREVIEW PROMPT ===\nBEAT:\n${beatText}\n\nPOV CHARACTER: ${this.povCharacter || ''}\nPOV: ${this.pov}\nTENSE: ${this.tense}\n\n---\n(Scene content below)\n${this.currentScene?.content || ''}\n\n---\n(System prompt)\n${systemPromptText || '(default)'}\n\n---\n(User prompt)\n${prosePromptText || '(none)'}\n`;
                     }
 
                     // Create a simple overlay showing the prompt in a read-only textarea so the user can inspect/copy it.
@@ -2180,7 +2479,13 @@ document.addEventListener('alpine:init', () => {
 
                 // restore beat and re-run
                 if (this.lastBeat) {
-                    this.beatInput = this.lastBeat;
+                    if (this.showMiniBeatInput) {
+                        this.beatInput = this.lastBeat;
+                    } else {
+                        // In default mode, re-insert the ## beat line
+                        const c = this.currentScene.content || '';
+                        this.currentScene.content = c + (c ? '\n' : '') + '## ' + this.lastBeat;
+                    }
                     await this.generateFromBeat();
                 }
             },
@@ -2197,7 +2502,7 @@ document.addEventListener('alpine:init', () => {
                 this.lastGenStart = null;
                 this.lastGenText = '';
                 this.lastBeat = '';
-                this.beatInput = '';
+                if (this.showMiniBeatInput) this.beatInput = '';
                 await this.saveScene();
             },
 
