@@ -1,3 +1,22 @@
+<img src="https://github.com/user-attachments/assets/c24e4576-cd30-427b-bb49-2f22ae2a6965" width="700" alt="1" />
+
+<img src="https://github.com/user-attachments/assets/8e670308-4ce0-474d-9527-fc7116f9adb0" width="700" alt="2" />
+
+<img src="https://github.com/user-attachments/assets/c0d625be-87a0-434c-840d-19c5bffc2179" width="700" alt="3" />
+
+<img width="700" alt="new writing ui" src="https://github.com/user-attachments/assets/0c481c3f-51d3-4b01-bafa-4a7798418d3f" />
+<img width="700" alt="new project" src="https://github.com/user-attachments/assets/43dc05c8-6137-457f-819d-e613c483ed0f" />
+
+<img width="700" alt="NEW INPUT" src="https://github.com/user-attachments/assets/06772e74-a187-4eec-8b1d-ebfb1d77e388" />
+<img width="700" alt="compengen" src="https://github.com/user-attachments/assets/8d87c3ba-72ac-4b0f-9a70-868ee000732d" />
+<img width="700" alt="compendium1" src="https://github.com/user-attachments/assets/d0d9f71e-bf95-4090-824b-4963ccc5a703" />
+<img width="700" alt="cc2" src="https://github.com/user-attachments/assets/2791e212-0fff-439e-92c8-4d939aec873d" />
+<img width="700" alt="cc" src="https://github.com/user-attachments/assets/988003fa-ba38-4bfc-94fd-c1e1dd705c7c" />
+<img width="700" alt="cardimport2" src="https://github.com/user-attachments/assets/7f631bf0-dba1-48c1-9b8b-1b2ad00958ee" />
+<img width="700" alt="cardimport" src="https://github.com/user-attachments/assets/0c8d81cc-bd4b-424d-aeb2-97a8bf66fea9" />
+
+
+
 <p align="center">
   <img src="logo.png" width="420" alt="Writingway logo"/>
 </p>
