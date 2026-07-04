@@ -679,6 +679,10 @@
                 app.currentScene.content = sceneContent;
             }
 
+            // Ensure generated text starts on a new line
+            if (app.currentScene && app.currentScene.content && !app.currentScene.content.endsWith('\n')) {
+                app.currentScene.content += '\n';
+            }
             // remember where generated text will start
             const prevLen = app.currentScene ? (app.currentScene.content ? app.currentScene.content.length : 0) : 0;
             app.lastGenStart = prevLen;
@@ -690,24 +694,24 @@
             await streamGeneration(prompt, (token) => {
                 app.currentScene.content += token;
                 app.lastGenText += token;
+                app.$nextTick(() => {
+                    const ta = document.querySelector('.editor-textarea');
+                    if (ta) ta.scrollTop = ta.scrollHeight;
+                });
             }, app, app.beatAbortController.signal);
             // Generation complete — expose accept/retry/discard actions
             app.showGenActions = true;
             app.showGeneratedHighlight = true;
-            // Select the newly generated text in the textarea
+            // Place cursor at end and scroll to bottom
             app.$nextTick(() => {
                 try {
                     const ta = document.querySelector('.editor-textarea');
                     if (ta) {
                         ta.focus();
-                        // set selection to the generated region
-                        const start = app.lastGenStart || 0;
-                        const end = (app.currentScene && app.currentScene.content) ? app.currentScene.content.length : start;
-                        ta.selectionStart = start;
+                        const end = (app.currentScene && app.currentScene.content) ? app.currentScene.content.length : 0;
+                        ta.selectionStart = end;
                         ta.selectionEnd = end;
-                        // scroll selection into view
-                        const lineHeight = parseInt(window.getComputedStyle(ta).lineHeight) || 20;
-                        ta.scrollTop = Math.max(0, Math.floor(start / 80) * lineHeight);
+                        ta.scrollTop = ta.scrollHeight;
                     }
                 } catch (e) { }
                 // Auto-hide highlight after 5 seconds
