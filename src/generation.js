@@ -690,16 +690,23 @@
             app.showGenActions = false;
             // Create abort controller for this generation
             app.beatAbortController = new AbortController();
+            // Set up scroll follow during streaming
+            app._genFollow = true;
+            const ta = document.querySelector('.editor-textarea');
+            if (ta) {
+                const onScroll = () => {
+                    app._genFollow = ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 20;
+                };
+                ta.addEventListener('scroll', onScroll);
+                app._genScrollCleanup = () => ta.removeEventListener('scroll', onScroll);
+            }
             // Stream tokens and append into the current scene
             await streamGeneration(prompt, (token) => {
                 app.currentScene.content += token;
                 app.lastGenText += token;
                 app.$nextTick(() => {
                     const ta = document.querySelector('.editor-textarea');
-                    if (ta) {
-                        const isAtBottom = ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 20;
-                        if (isAtBottom) ta.scrollTop = ta.scrollHeight;
-                    }
+                    if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
                 });
             }, app, app.beatAbortController.signal);
             // Generation complete — expose accept/retry/discard actions
@@ -735,6 +742,10 @@
                 alert('Failed to generate text. Make sure llama-server is running.\n\nError: ' + (error && error.message ? error.message : error));
             }
         } finally {
+            if (app._genScrollCleanup) {
+                app._genScrollCleanup();
+                app._genScrollCleanup = null;
+            }
             app.beatAbortController = null;
             app.isGenerating = false;
         }

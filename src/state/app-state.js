@@ -45,6 +45,9 @@ function createAppState() {
         showProjectsView: false,
         currentProjectCarouselIndex: 0,
 
+        // ========== Project Loading ==========
+        projectLoading: false,
+
         // ========== Writingway 1 Import ==========
         showW1ImportModal: false,
         w1ImportInProgress: false,

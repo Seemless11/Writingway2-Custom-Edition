@@ -156,22 +156,26 @@
          * @param {string} projectId - ID of project to select
          */
         async selectProject(app, projectId) {
+            app.projectLoading = true;
             const proj = await db.projects.get(projectId);
-            if (!proj) return;
+            if (!proj) { app.projectLoading = false; return; }
             app.currentProject = proj;
             app.selectedProjectId = proj.id;
-            // persist last opened project
             try { localStorage.setItem('writingway:lastProject', proj.id); } catch (e) { }
-            await app.loadChapters();
-            await app.loadPrompts();
-            // restore prose prompt selection for this project
+
+            // Load critical data in parallel (scenes/chapters, prompts, workshop sessions)
+            await Promise.all([
+                app.loadChapters(),
+                app.loadPrompts(),
+                app.loadWorkshopSessions(),
+            ]);
+
+            // Load prose prompt selection (quick localStorage + DB lookup)
             try { await this.loadSelectedProsePrompt(app); } catch (e) { /* ignore */ }
-            // Load workshop sessions for this project
-            try { await app.loadWorkshopSessions(); } catch (e) { console.error('Failed to load workshop sessions:', e); }
-            // Load selected workshop prompt
-            try { await app.loadSelectedWorkshopPrompt(); } catch (e) { /* ignore */ }
-            // Load context panel settings for this project
+            // Load context panel (localStorage, synchronous, fast)
             try { app.loadContextPanel(); } catch (e) { console.error('Failed to load context panel:', e); }
+
+            // Show the last active scene
             if (app.scenes.length > 0) {
                 const lastSceneId = localStorage.getItem('writingway:lastScene:' + projectId);
                 const targetScene = lastSceneId && app.scenes.find(s => s.id === lastSceneId);
@@ -179,6 +183,12 @@
             } else {
                 app.currentScene = null;
             }
+            app.projectLoading = false;
+
+            // Defer non-critical loads (workshop prompt selection)
+            setTimeout(async () => {
+                try { await app.loadSelectedWorkshopPrompt(); } catch (e) { /* ignore */ }
+            }, 0);
         },
 
         /**

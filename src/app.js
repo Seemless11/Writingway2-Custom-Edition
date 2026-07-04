@@ -132,11 +132,14 @@ document.addEventListener('alpine:init', () => {
                     await this.loadProjects();
                     // One-time migration: ensure scenes have a projectId so they are discoverable
                     try { await this.migrateMissingSceneProjectIds(); } catch (e) { /* ignore */ }
-                    // Show projects landing page
-                    this.showProjectsView = true;
+                    // Show inline project picker in main view
+                    // (projects are available in this.projects, rendered inline)
                 } catch (e) {
                     console.error('Failed to load projects:', e);
                 }
+
+                // Show the app UI immediately — AI init continues in the background
+                this.hideLoadingScreen();
 
                 this.updateLoadingScreen(30, 'Checking local AI...', 'Looking for GGUF models and llama.cpp...');
                 await this.fetchRuntimeInfo();
@@ -214,23 +217,7 @@ document.addEventListener('alpine:init', () => {
                         e.stopPropagation();
                     }
 
-                    // Arrow key navigation for project carousel
-                    if (this.showProjectsView && this.projects.length > 1) {
-                        if (e.key === 'ArrowLeft') {
-                            this.currentProjectCarouselIndex = (this.currentProjectCarouselIndex - 1 + this.projects.length) % this.projects.length;
-                            e.preventDefault();
-                        } else if (e.key === 'ArrowRight') {
-                            this.currentProjectCarouselIndex = (this.currentProjectCarouselIndex + 1) % this.projects.length;
-                            e.preventDefault();
-                        } else if (e.key === 'Enter') {
-                            // Open current carousel project
-                            const currentProj = this.projects[this.currentProjectCarouselIndex];
-                            if (currentProj) {
-                                this.openProject(currentProj.id);
-                                e.preventDefault();
-                            }
-                        }
-                    }
+
                 });
 
                 // Track last mouseup target so we can ignore accidental clicks caused by selection mouseup
@@ -342,11 +329,8 @@ document.addEventListener('alpine:init', () => {
                     console.error('Failed to load backup settings:', e);
                 }
 
-                // Final step: hide loading screen
-                this.updateLoadingScreen(100, 'Ready!', 'Welcome to Writingway');
+                // Final step: mark initialization complete
                 setTimeout(() => {
-                    this.hideLoadingScreen();
-                    // Now that initialization is complete, enable watchers
                     this.isInitializing = false;
                 }, 300);
             },
@@ -1123,14 +1107,12 @@ document.addEventListener('alpine:init', () => {
 
             // Open project from carousel (used in landing page)
             async openProject(projectId) {
-                this.showProjectsView = false;
                 await this.selectProject(projectId);
                 localStorage.setItem('writingway:lastProject', projectId);
             },
 
-            // Navigate back to projects carousel
+            // Navigate back to inline project picker
             backToProjects() {
-                this.showProjectsView = true;
                 this.currentProject = null;
                 this.chapters = [];
                 this.scenes = [];
