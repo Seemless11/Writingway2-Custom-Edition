@@ -153,6 +153,11 @@ function createAppState() {
         quickInsertedScenes: [],
         beatSceneMap: {}, // {'Scene 1': 'id456'}
 
+        // ========== Compendium Body Editor Search (@) ==========
+        compBodySearchMatches: [],
+        compBodySearchOpen: false,
+        compBodySearchSelectedIndex: 0,
+
         // ========== Scene Generation Options ==========
         showSceneOptions: false,
         showContextPanel: false,

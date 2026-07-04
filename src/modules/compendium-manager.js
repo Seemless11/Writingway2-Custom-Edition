@@ -660,6 +660,30 @@
                     console.warn('Failed to load alwaysInContext entries:', e);
                 }
 
+                try {
+                    const body = app.compGenPreBody || '';
+                    if (body) {
+                        const refTitles = new Set();
+                        const reMention = /@\[([^\]]+)\]/g;
+                        let m;
+                        while ((m = reMention.exec(body)) !== null) {
+                            refTitles.add(m[1]);
+                        }
+                        if (refTitles.size > 0) {
+                            const existingIds = new Set(context.map(e => e.id));
+                            const pool = await db.compendium.where('projectId').equals(app.currentProject.id).toArray();
+                            for (const entry of pool) {
+                                if (refTitles.has(entry.title) && !existingIds.has(entry.id)) {
+                                    context.push(entry);
+                                }
+                            }
+                            app.compGenPreBody = body.replace(/@\[([^\]]+)\]/g, '$1').trim();
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to resolve @ references in entry body:', e);
+                }
+
                 const prompt = window.Generation.buildCompendiumPrompt(app.currentCompEntry, context, app);
 
                 app.compendiumAbortController = new AbortController();
@@ -750,6 +774,126 @@
             app.compGenPreBody = '';
             this.storeCompendiumOriginal(app);
             this.updateCompendiumDirtyFlag(app);
+        },
+
+        /**
+         * Handle compendium body textarea input to detect @ mentions
+         * @param {Object} app - Alpine app instance
+         * @param {Event} e - Input event
+         */
+        async onCompBodyInput(app, e) {
+            try {
+                const ta = e.target;
+                const pos = ta.selectionStart;
+                const text = ta.value || '';
+
+                const lastAt = text.lastIndexOf('@', pos - 1);
+
+                if (lastAt === -1) {
+                    app.compBodySearchOpen = false;
+                    app.compBodySearchMatches = [];
+                    return;
+                }
+
+                if (lastAt > 0 && !/\s/.test(text.charAt(lastAt - 1))) {
+                    app.compBodySearchOpen = false;
+                    app.compBodySearchMatches = [];
+                    return;
+                }
+
+                const afterAt = text.substring(lastAt, pos);
+                if (afterAt.includes(']')) {
+                    app.compBodySearchOpen = false;
+                    app.compBodySearchMatches = [];
+                    return;
+                }
+
+                const q = text.substring(lastAt + 1, pos).trim();
+                const searchQuery = q.startsWith('[') ? q.substring(1) : q;
+
+                if (!searchQuery || searchQuery.length < 1) {
+                    app.compBodySearchOpen = false;
+                    app.compBodySearchMatches = [];
+                    return;
+                }
+
+                const pid = app.currentProject?.id;
+                if (!pid) return;
+
+                const all = await db.compendium.where('projectId').equals(pid).toArray();
+                const lower = searchQuery.toLowerCase();
+                const matches = (all || []).filter(it => (it.title || '').toLowerCase().includes(lower));
+                app.compBodySearchMatches = matches.slice(0, 20);
+                app.compBodySearchSelectedIndex = 0;
+                app.compBodySearchOpen = app.compBodySearchMatches.length > 0;
+            } catch (e) {
+                app.compBodySearchOpen = false;
+                app.compBodySearchMatches = [];
+            }
+        },
+
+        /**
+         * Handle keyboard events in the compendium body editor for dropdown navigation
+         * @param {Object} app - Alpine app instance
+         * @param {Event} e - Keyboard event
+         */
+        onCompBodyKey(app, e) {
+            try {
+                if (!app.compBodySearchOpen) return;
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    app.compBodySearchSelectedIndex = Math.min(
+                        app.compBodySearchSelectedIndex + 1,
+                        app.compBodySearchMatches.length - 1
+                    );
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    app.compBodySearchSelectedIndex = Math.max(0, app.compBodySearchSelectedIndex - 1);
+                } else if (e.key === 'Escape') {
+                    app.compBodySearchOpen = false;
+                    app.compBodySearchMatches = [];
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const sel = app.compBodySearchMatches[app.compBodySearchSelectedIndex];
+                    if (sel) this.selectCompBodyMatch(app, sel);
+                }
+            } catch (e) { /* ignore */ }
+        },
+
+        /**
+         * Select a compendium entry from the compendium body autocomplete dropdown
+         * @param {Object} app - Alpine app instance
+         * @param {Object} item - Compendium entry to insert
+         */
+        selectCompBodyMatch(app, item) {
+            try {
+                if (!item || !item.id) return;
+
+                const ta = document.querySelector('.comp-editor-body');
+                if (!ta) return;
+
+                const pos = ta.selectionStart;
+                const text = ta.value || '';
+                const lastAt = text.lastIndexOf('@', pos - 1);
+                if (lastAt === -1) return;
+
+                const before = text.substring(0, lastAt);
+                const after = text.substring(pos);
+                const insert = `@[${item.title}] `;
+                const newText = before + insert + after;
+
+                app.currentCompEntry.body = newText;
+                app.compBodySearchOpen = false;
+                app.compBodySearchMatches = [];
+
+                app.$nextTick(() => {
+                    try {
+                        const t = document.querySelector('.comp-editor-body');
+                        if (t) { t.focus(); t.selectionStart = t.selectionEnd = (before + insert).length; }
+                    } catch (e) { /* ignore */ }
+                });
+            } catch (e) { console.error('selectCompBodyMatch error', e); }
         }
     };
 

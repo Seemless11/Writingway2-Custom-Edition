@@ -1712,6 +1712,16 @@ document.addEventListener('alpine:init', () => {
             stopCompendiumGeneration() {
                 window.CompendiumManager.stopCompendiumGeneration(this);
             },
+            // Compendium body editor @mention autocomplete
+            async onCompBodyInput(e) {
+                await window.CompendiumManager.onCompBodyInput(this, e);
+            },
+            onCompBodyKey(e) {
+                window.CompendiumManager.onCompBodyKey(this, e);
+            },
+            selectCompBodyMatch(item) {
+                window.CompendiumManager.selectCompBodyMatch(this, item);
+            },
             stopBeatGeneration() {
                 window.Generation.stopBeatGeneration(this);
             },
