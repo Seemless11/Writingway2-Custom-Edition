@@ -38,6 +38,16 @@ It gives you:
 - Chapter and scene organization with reordering
 - A compendium for characters, locations, lore, items, and other story notes
 - AI-assisted drafting, rewriting, brainstorming, and workshop chat
+- **Genre-adaptive prompts** — pick genres when creating a project; prompts, descriptors, and extra compendium categories auto-configure
+- **AI character creator** — trait-based system with genre-filtered professions, AI chat refinement, and one-click adopt into the compendium
+- **SillyTavern card import** — import character cards from `.json`/`.png` with full data preservation
+- **Inline `##` beat mode** — type `## your beat` directly in the editor, or toggle to the legacy bottom panel
+- **Compendium AI generation** — generate full entries for any category with category-specific directives
+- **Global prompts** — prompts can be project-scoped or shared across all projects
+- **Sidebar collapse** — one-click toggle for more writing space
+- **Compendium `@[entry]` references** — reference other entries in compendium body text, resolved as AI context
+- **Inline project picker** — select and switch projects without leaving the main view
+- **Delete project** — permanently remove projects from within the app
 - Writingway 1 project import
 - Local project save/export tools
 - Optional backup flows
@@ -53,6 +63,42 @@ It gives you:
 
 - Built-in local GGUF setup flow
   If Writingway detects a `.gguf` file in `models/` but no llama.cpp server, it can offer an in-app setup wizard to install llama.cpp for you.
+
+- Genre-adaptive prompts
+  Pick genres (Fantasy, Sci-Fi, Horror, Romance, Cyberpunk, and more) when creating a project. Writingway auto-generates genre-tailored prose, rewrite, summary, and workshop prompts, adds genre-appropriate compendium categories, and injects genre descriptors into every generation.
+
+- Character Creator
+  Build characters with a structured trait system covering appearance, clothing, personality, and background — with genre-filtered professions. Chat with the AI to flesh out details, then adopt the finished character directly into the compendium. Re-open any character entry to edit traits later. Add custom traits of your own.
+
+- Character Card Import
+  Import SillyTavern character cards from `.json` or `.png` files. Name, description, personality, scenario, dialogue examples, system prompt, avatar image — all preserved and stored as a compendium entry.
+
+- AI Compendium Generation
+  Generate full compendium entries with AI. Category-specific directives (30+ categories) ensure content tailored to the entry type. Accept, retry, or discard with pre-state preservation. Reference existing entries via `@[Title]` for richer context.
+
+- Dual-mode beat input
+  Type `## your beat` directly in the editor for a streamlined flow, or toggle the legacy bottom panel. In inline mode, the beat is part of the scene text and gets stripped before generation. Length presets (200/400/600 words) and custom targets are available.
+
+- Accept / Retry / Discard
+  After any generation, review the output and accept it, retry (rewind and regenerate), or discard (restore pre-generation state).
+
+- Global prompts
+  Prompts can be project-scoped or global — available across all projects. Default prompts are auto-seeded for each genre and category.
+
+- Compendium `@[entry]` references
+  Type `@[Title]` in a compendium entry body to reference another entry. Referenced entries are included as context for AI generation, and `@[Title]` is replaced with plain text.
+
+- Inline project picker
+  Switch between projects without leaving the main editing view. The last active scene is remembered per project.
+
+- Sidebar collapse
+  Toggle the project tree sidebar with a single click for more writing space.
+
+- Abortable generation
+  Stop in-progress beat or compendium generation at any time.
+
+- Autoscroll during generation
+  The editor auto-scrolls as tokens stream in.
 
 - Backups
   GitHub Gist backup is supported, and local versioned backups are supported through the app server. OneDrive and Google Drive are listed in the UI but are not implemented yet.
@@ -224,6 +270,22 @@ What is working now:
 - Local versioned backups
 - GitHub Gist backup
 - Update detection and staged update download
+- Genre selection with auto-configured prompts and extra compendium categories
+- Character Creator with trait system, genre-filtered professions, AI chat, and custom traits
+- SillyTavern character card import (.json/.png)
+- AI-powered compendium entry generation for all categories (30+ category directives)
+- Dual-mode beat input (inline `##` or legacy panel)
+- Accept / Retry / Discard for beat and compendium generation
+- Global and project-scoped prompt toggle
+- Sidebar collapse toggle
+- Abortable generation (beat and compendium)
+- Compendium `@[entry]` references with autocomplete
+- Inline project picker
+- Delete project button
+- Last-scene persistence across project switches
+- Autoscroll during streaming generation
+- Prompt preview modal
+- Prompt history browser
 
 What is intentionally incomplete:
 

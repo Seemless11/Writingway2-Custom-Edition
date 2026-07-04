@@ -28,4 +28,7 @@ node_modules/
 .claude/
 projects/
 project-backups/
+backups/
 REFACTORING.md
+tree.txt
+updater-server.log
