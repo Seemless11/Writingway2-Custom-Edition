@@ -140,7 +140,10 @@ Generation.generateFromBeat = async function (app) {
             app.lastGenText += token;
             app.$nextTick(() => {
                 const ta = document.querySelector('.editor-textarea');
-                if (ta) ta.scrollTop = ta.scrollHeight;
+                if (ta) {
+                    const isAtBottom = ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 20;
+                    if (isAtBottom) ta.scrollTop = ta.scrollHeight;
+                }
             });
         }, app);
         // Generation complete — expose accept/retry/discard actions

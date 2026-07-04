@@ -114,7 +114,9 @@
                 app.selectedProjectId = app.currentProject.id;
                 await app.loadChapters();
                 if (app.scenes.length > 0) {
-                    await app.loadScene(app.scenes[0].id);
+                    const lastSceneId = localStorage.getItem('writingway:lastScene:' + app.currentProject.id);
+                    const targetScene = lastSceneId && app.scenes.find(s => s.id === lastSceneId);
+                    await app.loadScene(targetScene ? targetScene.id : app.scenes[0].id);
                 }
             }
         },
@@ -171,7 +173,9 @@
             // Load context panel settings for this project
             try { app.loadContextPanel(); } catch (e) { console.error('Failed to load context panel:', e); }
             if (app.scenes.length > 0) {
-                await app.loadScene(app.scenes[0].id);
+                const lastSceneId = localStorage.getItem('writingway:lastScene:' + projectId);
+                const targetScene = lastSceneId && app.scenes.find(s => s.id === lastSceneId);
+                await app.loadScene(targetScene ? targetScene.id : app.scenes[0].id);
             } else {
                 app.currentScene = null;
             }

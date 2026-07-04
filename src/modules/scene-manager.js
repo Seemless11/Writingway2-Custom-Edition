@@ -129,6 +129,8 @@
                 const ch = app.chapters.find(c => c.id === scene.chapterId);
                 if (ch) app.currentChapter = ch;
             }
+            // Persist last active scene for this project
+            try { localStorage.setItem('writingway:lastScene:' + app.currentProject.id, scene.id); } catch (e) { }
         },
 
         /**
