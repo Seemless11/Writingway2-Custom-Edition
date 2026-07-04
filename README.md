@@ -1,9 +1,3 @@
-<img src="https://github.com/user-attachments/assets/c24e4576-cd30-427b-bb49-2f22ae2a6965" width="700" alt="1" />
-
-<img src="https://github.com/user-attachments/assets/8e670308-4ce0-474d-9527-fc7116f9adb0" width="700" alt="2" />
-
-<img src="https://github.com/user-attachments/assets/c0d625be-87a0-434c-840d-19c5bffc2179" width="700" alt="3" />
-
 <img width="700" alt="new writing ui" src="https://github.com/user-attachments/assets/0c481c3f-51d3-4b01-bafa-4a7798418d3f" />
 <img width="700" alt="new project" src="https://github.com/user-attachments/assets/43dc05c8-6137-457f-819d-e613c483ed0f" />
 
