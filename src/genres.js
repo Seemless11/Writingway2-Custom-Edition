@@ -360,8 +360,56 @@
         return findGenre(genreId)?.charDescription || '';
     }
 
+    const POVS = [
+        { id: '1st person', label: '1st Person' },
+        { id: '2nd person', label: '2nd Person' },
+        { id: '3rd person limited', label: '3rd Person Limited' },
+        { id: '3rd person omniscient', label: '3rd Person Omniscient' },
+        { id: '3rd person close', label: '3rd Person Close' },
+        { id: '3rd person objective', label: '3rd Person Objective' },
+        { id: 'multiple POV', label: 'Multiple POV' },
+        { id: 'unreliable narrator', label: 'Unreliable Narrator' }
+    ];
+
+    const TENSES = [
+        { id: 'past', label: 'Past Tense' },
+        { id: 'present', label: 'Present Tense' },
+        { id: 'future', label: 'Future Tense' },
+        { id: 'past perfect', label: 'Past Perfect Tense' },
+        { id: 'present perfect', label: 'Present Perfect Tense' }
+    ];
+
+    const LANGUAGES = [
+        { id: 'English', label: 'English' },
+        { id: 'Spanish', label: 'Spanish' },
+        { id: 'French', label: 'French' },
+        { id: 'German', label: 'German' },
+        { id: 'Italian', label: 'Italian' },
+        { id: 'Portuguese', label: 'Portuguese' },
+        { id: 'Dutch', label: 'Dutch' },
+        { id: 'Russian', label: 'Russian' },
+        { id: 'Chinese', label: 'Chinese' },
+        { id: 'Japanese', label: 'Japanese' },
+        { id: 'Korean', label: 'Korean' },
+        { id: 'Arabic', label: 'Arabic' },
+        { id: 'Hindi', label: 'Hindi' },
+        { id: 'Swedish', label: 'Swedish' },
+        { id: 'Norwegian', label: 'Norwegian' },
+        { id: 'Danish', label: 'Danish' },
+        { id: 'Finnish', label: 'Finnish' },
+        { id: 'Polish', label: 'Polish' },
+        { id: 'Turkish', label: 'Turkish' },
+        { id: 'Thai', label: 'Thai' },
+        { id: 'Vietnamese', label: 'Vietnamese' },
+        { id: 'Greek', label: 'Greek' },
+        { id: 'Hebrew', label: 'Hebrew' }
+    ];
+
     window.GenreDefs = {
         GENRES,
+        POVS,
+        TENSES,
+        LANGUAGES,
         findGenre,
         getAllGenreIds,
         getPromptDescriptor,

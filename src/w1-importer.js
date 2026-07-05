@@ -226,6 +226,7 @@
                 povCharacter: '',
                 pov: scene.pov || '3rd person limited',
                 tense: 'past',
+                language: 'English',
                 created: new Date(),
                 modified: new Date()
             });

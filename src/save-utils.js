@@ -89,11 +89,12 @@
                 title: scene.title || '',
                 order: typeof scene.order === 'number' ? scene.order : 0,
                 chapterId: scene.chapterId || null,
-                // prefer app-level UI values if present (the POV inputs are bound to app props),
+                // prefer app-level UI values if present (the POV/tense/language inputs are bound to app props),
                 // fallback to currentScene fields, then to defaults
                 povCharacter: (app.povCharacter !== undefined && app.povCharacter !== null ? app.povCharacter : (scene.povCharacter || '')),
                 pov: (app.pov && app.pov.trim() ? app.pov : (scene.pov || '3rd person limited')),
                 tense: (app.tense && app.tense.trim() ? app.tense : (scene.tense || 'past')),
+                language: (app.language && app.language.trim() ? app.language : (scene.language || app.currentProject?.language || 'English')),
                 modified: new Date(),
                 updatedAt: now,
                 wordCount

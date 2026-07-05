@@ -15,6 +15,9 @@
                 id: now.toString(),
                 name: projectName,
                 genres: (app.selectedGenres || []).slice(),
+                pov: app.newProjectPov || '3rd person limited',
+                tense: app.newProjectTense || 'past',
+                language: app.newProjectLanguage || 'English',
                 created: new Date(),
                 modified: new Date(),
                 updatedAt: now
@@ -34,6 +37,9 @@
             app.showNewProjectModal = false;
             app.newProjectName = '';
             app.selectedGenres = [];
+            app.newProjectPov = '3rd person limited';
+            app.newProjectTense = 'past';
+            app.newProjectLanguage = 'English';
 
             // refresh projects list and select the new project
             await this.loadProjects(app);
@@ -74,10 +80,11 @@
                 chapterId: chapter.id,
                 title: 'Scene 1',
                 order: nextOrder,
-                // initialize with current POV options
-                povCharacter: app.povCharacter || '',
-                pov: app.pov || '3rd person limited',
-                tense: app.tense || 'past',
+                // initialize with project-level POV/tense/language options
+                povCharacter: '',
+                pov: app.currentProject.pov || '3rd person limited',
+                tense: app.currentProject.tense || 'past',
+                language: app.currentProject.language || 'English',
                 created: new Date(),
                 modified: new Date()
             };

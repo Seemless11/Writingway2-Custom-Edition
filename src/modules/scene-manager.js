@@ -42,10 +42,11 @@
                 chapterId: targetChapter.id,
                 title: sceneName,
                 order: (targetChapter.scenes || []).length,
-                // initialize with current POV options, ensuring proper defaults
+                // initialize with current POV/tense/language options, ensuring proper defaults
                 povCharacter: app.povCharacter || '',
                 pov: (app.pov && app.pov.trim()) ? app.pov : '3rd person limited',
                 tense: (app.tense && app.tense.trim()) ? app.tense : 'past',
+                language: app.language || app.currentProject?.language || 'English',
                 created: new Date(),
                 modified: new Date(),
                 updatedAt: now
@@ -113,6 +114,7 @@
             app.povCharacter = scene.povCharacter || '';
             app.pov = scene.pov || '3rd person limited';
             app.tense = scene.tense || 'past';
+            app.language = scene.language || app.currentProject?.language || 'English';
 
             // Force LTR direction on the editor after it's rendered
             app.$nextTick(() => {

@@ -24,10 +24,11 @@ const Generation = {
                 prompt += `- ${s.title}: ${s.summary || ''}\n`;
             });
         }
-        // Add POV and tense
+        // Add POV, tense, and language
         if (opts && opts.povCharacter) prompt += `POV Character: ${opts.povCharacter}\n`;
         if (opts && opts.pov) prompt += `POV: ${opts.pov}\n`;
         if (opts && opts.tense) prompt += `Tense: ${opts.tense}\n`;
+        if (opts && opts.language) prompt += `Language: ${opts.language}\n`;
         return prompt;
     },
 
@@ -104,7 +105,7 @@ Generation.generateFromBeat = async function (app) {
         panelContext.sceneSummaries.forEach(s => sceneMap.set(s.title, s));
         beatSceneSummaries.forEach(s => sceneMap.set(s.title, s));
         const sceneSummaries = Array.from(sceneMap.values());
-        const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries };
+        const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, language: app.language || app.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries };
         let prompt = Generation.buildPrompt(beatText, sceneContent, genOpts);
         // Save prompt to history
         try {

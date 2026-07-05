@@ -9,9 +9,17 @@
             console.debug('[buildPrompt] received systemPrompt:', JSON.stringify(options.systemPrompt));
         } catch (e) { /* ignore */ }
         const povName = (options.povCharacter && options.povCharacter.trim()) ? options.povCharacter.trim() : 'the protagonist';
-        const tenseText = (options.tense === 'present') ? 'present tense' : 'past tense';
+        const tenseMap = {
+            'past': 'past tense',
+            'present': 'present tense',
+            'future': 'future tense',
+            'past perfect': 'past perfect tense',
+            'present perfect': 'present perfect tense'
+        };
+        const tenseText = tenseMap[options.tense] || 'past tense';
         const povText = options.pov || '3rd person limited';
-        const povSentence = `You are a co-author tasked with assisting your partner. You are writing a story from the point of view of ${povName} in ${tenseText}, in ${povText}.`;
+        const langText = options.language || 'English';
+        const povSentence = `You are a co-author tasked with assisting your partner. You are writing a story from the point of view of ${povName} in ${tenseText}, in ${povText}.${langText !== 'English' ? ` Write in ${langText}.` : ''}`;
 
         // Build genre descriptor sentence from project genres
         let genreSentence = '';
@@ -658,7 +666,7 @@
             panelContext.sceneSummaries.forEach(s => sceneMap.set(s.title, s));
             beatSceneSummaries.forEach(s => sceneMap.set(s.title, s));
             const sceneSummaries = Array.from(sceneMap.values());
-            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres };
+            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, language: app.language || app.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres };
             let prompt = buildPrompt(beatText, sceneContent, genOpts);
             // Save prompt to history
             try {
@@ -863,7 +871,9 @@
             ? `\nThe user has provided the following notes to guide this entry:\n${preBody.trim()}\nUse these as a starting point and expand into a full entry accordingly.`
             : '';
 
-        const systemContent = `You are a creative writing assistant helping to develop a ${genreLabels} story. ${genreSentence} Be thorough, detailed, and consistent with the existing material.`;
+        const compendiumLang = app?.language || app?.currentProject?.language || 'English';
+        const langDirective = compendiumLang !== 'English' ? ` Write entirely in ${compendiumLang}.` : '';
+        const systemContent = `You are a creative writing assistant helping to develop a ${genreLabels} story. ${genreSentence} Be thorough, detailed, and consistent with the existing material.${langDirective}`;
 
         const userContent = `Please create a new compendium entry for the category "${category}".${title ? `\n\nThe entry is titled "${title}".` : ''}
 

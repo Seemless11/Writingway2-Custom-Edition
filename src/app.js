@@ -1381,6 +1381,7 @@ document.addEventListener('alpine:init', () => {
                 this.pasteImportError = '';
                 this.pasteImportLoading = false;
                 this.pasteImportInstruction = '';
+                this.pasteImportLanguage = this.language || this.currentProject?.language || 'English';
                 this.pasteImportGenre = (this.currentProject?.genres?.length)
                     ? this.currentProject.genres[0]
                     : 'fantasy';
@@ -1405,7 +1406,7 @@ document.addEventListener('alpine:init', () => {
                 this.pasteImportLoading = true;
                 this.pasteImportError = '';
                 try {
-                    var result = await window.Compendium.extractCharacterFromText(text, this.pasteImportGenre, this, this.pasteImportInstruction);
+                    var result = await window.Compendium.extractCharacterFromText(text, this.pasteImportGenre, this, this.pasteImportInstruction, this.pasteImportLanguage);
                     if (!result) {
                         this.pasteImportError = 'No character information could be extracted from the provided text.';
                     } else if (result.error) {
@@ -1570,7 +1571,12 @@ document.addEventListener('alpine:init', () => {
 
                 try {
                     const promptMessages = [];
-                    promptMessages.push({ role: 'system', content: window.CharacterCreator.CHARACTER_SYSTEM_PROMPT });
+                    let charCreatorSystemPrompt = window.CharacterCreator.CHARACTER_SYSTEM_PROMPT;
+                    const charCreatorLang = this.language || this.currentProject?.language || 'English';
+                    if (charCreatorLang !== 'English') {
+                        charCreatorSystemPrompt += '\n\nIMPORTANT: Write all responses entirely in ' + charCreatorLang + '.';
+                    }
+                    promptMessages.push({ role: 'system', content: charCreatorSystemPrompt });
 
                     const traitParts = [];
                     for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
@@ -1964,6 +1970,7 @@ document.addEventListener('alpine:init', () => {
                         s.povCharacter = s.povCharacter || s.povCharacter === '' ? s.povCharacter : '';
                         s.pov = s.pov || s.pov === '' ? s.pov : '3rd person limited';
                         s.tense = s.tense || s.tense === '' ? s.tense : 'past';
+                        s.language = s.language || s.language === '' ? s.language : (this.currentProject?.language || 'English');
                         // (debug log removed)
                     }
 
@@ -2340,14 +2347,14 @@ document.addEventListener('alpine:init', () => {
                     if (window.Generation && typeof window.Generation.buildPrompt === 'function') {
                         // DEBUG: log resolved prose info and options
                         try { console.debug('[preview] proseInfo=', proseInfo); } catch (e) { }
-                        const optsPreview = { povCharacter: this.povCharacter, pov: this.pov, tense: this.tense, prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: this.maxTokens, preview: true };
+                        const optsPreview = { povCharacter: this.povCharacter, pov: this.pov, tense: this.tense, language: this.language || this.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: this.maxTokens, preview: true };
                         try { console.debug('[preview] buildPrompt opts:', { proseType: typeof optsPreview.prosePrompt, len: optsPreview.prosePrompt ? optsPreview.prosePrompt.length : 0 }); } catch (e) { }
                         try { console.debug('[preview] prosePrompt raw:', JSON.stringify(optsPreview.prosePrompt)); } catch (e) { }
                         prompt = window.Generation.buildPrompt(beatText, this.currentScene?.content || '', optsPreview);
                         try { console.debug('[preview] builtPrompt preview:', String(prompt).slice(0, 600).replace(/\n/g, '\\n')); } catch (e) { }
                     } else {
                         // Fallback textual representation if generation module isn't loaded
-                        prompt = `=== PREVIEW PROMPT ===\nBEAT:\n${beatText}\n\nPOV CHARACTER: ${this.povCharacter || ''}\nPOV: ${this.pov}\nTENSE: ${this.tense}\n\n---\n(Scene content below)\n${this.currentScene?.content || ''}\n\n---\n(System prompt)\n${systemPromptText || '(default)'}\n\n---\n(User prompt)\n${prosePromptText || '(none)'}\n`;
+                        prompt = `=== PREVIEW PROMPT ===\nBEAT:\n${beatText}\n\nPOV CHARACTER: ${this.povCharacter || ''}\nPOV: ${this.pov}\nTENSE: ${this.tense}\nLANGUAGE: ${this.language || this.currentProject?.language || 'English'}\n\n---\n(Scene content below)\n${this.currentScene?.content || ''}\n\n---\n(System prompt)\n${systemPromptText || '(default)'}\n\n---\n(User prompt)\n${prosePromptText || '(none)'}\n`;
                     }
 
                     // Create a simple overlay showing the prompt in a read-only textarea so the user can inspect/copy it.
@@ -2519,7 +2526,8 @@ document.addEventListener('alpine:init', () => {
                     await db.scenes.update(this.currentScene.id, {
                         povCharacter: this.povCharacter || '',
                         pov: this.pov || '3rd person limited',
-                        tense: this.tense || 'past'
+                        tense: this.tense || 'past',
+                        language: this.language || this.currentProject?.language || 'English'
                     });
                 } catch (e) {
                     console.warn('Failed to persist scene generation options:', e);

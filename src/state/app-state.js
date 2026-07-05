@@ -35,6 +35,9 @@ function createAppState() {
         newChapterName: '',
         newProjectName: '',
         selectedGenres: [],
+        newProjectPov: '3rd person limited',
+        newProjectTense: 'past',
+        newProjectLanguage: 'English',
         newSceneName: '',
         renameChapterId: null,
         renameChapterName: '',
@@ -164,6 +167,7 @@ function createAppState() {
         povCharacter: '',
         pov: '3rd person limited',
         tense: 'past',
+        language: 'English',
 
         // ========== Scene Summary Panel ==========
         showSummaryPanel: false,
@@ -254,6 +258,16 @@ function createAppState() {
         showCompGenActions: false, // Show Accept/Retry/Discard after generation
         compGenPreTitle: '', // Snapshot of entry title before generation
         compGenPreBody: '', // Snapshot of entry body before generation
+
+        // ========== Paste Import State ==========
+        showPasteImport: false,
+        pasteImportText: '',
+        pasteImportGenre: 'fantasy',
+        pasteImportInstruction: '',
+        pasteImportLanguage: 'English',
+        pasteImportLoading: false,
+        pasteImportResult: null, // { title, body, raw } or null
+        pasteImportError: '',
 
         // ========== AI Worker State ==========
         aiWorker: null,
