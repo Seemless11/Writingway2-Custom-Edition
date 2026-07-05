@@ -3192,13 +3192,17 @@
                                 </div>
                             </template>
                         </div>
-                        <div style="padding:8px 20px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0;">
-                            <template x-for="tpl in window.CharacterCreator.INSTRUCTION_TEMPLATES" :key="tpl.id">
+                        <div style="padding:8px 20px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0;align-items:center;">
+                            <template x-for="tpl in charCreatorInstructionTemplates" :key="tpl.id">
                                 <button class="btn btn-secondary"
                                     style="font-size:11px;padding:4px 10px;"
                                     @click="sendCharCreatorInstruction(tpl)"
                                     x-text="tpl.label"></button>
                             </template>
+                            <button class="btn btn-secondary" style="font-size:13px;padding:4px 8px;margin-left:auto;flex-shrink:0;"
+                                @click="openInstructionEditor()" title="Edit instruction templates">
+                                ⚙️
+                            </button>
                         </div>
                         <div style="padding:10px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;">
                             <div style="display:flex;gap:8px;">
@@ -3247,6 +3251,61 @@
                     <button class="btn btn-primary"
                         @click="showCharCreatorPreview = false; adoptCharCreatorEntry()"
                         :disabled="!charCreatorName">📚 Adopt into Compendium</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="charCreatorShowInstructionEditor">
+        <div class="modal-overlay" @click.self="closeInstructionEditor()" style="z-index:9700;">
+            <div style="width:min(800px,96%);height:min(700px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:20px;">⚙️</span>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Manage Instructions</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="closeInstructionEditor()">Done</button>
+                </div>
+                <div style="flex:1;overflow:auto;padding:16px 24px;display:flex;flex-direction:column;gap:20px;">
+                    <!-- Instruction Templates -->
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <h4 style="margin:0;font-size:15px;color:var(--text-primary);">Instruction Templates</h4>
+                            <div style="display:flex;gap:6px;">
+                                <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;" @click="addInstructionTemplate()">+ Add New</button>
+                                <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;" @click="resetInstructionTemplates()">Reset to Defaults</button>
+                            </div>
+                        </div>
+                        <template x-for="(tpl, idx) in charCreatorInstructionTemplates" :key="tpl.id">
+                            <div style="background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:8px;">
+                                <div style="display:flex;gap:10px;align-items:flex-start;">
+                                    <div style="flex:1;min-width:0;">
+                                        <input type="text" x-model="charCreatorInstructionTemplates[idx].label"
+                                            style="width:100%;padding:6px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:13px;font-weight:600;margin-bottom:6px;box-sizing:border-box;">
+                                        <textarea x-model="charCreatorInstructionTemplates[idx].message"
+                                            style="width:100%;padding:6px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;resize:vertical;min-height:60px;font-family:inherit;box-sizing:border-box;"></textarea>
+                                    </div>
+                                    <div style="flex-shrink:0;padding-top:2px;">
+                                        <button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;color:var(--danger-color, #e74c3c);"
+                                            x-show="tpl.id.startsWith('custom_')"
+                                            @click="deleteInstructionTemplate(tpl.id)"
+                                            title="Delete this template">✕</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <!-- System Prompt -->
+                    <div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                            <h4 style="margin:0;font-size:15px;color:var(--text-primary);">System Prompt</h4>
+                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 12px;" @click="resetCharCreatorSystemPrompt()">Reset to Default</button>
+                        </div>
+                        <p style="margin:0 0 8px 0;font-size:12px;color:var(--text-secondary);">This prompt sets the AI's behavior for all character generation. Changes take effect immediately.</p>
+                        <textarea x-model="charCreatorEditorSystemPrompt"
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;resize:vertical;min-height:120px;font-family:inherit;box-sizing:border-box;line-height:1.5;"></textarea>
+                    </div>
                 </div>
             </div>
         </div>

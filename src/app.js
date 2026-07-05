@@ -254,6 +254,10 @@ document.addEventListener('alpine:init', () => {
                 // Load light mode preference early to avoid flash
                 this.loadLightModePreference();
 
+                // Load character creator instruction templates
+                this.charCreatorInstructionTemplates = window.CharacterCreator.loadInstructionTemplates();
+                this.charCreatorEditorSystemPrompt = window.CharacterCreator.getSystemPrompt();
+
                 this.updateLoadingScreen(85, 'Almost ready...', 'Finalizing setup...');
 
                 // Selection change handler: show Rewrite button when text is selected
@@ -1555,7 +1559,6 @@ document.addEventListener('alpine:init', () => {
                 }
             },
             sendCharCreatorInstruction(tpl) {
-                if (tpl.id === 'custom') return;
                 if (this.charCreatorGenerating) return;
                 const genreObj = (window.GenreDefs?.GENRES || []).find(g => g.id === this.charCreatorGenre);
                 const genreSuffix = genreObj ? ' (This character is from a ' + genreObj.label + ' world.)' : '';
@@ -1585,6 +1588,46 @@ document.addEventListener('alpine:init', () => {
                 this.charCreatorInput = fullMsg;
                 this.sendCharCreatorMessage();
             },
+
+            // ========== Instruction Template Editor ==========
+            openInstructionEditor() {
+                this.charCreatorEditorSystemPrompt = window.CharacterCreator.getSystemPrompt();
+                this.charCreatorShowInstructionEditor = true;
+            },
+            closeInstructionEditor() {
+                window.CharacterCreator.saveInstructionTemplates(this.charCreatorInstructionTemplates);
+                window.CharacterCreator.setSystemPrompt(this.charCreatorEditorSystemPrompt);
+                this.charCreatorShowInstructionEditor = false;
+            },
+            addInstructionTemplate() {
+                var newId = 'custom_' + Date.now();
+                var newTpl = {
+                    id: newId,
+                    label: 'New Instruction',
+                    message: 'Enter your instruction prompt here...',
+                    relevantCategories: []
+                };
+                this.charCreatorInstructionTemplates.push(newTpl);
+            },
+            deleteInstructionTemplate(id) {
+                var idx = this.charCreatorInstructionTemplates.findIndex(function (t) { return t.id === id; });
+                if (idx !== -1 && this.charCreatorInstructionTemplates[idx].id.startsWith('custom_')) {
+                    this.charCreatorInstructionTemplates.splice(idx, 1);
+                }
+            },
+            resetInstructionTemplates() {
+                if (confirm('Reset all instruction templates to defaults? This will remove any custom templates you\'ve added.')) {
+                    window.CharacterCreator.resetInstructionTemplates();
+                    this.charCreatorInstructionTemplates = window.CharacterCreator.loadInstructionTemplates();
+                }
+            },
+            resetCharCreatorSystemPrompt() {
+                if (confirm('Reset the system prompt to its default?')) {
+                    window.CharacterCreator.resetSystemPrompt();
+                    this.charCreatorEditorSystemPrompt = window.CharacterCreator.getSystemPrompt();
+                }
+            },
+
             previewCharCreatorEntry() {
                 const entry = window.CharacterCreator.buildCompendiumEntry(
                     this.charCreatorName,

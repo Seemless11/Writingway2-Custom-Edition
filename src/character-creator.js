@@ -1047,7 +1047,7 @@
         }
     ];
 
-    const INSTRUCTION_TEMPLATES = [
+    const DEFAULT_INSTRUCTION_TEMPLATES = [
         { id: 'appearance', label: 'Describe Appearance', message: 'Describe this character\'s physical appearance in vivid detail — their build, face, clothing style, and how they carry themselves.', relevantCategories: ['appearance', 'clothing'] },
         { id: 'backstory', label: 'Flesh Out Backstory', message: 'Expand on this character\'s background — where they came from, what shaped them, and key events that made them who they are.', relevantCategories: ['background'] },
         { id: 'arc', label: 'Define Arc / Growth Edge', message: 'Describe the arc this character is on — where they are now vs. where they need to go. What must they learn, overcome, or become to grow?', relevantCategories: ['personality', 'motivation', 'fears', 'narrative_role'] },
@@ -1315,7 +1315,7 @@
         GENRES,
         GENRE_DESCRIPTIONS,
         TRAIT_CATEGORIES,
-        INSTRUCTION_TEMPLATES,
+        DEFAULT_INSTRUCTION_TEMPLATES,
         CHARACTER_SYSTEM_PROMPT,
         buildCompendiumEntry,
         getTraitLabel,
@@ -1326,6 +1326,52 @@
         getUserTraits,
         addUserTrait,
         removeUserTrait
+    };
+
+    // ========== Instruction Template Persistence ==========
+    const USER_TEMPLATES_KEY = 'ww_char_creator_instruction_templates';
+    const USER_SYSTEM_PROMPT_KEY = 'ww_char_creator_system_prompt';
+
+    window.CharacterCreator.loadInstructionTemplates = function () {
+        const stored = localStorage.getItem(USER_TEMPLATES_KEY);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    return parsed;
+                }
+            } catch (e) {
+                console.warn('Failed to parse saved instruction templates, using defaults');
+            }
+        }
+        const defaults = DEFAULT_INSTRUCTION_TEMPLATES.map(function (t) { return Object.assign({}, t); });
+        localStorage.setItem(USER_TEMPLATES_KEY, JSON.stringify(defaults));
+        return defaults;
+    };
+
+    window.CharacterCreator.saveInstructionTemplates = function (templates) {
+        localStorage.setItem(USER_TEMPLATES_KEY, JSON.stringify(templates));
+    };
+
+    window.CharacterCreator.resetInstructionTemplates = function () {
+        localStorage.removeItem(USER_TEMPLATES_KEY);
+    };
+
+    window.CharacterCreator.getDefaultInstructionTemplates = function () {
+        return DEFAULT_INSTRUCTION_TEMPLATES.map(function (t) { return Object.assign({}, t); });
+    };
+
+    window.CharacterCreator.getSystemPrompt = function () {
+        var stored = localStorage.getItem(USER_SYSTEM_PROMPT_KEY);
+        return stored || CHARACTER_SYSTEM_PROMPT;
+    };
+
+    window.CharacterCreator.setSystemPrompt = function (prompt) {
+        localStorage.setItem(USER_SYSTEM_PROMPT_KEY, prompt);
+    };
+
+    window.CharacterCreator.resetSystemPrompt = function () {
+        localStorage.removeItem(USER_SYSTEM_PROMPT_KEY);
     };
 
     loadUserTraits();

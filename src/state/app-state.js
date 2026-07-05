@@ -222,6 +222,9 @@ function createAppState() {
         charCreatorEditingEntryId: null,
         charCreatorEditingIdx: null,
         charCreatorEditingBuffer: '',
+        charCreatorInstructionTemplates: [],
+        charCreatorShowInstructionEditor: false,
+        charCreatorEditorSystemPrompt: '',
 
         // ========== Compendium State ==========
         get compendiumCategories() {
