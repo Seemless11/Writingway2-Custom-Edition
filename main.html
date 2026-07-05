@@ -36,12 +36,12 @@
     <script defer src="src/workshop.js"></script>
     <script defer src="src/modules/workshop.js"></script>
     <script defer src="src/update-checker.js"></script>
-    <script defer src="src/tts.js"></script>
     <script defer src="src/w1-importer.js"></script>
     <script defer src="src/character-card-importer.js"></script>
     <script defer src="src/character-creator.js"></script>
     <script defer src="src/app.js"></script>
     <script defer src="src/compendium.js"></script>
+    <script defer src="src/image-describer.js"></script>
     <!-- Local vendor Alpine (use a real alpine.min.js here for offline runs) -->
     <script defer src="src/vendor/alpine.min.js"></script>
 
@@ -80,7 +80,7 @@
         </div>
     </div>
 
-    <div x-data="app" x-init="init()">
+    <div x-data="app">
         <div x-show="showLlamaSetupWizard" x-cloak
             style="position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:10050;padding:24px;">
             <div
@@ -225,14 +225,14 @@
                                     style="background:none;border:none;padding:8px 12px 8px 0;font-size:18px;font-weight:700;color:#4a9eff;cursor:pointer;border-radius:6px;transition:all 0.2s;"
                                     @mouseenter="$el.style.background='rgba(74,158,255,0.15)'"
                                     @mouseleave="$el.style.background='transparent'">
-                                    <span x-text="currentProject.name"></span>
+                                    <span x-text="currentProject?.name"></span>
                                     <span style="margin-left:8px;opacity:0.7;font-size:16px;">📚</span>
-                                    <template x-if="currentProject.genres?.length">
+                                    <template x-if="currentProject?.genres?.length">
                                         <span style="margin-left:6px;font-size:11px;opacity:0.6;font-weight:400;">
-                                            <template x-for="(gid, gi) in currentProject.genres" :key="gid">
+                                            <template x-for="(gid, gi) in currentProject?.genres ?? []" :key="gid">
                                                 <span>
                                                     <span x-text="(window.GenreDefs?.findGenre(gid)?.icon || '')"></span>
-                                                    <span x-text="window.GenreDefs?.findGenre(gid)?.label || gid"></span><span x-show="gi < currentProject.genres.length - 1"> · </span>
+                                                    <span x-text="window.GenreDefs?.findGenre(gid)?.label || gid"></span><span x-show="gi < (currentProject?.genres?.length ?? 1) - 1"> · </span>
                                                 </span>
                                             </template>
                                         </span>
@@ -246,7 +246,7 @@
                                 <div x-show="openMenu" x-cloak @click.away="openMenu = false" x-transition
                                     class="action-menu">
                                     <button
-                                        @click.stop="showRenameProjectModal = true; renameProjectName = currentProject.name; openMenu=false">Rename</button>
+                                        @click.stop="showRenameProjectModal = true; renameProjectName = currentProject?.name; openMenu=false">Rename</button>
                                     <div style="border-top:1px solid var(--border);margin:6px 0"></div>
                                     <div style="max-height:200px;overflow:auto;margin-bottom:6px;">
                                         <strong
@@ -421,13 +421,6 @@
                             ✨ Rewrite
                         </button>
 
-                        <!-- TTS Read Aloud Button (only in preview mode) -->
-                        <button x-show="showMarkdownPreview" @click="toggleTTS()" class="btn btn-secondary"
-                            :class="{ 'btn-primary': isReading }"
-                            :title="isReading ? 'Stop reading' : 'Read scene aloud'">
-                            <span x-show="!isReading">🔊 Read Aloud</span>
-                            <span x-show="isReading">⏸️ Stop</span>
-                        </button>
                         <div x-show="formatMenuOpen" @click.away="formatMenuOpen = false" x-cloak
                             style="position:absolute;top:45px;left:80px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:1000;display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:280px;">
                             <button @click="applyFormatting('bold'); formatMenuOpen=false" class="btn btn-secondary"
@@ -769,7 +762,6 @@
 
                         <!-- Embedded Workshop Panel -->
                         <div x-show="showEmbeddedWorkshop"
-                            x-init="(async () => { await loadWorkshopSessions(); if (!workshopSessions || workshopSessions.length === 0) { workshopSessions = [window.workshopChat.createNewSession($data)]; await saveWorkshopSessions(); } })()"
                             class="embedded-workshop-panel" :style="`width: ${100 - workshopSplitterPosition}%`">
 
                             <!-- Workshop Header -->
@@ -1492,55 +1484,6 @@
                 <div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);">
                     <button class="btn btn-primary" @click="saveAISettings()">💾 Save & Test Connection</button>
                     <button class="btn btn-secondary" @click="showAISettings = false">Cancel</button>
-                </div>
-
-                <!-- TTS Settings Section -->
-                <div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--border);">
-                    <h4 style="margin:0 0 16px 0;color:var(--text-primary);">🔊 Text-to-Speech Settings</h4>
-
-                    <div style="margin-bottom:16px;">
-                        <label
-                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">
-                            Voice
-                        </label>
-                        <select x-model="ttsVoiceName" @change="saveTTSSettings()"
-                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
-                            <option value="">Default Voice</option>
-                            <template x-for="voice in availableTTSVoices" :key="voice.name">
-                                <option :value="voice.name" x-text="`${voice.name} (${voice.lang})`"></option>
-                            </template>
-                        </select>
-                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
-                            💡 Chrome/Edge on Windows have excellent neural voices
-                        </p>
-                    </div>
-
-                    <div style="margin-bottom:16px;">
-                        <label
-                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">
-                            Reading Speed: <span x-text="ttsSpeed.toFixed(1) + 'x'"></span>
-                        </label>
-                        <input type="range" x-model.number="ttsSpeed" @input="saveTTSSettings()" min="0.5" max="2.0"
-                            step="0.1" style="width:100%;margin-top:6px;">
-                        <div
-                            style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary);margin-top:2px;">
-                            <span>0.5x (Slower)</span>
-                            <span>1.0x (Normal)</span>
-                            <span>2.0x (Faster)</span>
-                        </div>
-                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
-                            Higher speeds are useful when editing - you can catch errors faster
-                        </p>
-                    </div>
-
-                    <div
-                        style="background:rgba(74,158,255,0.05);border:1px solid rgba(74,158,255,0.2);border-radius:6px;padding:12px;">
-                        <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5;">
-                            💡 <strong>Editing Tip:</strong> Your eyes go "blind" to typos after reading text 2-3 times.
-                            Listening with TTS helps catch errors you'd otherwise miss. Try 1.2x-1.5x speed for
-                            efficient editing!
-                        </p>
-                    </div>
                 </div>
 
                 <!-- Accessibility Settings Section -->
@@ -3377,12 +3320,60 @@
 
                 <!-- Body: side-by-side source + result -->
                 <div style="flex:1;min-height:0;display:flex;gap:16px;padding:16px 24px;">
-                    <!-- Left: Source text -->
-                    <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+                    <!-- Left: Source text + image -->
+                    <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow-y:auto;gap:8px;">
                         <label style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Source Text</label>
                         <textarea id="pasteImportTextarea" x-model="pasteImportText"
                             placeholder="Paste wiki article, fandom page, character description, or any text containing character information..."
-                            style="flex:1;min-height:200px;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;line-height:1.6;box-sizing:border-box;"></textarea>
+                            style="flex-shrink:0;min-height:150px;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;line-height:1.6;box-sizing:border-box;"></textarea>
+
+                        <!-- Instruction + Language (moved from footer) -->
+                        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+                            <input type="text" x-model="pasteImportInstruction"
+                                placeholder="Optional instruction..."
+                                style="flex:1;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <select x-model="pasteImportLanguage"
+                                style="width:140px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;flex-shrink:0;">
+                                <template x-for="lang in (window.GenreDefs?.LANGUAGES || [])" :key="lang.id">
+                                    <option :value="lang.id" x-text="lang.label"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Hidden file input -->
+                        <input type="file" id="pasteImportImageInput" accept="image/png,image/jpeg,image/webp,image/gif" @change="onPasteImportImageSelected" style="display:none;">
+
+                        <!-- Add Image button -->
+                        <div x-show="!pasteImportImageData" style="flex-shrink:0;">
+                            <button class="btn btn-secondary" @click="triggerPasteImportImageUpload" style="font-size:12px;padding:6px 12px;">
+                                📷 Add Image
+                            </button>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Uses <code>google/gemini-2.5-flash-lite</code> via OpenRouter</div>
+                        </div>
+
+                        <!-- Image preview + controls -->
+                        <div x-show="pasteImportImageData" style="flex-shrink:0;display:flex;align-items:start;gap:8px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;">
+                            <img :src="pasteImportImageData" style="width:60px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;">
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="pasteImportImageFileName"></div>
+                                <div style="display:flex;gap:6px;margin-top:4px;">
+                                    <button class="btn btn-primary" style="font-size:11px;padding:4px 8px;" @click="describePasteImportImage" :disabled="pasteImportImageDescrLoading">
+                                        <span x-show="!pasteImportImageDescrLoading">🖼️ Describe Image</span>
+                                        <span x-show="pasteImportImageDescrLoading">...</span>
+                                    </button>
+                                    <button class="btn btn-secondary" style="font-size:11px;padding:4px 8px;" @click="removePasteImportImage">✕</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Image description result -->
+                        <div x-show="pasteImportImageDescription" style="flex-shrink:0;border:1px solid var(--border);border-radius:8px;">
+                            <label style="font-size:12px;font-weight:600;padding:6px 10px 0;display:block;color:var(--text-primary);">Image Description</label>
+                            <textarea x-model="pasteImportImageDescription" style="width:100%;padding:8px 10px;background:transparent;border:none;font-size:12px;resize:vertical;min-height:60px;font-family:inherit;color:var(--text-primary);box-sizing:border-box;"></textarea>
+                        </div>
+
+                        <!-- Image error -->
+                        <div x-show="pasteImportImageError" x-cloak style="flex-shrink:0;font-size:12px;color:#e74c3c;padding:4px 0;" x-text="pasteImportImageError"></div>
                     </div>
 
                     <!-- Right: Result panel (always in DOM for layout stability) -->
@@ -3410,17 +3401,8 @@
                 <!-- Error message -->
                 <div x-show="pasteImportError" x-cloak style="padding:8px 24px;background:rgba(231,76,60,0.1);border-top:1px solid rgba(231,76,60,0.3);color:#e74c3c;font-size:13px;" x-text="pasteImportError"></div>
 
-                <!-- Footer: instruction input + language + action buttons -->
-                <div style="display:flex;gap:10px;align-items:center;padding:12px 24px;border-top:1px solid var(--border);flex-shrink:0;">
-                    <input type="text" x-model="pasteImportInstruction"
-                        placeholder="Optional instruction: e.g. 'remove mentions of X', 'focus on backstory'..."
-                        style="flex:1;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
-                    <select x-model="pasteImportLanguage"
-                        style="width:140px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;flex-shrink:0;">
-                        <template x-for="lang in (window.GenreDefs?.LANGUAGES || [])" :key="lang.id">
-                            <option :value="lang.id" x-text="lang.label"></option>
-                        </template>
-                    </select>
+                <!-- Footer: action buttons -->
+                <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:12px 24px;border-top:1px solid var(--border);flex-shrink:0;">
                     <button class="btn btn-primary" @click="runPasteImport()"
                         :disabled="pasteImportLoading || !pasteImportText.trim()">
                         <span x-show="!pasteImportLoading">🔍 Extract</span>

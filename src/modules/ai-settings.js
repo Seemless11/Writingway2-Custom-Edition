@@ -349,10 +349,10 @@
 
                     // Fetch fresh model list if we have API credentials (or LM Studio which doesn't need a key)
                     if (app.aiMode === 'api' && (app.aiApiKey || app.aiProvider === 'lmstudio')) {
-                        await this.fetchProviderModels(app);
+                        this.fetchProviderModels(app).catch(() => {}); // Fire-and-forget, don't block init
                     }
 
-                    // Set model AFTER fetching the list to ensure the dropdown has the option
+                    // Set model name (may not appear in dropdown until fetch completes)
                     app.aiModel = savedModel;
                 }
 

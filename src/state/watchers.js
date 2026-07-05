@@ -4,17 +4,6 @@
  */
 
 function setupWatchers(app) {
-    // Watch for preview mode changes and stop TTS when switching to edit mode
-    app.$watch('showMarkdownPreview', (isPreview) => {
-        if (!isPreview && app.isReading) {
-            // Switched from preview to edit mode while reading - stop TTS
-            if (window.TTS && typeof window.TTS.stop === 'function') {
-                window.TTS.stop();
-            }
-            app.isReading = false;
-        }
-    });
-
     // Watch AI settings and auto-save when they change (but not during initialization)
     app.$watch('aiMode', () => {
         if (!app.isInitializing && window.AISettings && typeof window.AISettings.saveGenerationParams === 'function') {

@@ -105,7 +105,7 @@ WITHIN EACH SECTION:
 === INPUT ===
 {userText}`,
 
-            async extractCharacterFromText(text, genre, app, instruction, language) {
+        async extractCharacterFromText(text, genre, app, instruction, language) {
                 if (!text || !text.trim()) return null;
                 const genreLabel = (window.GenreDefs?.GENRES || []).find(function (g) { return g.id === genre; });
                 const genreContext = genreLabel

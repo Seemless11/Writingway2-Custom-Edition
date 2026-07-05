@@ -34,17 +34,6 @@ document.addEventListener('alpine:init', () => {
                 return total;
             },
 
-            // Alpine lifecycle - setup watchers and initialize
-            init() {
-                // Setup reactive watchers (Phase 2 refactoring)
-                if (window.setupWatchers && typeof window.setupWatchers === 'function') {
-                    window.setupWatchers(this);
-                }
-
-                // Continue with normal initialization
-                this.initializeApp();
-            },
-
             // Helper to update loading screen
             updateLoadingScreen(progress, status, tip) {
                 try {
@@ -81,6 +70,9 @@ document.addEventListener('alpine:init', () => {
 
             // Initialize
             async init() {
+                if (window.setupWatchers && typeof window.setupWatchers === 'function') {
+                    window.setupWatchers(this);
+                }
                 this.updateLoadingScreen(10, 'Initializing...', 'Checking startup method...');
 
                 // Detect if opened via file:// protocol and warn user
@@ -130,16 +122,17 @@ document.addEventListener('alpine:init', () => {
                 // Load projects and show projects view instead of auto-loading
                 try {
                     await this.loadProjects();
-                    // One-time migration: ensure scenes have a projectId so they are discoverable
-                    try { await this.migrateMissingSceneProjectIds(); } catch (e) { /* ignore */ }
-                    // Show inline project picker in main view
-                    // (projects are available in this.projects, rendered inline)
+                    // projects are now available — show the UI immediately
                 } catch (e) {
                     console.error('Failed to load projects:', e);
                 }
 
                 // Show the app UI immediately — AI init continues in the background
                 this.hideLoadingScreen();
+
+                // One-time migration: ensure scenes have a projectId so they are discoverable
+                // Deferred after UI show so the user sees the picker without delay
+                try { await this.migrateMissingSceneProjectIds(); } catch (e) { /* ignore */ }
 
                 this.updateLoadingScreen(30, 'Checking local AI...', 'Looking for GGUF models and llama.cpp...');
                 await this.fetchRuntimeInfo();
@@ -180,6 +173,20 @@ document.addEventListener('alpine:init', () => {
 
                 if (this.shouldOfferLlamaSetup()) {
                     this.showLlamaSetupWizard = true;
+                }
+
+                // Initialize workshop sessions once (with guard to prevent reactivity loop)
+                if (!this._workshopInitDone && this.currentProject) {
+                    this._workshopInitDone = true;
+                    try {
+                        await this.loadWorkshopSessions();
+                        if (!this.workshopSessions || this.workshopSessions.length === 0) {
+                            this.workshopSessions = [window.workshopChat.createNewSession(this)];
+                            await this.saveWorkshopSessions();
+                        }
+                    } catch (e) {
+                        console.warn('Workshop init failed:', e);
+                    }
                 }
 
                 // Global Escape key handler to close slide panels / settings
@@ -228,27 +235,11 @@ document.addEventListener('alpine:init', () => {
                     } catch (e) { /* ignore */ }
                 }, true);
 
-                this.updateLoadingScreen(70, 'Loading features...', 'Setting up text-to-speech and updates...');
+                this.updateLoadingScreen(70, 'Loading features...', 'Setting up...');
 
                 // Check for updates on startup (silent mode)
                 if (window.UpdateChecker) {
                     setTimeout(() => window.UpdateChecker.checkAndNotify(this, true), 2000);
-                }
-
-                // Initialize TTS voices
-                if (window.TTS) {
-                    // Load voices (they load async)
-                    setTimeout(() => {
-                        this.availableTTSVoices = window.TTS.getVoices();
-                        // Load saved voice preference
-                        const savedVoiceName = localStorage.getItem('writingway:ttsVoice');
-                        if (savedVoiceName) {
-                            this.ttsVoiceName = savedVoiceName;
-                        }
-                        // Load saved speed
-                        const savedSpeed = localStorage.getItem('writingway:ttsSpeed');
-                        if (savedSpeed) this.ttsSpeed = parseFloat(savedSpeed);
-                    }, 500);
                 }
 
                 // Load light mode preference early to avoid flash
@@ -515,65 +506,6 @@ document.addEventListener('alpine:init', () => {
                 if (window.UpdateChecker) {
                     await window.UpdateChecker.checkAndNotify(this, false);
                 }
-            },
-
-            // TTS: Toggle reading current scene aloud
-            toggleTTS() {
-                if (!window.TTS) {
-                    alert('Text-to-Speech not available');
-                    return;
-                }
-
-                if (this.isReading) {
-                    // Stop reading
-                    window.TTS.stop();
-                    this.isReading = false;
-                } else {
-                    // Start reading current scene (only works in preview mode)
-                    if (!this.currentScene) {
-                        alert('No scene selected to read');
-                        return;
-                    }
-
-                    if (!this.showMarkdownPreview) {
-                        alert('Switch to Preview mode to use Read Aloud');
-                        return;
-                    }
-
-                    // Read from preview (Markdown rendered as plain text)
-                    const preview = document.querySelector('.editor-preview');
-                    const text = preview ? preview.innerText.trim() : '';
-
-                    if (!text || text.length === 0) {
-                        alert('Scene is empty - nothing to read');
-                        return;
-                    }
-
-                    this.isReading = true;
-
-                    // Find voice object by name
-                    let voiceObj = null;
-                    if (this.ttsVoiceName) {
-                        voiceObj = this.availableTTSVoices.find(v => v.name === this.ttsVoiceName);
-                    }
-
-                    // Read with current settings
-                    window.TTS.speak(text, {
-                        voice: voiceObj,
-                        rate: this.ttsSpeed,
-                        onEnd: () => {
-                            this.isReading = false;
-                        }
-                    });
-                }
-            },
-
-            // Save TTS settings to localStorage
-            saveTTSSettings() {
-                if (this.ttsVoiceName) {
-                    localStorage.setItem('writingway:ttsVoice', this.ttsVoiceName);
-                }
-                localStorage.setItem('writingway:ttsSpeed', this.ttsSpeed.toString());
             },
 
             // Toggle light/dark mode and persist preference
@@ -1385,6 +1317,11 @@ document.addEventListener('alpine:init', () => {
                 this.pasteImportGenre = (this.currentProject?.genres?.length)
                     ? this.currentProject.genres[0]
                     : 'fantasy';
+                this.pasteImportImageData = null;
+                this.pasteImportImageFileName = '';
+                this.pasteImportImageDescrLoading = false;
+                this.pasteImportImageDescription = '';
+                this.pasteImportImageError = '';
                 this.showPasteImport = true;
                 this.$nextTick(function () {
                     var el = document.getElementById('pasteImportTextarea');
@@ -1398,6 +1335,11 @@ document.addEventListener('alpine:init', () => {
                 this.pasteImportError = '';
                 this.pasteImportLoading = false;
                 this.pasteImportInstruction = '';
+                this.pasteImportImageData = null;
+                this.pasteImportImageFileName = '';
+                this.pasteImportImageDescrLoading = false;
+                this.pasteImportImageDescription = '';
+                this.pasteImportImageError = '';
             },
             async runPasteImport() {
                 var text = (this.pasteImportText || '').trim();
@@ -1413,6 +1355,7 @@ document.addEventListener('alpine:init', () => {
                         this.pasteImportError = result.error;
                     } else {
                         this.pasteImportResult = result;
+                        this.mergeImageDescriptionIntoResult();
                     }
                 } catch (e) {
                     this.pasteImportError = e.message || 'Extraction failed';
@@ -1429,7 +1372,7 @@ document.addEventListener('alpine:init', () => {
                     body: result.body || result.raw || '',
                     category: 'characters',
                     tags: ['imported', 'wiki-import'],
-                    imageUrl: null,
+                    imageUrl: this.pasteImportImageData || null,
                     alwaysInContext: false
                 };
                 try {
@@ -1442,6 +1385,84 @@ document.addEventListener('alpine:init', () => {
                 } catch (e) {
                     alert('Failed to save: ' + (e.message || e));
                 }
+            },
+
+            // ========== Paste Import Image Methods ==========
+            triggerPasteImportImageUpload() {
+                this.pasteImportImageError = '';
+                var el = document.getElementById('pasteImportImageInput');
+                if (el) el.click();
+            },
+            onPasteImportImageSelected(event) {
+                var file = event.target.files?.[0];
+                if (!file) return;
+                this.pasteImportImageError = '';
+                var allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+                if (!allowed.includes(file.type)) {
+                    this.pasteImportImageError = 'Unsupported format. Use PNG, JPEG, WebP, or GIF.';
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    this.pasteImportImageError = 'Image too large (max 10MB).';
+                    return;
+                }
+                this.pasteImportImageFileName = file.name;
+                var self = this;
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    self.pasteImportImageData = e.target.result;
+                    self.pasteImportImageDescription = '';
+                    self.pasteImportImageError = '';
+                };
+                reader.onerror = function () {
+                    self.pasteImportImageError = 'Failed to read file.';
+                };
+                reader.readAsDataURL(file);
+                event.target.value = '';
+            },
+            removePasteImportImage() {
+                this.pasteImportImageData = null;
+                this.pasteImportImageFileName = '';
+                this.pasteImportImageDescription = '';
+                this.pasteImportImageError = '';
+                this.pasteImportImageDescrLoading = false;
+            },
+            async describePasteImportImage() {
+                if (!this.pasteImportImageData) return;
+                if (this.pasteImportImageDescrLoading) return;
+                if (!this.aiApiKey) {
+                    this.pasteImportImageError = 'No API key found. Set your OpenRouter API key in AI Settings.';
+                    return;
+                }
+                this.pasteImportImageDescrLoading = true;
+                this.pasteImportImageError = '';
+                try {
+                    var result = await window.ImageDescriber.describe(
+                        this.pasteImportImageData,
+                        this.pasteImportLanguage,
+                        this.aiApiKey
+                    );
+                    if (result?.error) {
+                        this.pasteImportImageError = result.error;
+                    } else if (result?.description) {
+                        this.pasteImportImageDescription = result.description;
+                        if (this.pasteImportResult) {
+                            this.mergeImageDescriptionIntoResult();
+                        }
+                    } else {
+                        this.pasteImportImageError = 'No description could be generated.';
+                    }
+                } catch (e) {
+                    this.pasteImportImageError = e.message || 'Image description failed';
+                    console.error('Image description error:', e);
+                } finally {
+                    this.pasteImportImageDescrLoading = false;
+                }
+            },
+            mergeImageDescriptionIntoResult() {
+                if (!this.pasteImportResult || !this.pasteImportImageDescription) return;
+                var descSection = '\n\n## Appearance (from image)\n' + this.pasteImportImageDescription.trim();
+                this.pasteImportResult.body = descSection + '\n\n' + this.pasteImportResult.body;
             },
 
             // ========== Character Creator Methods ==========
@@ -1845,7 +1866,12 @@ document.addEventListener('alpine:init', () => {
             },
 
             // Workshop Chat methods (delegated to src/modules/workshop.js)
-            async loadWorkshopSessions() { return window.Workshop.loadWorkshopSessions(this); },
+            async loadWorkshopSessions() {
+                const now = Date.now();
+                if (this._lastLoadWorkshopSessions && now - this._lastLoadWorkshopSessions < 2000) return;
+                this._lastLoadWorkshopSessions = now;
+                return window.Workshop.loadWorkshopSessions(this);
+            },
             async saveWorkshopSessions() { return window.Workshop.saveWorkshopSessions(this); },
             createWorkshopSession() { return window.Workshop.createWorkshopSession(this); },
             renameWorkshopSession(index) { return window.Workshop.renameWorkshopSession(this, index); },

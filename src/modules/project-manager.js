@@ -139,19 +139,27 @@
                 const projects = await db.projects.toArray();
                 const defaultProject = projects && projects[0] ? projects[0].id : null;
 
+                // Bulk-load all chapters once instead of per-scene lookups
+                const allChapters = await db.chapters.toArray();
+                const chapterProjectMap = {};
+                for (const ch of allChapters) {
+                    chapterProjectMap[ch.id] = ch.projectId;
+                }
+
+                const updates = [];
                 for (const s of scenes) {
                     if (!s.projectId) {
                         let projectId = null;
-                        if (s.chapterId) {
-                            const ch = await db.chapters.get(s.chapterId).catch(() => null);
-                            if (ch && ch.projectId) projectId = ch.projectId;
+                        if (s.chapterId && chapterProjectMap[s.chapterId]) {
+                            projectId = chapterProjectMap[s.chapterId];
                         }
                         if (!projectId && defaultProject) projectId = defaultProject;
                         if (projectId) {
-                            await db.scenes.update(s.id, { projectId });
+                            updates.push(db.scenes.update(s.id, { projectId }));
                         }
                     }
                 }
+                await Promise.all(updates);
             } catch (e) {
                 console.warn('migrateMissingSceneProjectIds failed:', e);
             }

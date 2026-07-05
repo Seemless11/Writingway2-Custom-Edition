@@ -89,12 +89,6 @@ function createAppState() {
         showExportReminder: false,
         exportReminderDismissed: false,
 
-        // ========== TTS (Text-to-Speech) State ==========
-        isReading: false,
-        ttsVoiceName: '', // Selected voice name
-        ttsSpeed: 1.0, // Speech rate (0.5 - 2.0)
-        availableTTSVoices: [], // Populated on init
-
         // ========== Accessibility Settings ==========
         lightMode: false, // Light/dark theme toggle
 
@@ -268,6 +262,11 @@ function createAppState() {
         pasteImportLoading: false,
         pasteImportResult: null, // { title, body, raw } or null
         pasteImportError: '',
+        pasteImportImageData: null,
+        pasteImportImageFileName: '',
+        pasteImportImageDescrLoading: false,
+        pasteImportImageDescription: '',
+        pasteImportImageError: '',
 
         // ========== AI Worker State ==========
         aiWorker: null,

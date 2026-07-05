@@ -99,12 +99,15 @@ const path = require('path');
         const ta = await page.$('.editor-textarea');
         const beforeContent = await ta.evaluate(el => el.value);
 
-        // Set beatInput and call generateFromBeat() on the Alpine app
+        // Set beat and call generateFromBeat() on the Alpine app
         await page.evaluate((beat) => {
             const el = document.querySelector('[x-data="app"]');
             if (el && el.__x && el.__x.$data) {
-                el.__x.$data.beatInput = beat;
-                el.__x.$data.aiStatus = 'ready';
+                const data = el.__x.$data;
+                // Use legacy mode for test compatibility
+                data.showMiniBeatInput = true;
+                data.beatInput = beat;
+                data.aiStatus = 'ready';
             }
         }, initialBeat);
 
@@ -179,7 +182,7 @@ const path = require('path');
                     const data = el.__x.$data;
                     const prev = typeof data.lastGenStart === 'number' ? (data.currentScene && data.currentScene.content ? data.currentScene.content.slice(0, data.lastGenStart) : '') : '';
                     if (data.currentScene) data.currentScene.content = prev;
-                    // restore beat
+                    // restore beat (legacy mode set above)
                     data.beatInput = data.lastBeat || '';
                 }
             });
