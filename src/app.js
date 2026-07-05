@@ -1374,6 +1374,75 @@ document.addEventListener('alpine:init', () => {
                 await window.CompendiumManager.importCharacterCard(this);
             },
 
+            // ========== Paste Import Methods ==========
+            openPasteImport() {
+                this.pasteImportText = '';
+                this.pasteImportResult = null;
+                this.pasteImportError = '';
+                this.pasteImportLoading = false;
+                this.pasteImportInstruction = '';
+                this.pasteImportGenre = (this.currentProject?.genres?.length)
+                    ? this.currentProject.genres[0]
+                    : 'fantasy';
+                this.showPasteImport = true;
+                this.$nextTick(function () {
+                    var el = document.getElementById('pasteImportTextarea');
+                    if (el) el.focus();
+                });
+            },
+            closePasteImport() {
+                this.showPasteImport = false;
+                this.pasteImportText = '';
+                this.pasteImportResult = null;
+                this.pasteImportError = '';
+                this.pasteImportLoading = false;
+                this.pasteImportInstruction = '';
+            },
+            async runPasteImport() {
+                var text = (this.pasteImportText || '').trim();
+                if (!text) return;
+                if (this.pasteImportLoading) return;
+                this.pasteImportLoading = true;
+                this.pasteImportError = '';
+                try {
+                    var result = await window.Compendium.extractCharacterFromText(text, this.pasteImportGenre, this, this.pasteImportInstruction);
+                    if (!result) {
+                        this.pasteImportError = 'No character information could be extracted from the provided text.';
+                    } else if (result.error) {
+                        this.pasteImportError = result.error;
+                    } else {
+                        this.pasteImportResult = result;
+                    }
+                } catch (e) {
+                    this.pasteImportError = e.message || 'Extraction failed';
+                    console.error('Paste import error:', e);
+                } finally {
+                    this.pasteImportLoading = false;
+                }
+            },
+            async adoptPasteImport() {
+                if (!this.pasteImportResult || !this.currentProject) return;
+                var result = this.pasteImportResult;
+                var entry = {
+                    title: result.title || 'Unknown Character',
+                    body: result.body || result.raw || '',
+                    category: 'characters',
+                    tags: ['imported', 'wiki-import'],
+                    imageUrl: null,
+                    alwaysInContext: false
+                };
+                try {
+                    var imported = await window.Compendium.import(this.currentProject.id, [entry]);
+                    if (imported && imported.length > 0) {
+                        await window.CompendiumManager.loadCompendiumCategory(this, 'characters');
+                        this.closePasteImport();
+                        this.selectCompendiumEntry(imported[0].id);
+                    }
+                } catch (e) {
+                    alert('Failed to save: ' + (e.message || e));
+                }
+            },
+
             // ========== Character Creator Methods ==========
             getFilteredCharCreatorCategories() {
                 const v = this.charCreatorTraitVersion;
