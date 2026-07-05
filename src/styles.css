@@ -61,8 +61,8 @@ html.light-mode ::-webkit-scrollbar-thumb:hover,
 }
 
 /* Light mode shadows - softer for light backgrounds */
-html.light-mode .slide-panel-right,
-.light-mode .slide-panel-right {
+html.light-mode .slide-panel-right.open,
+.light-mode .slide-panel-right.open {
     box-shadow: -8px 0 32px rgba(0, 0, 0, 0.1), -4px 0 16px rgba(37, 99, 235, 0.05);
 }
 
@@ -752,20 +752,27 @@ body {
     z-index: 4500;
     display: flex;
     flex-direction: column;
-    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5), -4px 0 16px rgba(74, 158, 255, 0.1);
 }
 
 .slide-panel-right.open {
     transform: translateX(0);
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5), -4px 0 16px rgba(74, 158, 255, 0.1);
 }
 
 /* Make the Compendium slide visually pop: subtle accent border, header accent, and shadow */
 .slide-panel-right.compendium-panel {
     border-left: 1px solid rgba(74, 158, 255, 0.12);
-    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.65);
     background: linear-gradient(180deg, var(--bg-secondary), rgba(42, 42, 42, 0.97));
     /* make compendium wider to accommodate longer names and richer content */
     width: 640px;
+}
+
+.slide-panel-right.compendium-panel.open {
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.65);
+}
+
+.slide-panel-right.ai-settings-panel.open {
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
 }
 
 .slide-panel-right.compendium-panel .slide-panel-header {
@@ -1527,8 +1534,11 @@ html.light-mode .backup-warning-banner,
     min-width: 500px;
     max-width: 1200px;
     border-left: 1px solid rgba(74, 158, 255, 0.08);
-    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
     background: linear-gradient(180deg, var(--bg-secondary), rgba(74, 158, 255, 0.02));
+}
+
+.slide-panel-right.prompts-panel.open {
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
 }
 
 .slide-panel-right.prompts-panel .slide-panel-header {
@@ -1604,9 +1614,12 @@ html.light-mode .backup-warning-banner,
 /* Summary Panel Styling - similar to compendium/prompts panels */
 .slide-panel-right.summary-panel {
     border-left: 1px solid rgba(74, 158, 255, 0.08);
-    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
     background: linear-gradient(180deg, var(--bg-secondary), rgba(74, 158, 255, 0.02));
     width: 500px;
+}
+
+.slide-panel-right.summary-panel.open {
+    box-shadow: -18px 0 40px rgba(0, 0, 0, 0.55);
 }
 
 .slide-panel-right.summary-panel .slide-panel-header {
