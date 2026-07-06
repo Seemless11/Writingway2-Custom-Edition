@@ -791,13 +791,43 @@
 
                             <!-- Workshop Header -->
                             <div class="embedded-workshop-header">
-                                <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;flex-wrap:wrap;">
                                     <span style="font-size:14px;font-weight:600;white-space:nowrap;">Workshop</span>
                                     <select x-model="currentWorkshopSessionIndex" class="workshop-select"
-                                        style="flex:1;min-width:0;font-size:12px;">
+                                        style="flex:1;min-width:60px;font-size:12px;">
                                         <template x-for="(session, idx) in workshopSessions" :key="session.id">
                                             <option :value="idx" x-text="session.name"></option>
                                         </template>
+                                    </select>
+                                    <select x-model="aiModel" @change="saveGenerationParams()" class="workshop-select"
+                                        style="font-size:12px;min-width:90px;"
+                                        title="AI Model for this chat"
+                                        x-show="aiMode === 'api' || availableLocalModels.length > 0">
+                                        <template x-for="model in (aiMode === 'api' ? (providerModels[aiProvider] || []) : [])" :key="model.id">
+                                            <option :value="model.id" x-text="model.name + (model.recommended ? ' ⭐' : '')"></option>
+                                        </template>
+                                        <template x-for="modelName in (aiMode === 'local' ? availableLocalModels : [])" :key="modelName">
+                                            <option :value="modelName" x-text="modelName"></option>
+                                        </template>
+                                        <option x-show="aiModel && ((aiMode === 'api' && !(providerModels[aiProvider] || []).find(m => m.id === aiModel)) || (aiMode === 'local' && !availableLocalModels.includes(aiModel)))"
+                                            :value="aiModel" x-text="aiModel"></option>
+                                    </select>
+                                    <span x-show="aiMode === 'local' && availableLocalModels.length === 0"
+                                        style="padding:3px 8px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:4px;font-size:11px;white-space:nowrap;">
+                                        ✓ Local
+                                    </span>
+                                    <select x-model="selectedWorkshopPromptId" @change="saveSelectedWorkshopPrompt" class="workshop-select"
+                                        style="font-size:12px;min-width:80px;">
+                                        <option value="">Default Prompt</option>
+                                        <template x-for="p in prompts.filter(p => p.category === 'workshop')" :key="p.id">
+                                            <option :value="p.id" x-text="p.title"></option>
+                                        </template>
+                                    </select>
+                                    <select x-model="workshopFidelityMode" class="workshop-select"
+                                        style="font-size:12px;min-width:64px;">
+                                        <option value="high">High</option>
+                                        <option value="balanced">Balanced</option>
+                                        <option value="compressed">Compressed</option>
                                     </select>
                                 </div>
                                 <button class="btn btn-secondary btn-sm" @click="createWorkshopSession"
