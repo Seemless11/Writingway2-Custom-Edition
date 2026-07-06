@@ -337,7 +337,8 @@
                 if (app.currentCompEntry._charData) {
                     updates._charData = app.currentCompEntry._charData;
                 }
-                await window.Compendium.updateEntry(app.currentCompEntry.id, updates);
+                const saved = await window.Compendium.updateEntry(app.currentCompEntry.id, updates);
+                app.currentCompEntry = saved;
                 // Refresh only the entry's category without toggling
                 await this.refreshCategoryList(app, entryCategory);
                 await this.loadCompendiumCounts(app);
