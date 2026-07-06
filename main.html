@@ -169,7 +169,6 @@
                                     <button @click.stop="exportProject(); mainMenuOpen=false" :disabled="!currentProject">📦
                                         Export Current Project</button>
                                     <div style="border-top:1px solid var(--border);margin:6px 0"></div>
-                                    <button @click.stop="openCompendium(); mainMenuOpen=false">📚 Compendium</button>
                                     <button @click.stop="showWorkshopChat = true; mainMenuOpen=false">💬 Workshop
                                         Chat</button>
                                     <button @click.stop="showAISettings = true; mainMenuOpen=false">⚙️ AI Settings</button>
@@ -375,12 +374,6 @@
                             <div class="editor-title" x-text="currentScene ? currentScene.title : 'No scene selected'">
                             </div>
                             <div style="display:flex;align-items:center;gap:12px;">
-                                <button class="btn btn-secondary"
-                                    @click="showEmbeddedWorkshop = !showEmbeddedWorkshop; if (showEmbeddedWorkshop && (!workshopSessions || workshopSessions.length === 0)) { workshopSessions = [window.workshopChat.createNewSession($data)]; saveWorkshopSessions(); }"
-                                    :style="showEmbeddedWorkshop ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
-                                    title="Toggle Workshop Chat panel">
-                                    💬
-                                </button>
                                 <div class="editor-stats" style="white-space:nowrap;">
                                     <span x-text="`${currentSceneWords} words`"></span>
                                     <span class="save-indicator" :class="{ 'saving': isSaving }"
@@ -579,8 +572,11 @@
 
                                                     <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
                                                         title="Context Panel" style="font-size:12px;padding:3px 7px;">📚</button>
-                                                    <button class="btn btn-secondary" @click="showSceneOptions = !showSceneOptions"
-                                                        title="Scene options" style="font-size:12px;padding:3px 7px;">⚙️</button>
+                                                    <button class="btn btn-secondary" @click="showCodexPanel = true"
+                                                        title="Compendium" style="font-size:12px;padding:3px 7px;">📖</button>
+                                                    <button class="btn btn-secondary" @click="showEmbeddedWorkshop = !showEmbeddedWorkshop; if (showEmbeddedWorkshop && (!workshopSessions || workshopSessions.length === 0)) { workshopSessions = [window.workshopChat.createNewSession($data)]; saveWorkshopSessions(); }"
+                                                        :style="showEmbeddedWorkshop ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
+                                                        title="Toggle Workshop Chat" style="font-size:12px;padding:3px 7px;">💬</button>
                                                     <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
                                                         title="Prompt History" style="font-size:12px;padding:3px 7px;">🕐</button>
                                                     <button class="btn btn-secondary" @click="previewPrompt"
