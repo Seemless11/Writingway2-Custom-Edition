@@ -502,7 +502,7 @@
 
                                         <!-- Mention Autocomplete Dropdowns (@ compendium, # scene) -->
                                         <div class="quick-search-dropdown" x-show="showQuickSearch && !showMiniBeatInput" x-cloak
-                                            style="position:absolute;bottom:100%;left:30px;right:30px;z-index:5000;pointer-events:none;">
+                                            style="position:absolute;bottom:0;left:30px;right:30px;z-index:5000;pointer-events:none;">
                                             <div
                                                 style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
                                                 <template x-for="(m,mi) in quickSearchMatches" :key="m.id">
@@ -519,7 +519,7 @@
                                         </div>
 
                                         <div class="scene-search-dropdown" x-show="showSceneSearch && !showMiniBeatInput" x-cloak
-                                            style="position:absolute;bottom:100%;left:30px;right:30px;z-index:5000;pointer-events:none;">
+                                            style="position:absolute;bottom:0;left:30px;right:30px;z-index:5000;pointer-events:none;">
                                             <div
                                                 style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent-blue,#60a5fa);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
                                                 <template x-for="(scene,si) in sceneSearchMatches" :key="scene.id">
@@ -575,8 +575,8 @@
                                                     <button class="btn btn-secondary" @click="showCodexPanel = true"
                                                         title="Compendium" style="font-size:12px;padding:3px 7px;">📖</button>
                                                     <button class="btn btn-secondary" @click="showEmbeddedWorkshop = !showEmbeddedWorkshop; if (showEmbeddedWorkshop && (!workshopSessions || workshopSessions.length === 0)) { workshopSessions = [window.workshopChat.createNewSession($data)]; saveWorkshopSessions(); }"
-                                                        :style="showEmbeddedWorkshop ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
-                                                        title="Toggle Workshop Chat" style="font-size:12px;padding:3px 7px;">💬</button>
+                                                        :style="showEmbeddedWorkshop ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5); font-size:12px; padding:3px 7px;' : 'font-size:12px; padding:3px 7px;'"
+                                                        title="Toggle Workshop Chat">💬</button>
                                                     <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
                                                         title="Prompt History" style="font-size:12px;padding:3px 7px;">🕐</button>
                                                     <button class="btn btn-secondary" @click="previewPrompt"
