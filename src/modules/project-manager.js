@@ -172,6 +172,18 @@
          */
         async selectProject(app, projectId) {
             app.projectLoading = true;
+            // Clear compendium state for the new project
+            app.showCodexPanel = false;
+            app.currentCompEntry = null;
+            app.compendiumOriginalEntry = null;
+            app.compendiumDirty = false;
+            app.compendiumGenerating = false;
+            app.showCompGenActions = false;
+            app.compendiumCounts = {};
+            app.openCompCategories = [];
+            app.compendiumLists = {};
+            app.compendiumSaveStatus = '';
+            app.showCompCategoryPicker = false;
             const proj = await db.projects.get(projectId);
             if (!proj) { app.projectLoading = false; return; }
             app.currentProject = proj;

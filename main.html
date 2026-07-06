@@ -592,7 +592,7 @@
 
                                                     <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
                                                         title="Context Panel" style="font-size:12px;padding:3px 7px;">📚</button>
-                                                    <button class="btn btn-secondary" @click="showCodexPanel = true"
+                                                    <button class="btn btn-secondary" @click="openCompendium()"
                                                         title="Compendium" style="font-size:12px;padding:3px 7px;">📖</button>
                                                     <button class="btn btn-secondary" @click="showEmbeddedWorkshop = !showEmbeddedWorkshop; if (showEmbeddedWorkshop && (!workshopSessions || workshopSessions.length === 0)) { workshopSessions = [window.workshopChat.createNewSession($data)]; saveWorkshopSessions(); }"
                                                         :style="showEmbeddedWorkshop ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5); font-size:12px; padding:3px 7px;' : 'font-size:12px; padding:3px 7px;'"
