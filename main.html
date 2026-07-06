@@ -246,7 +246,7 @@
                                 <div x-show="openMenu" x-cloak @click.away="openMenu = false" x-transition
                                     class="action-menu">
                                     <button
-                                        @click.stop="showRenameProjectModal = true; renameProjectName = currentProject?.name; openMenu=false">Rename</button>
+                                        @click.stop="showRenameProjectModal = true; renameProjectName = currentProject?.name; renameProjectPov = currentProject?.pov || '3rd person limited'; renameProjectTense = currentProject?.tense || 'past'; renameProjectLanguage = currentProject?.language || 'English'; openMenu=false">Rename</button>
                                     <div style="border-top:1px solid var(--border);margin:6px 0"></div>
                                     <div style="max-height:200px;overflow:auto;margin-bottom:6px;">
                                         <strong
@@ -701,8 +701,9 @@
                                                     </div>
                                                 </template>
                                                 <template x-if="projects.length > 0">
-                                                    <div style="width:100%;max-width:500px;margin:0 auto;">
-                                                    <template x-for="project in projects" :key="project.id">
+                                                     <div style="width:100%;max-width:500px;margin:0 auto;">
+                                                     <div class="project-list">
+                                                     <template x-for="project in projects" :key="project.id">
                                                              <div class="project-picker-card" @click="openProject(project.id)"
                                                                  style="display:flex;align-items:center;gap:16px;padding:16px 20px;margin-bottom:8px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.2s;"
                                                                  @mouseenter="$el.style.borderColor='rgba(74,158,255,0.5)';$el.style.background='rgba(74,158,255,0.08)'"
@@ -712,14 +713,25 @@
                                                                      <div style="font-weight:600;font-size:16px;color:var(--text-primary);" x-text="project.name"></div>
                                                                      <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;" x-text="'Last modified: ' + new Date(project.modified).toLocaleDateString()"></div>
                                                                  </div>
-                                                                 <button @click.stop="deleteProject(project.id)" title="Delete project"
-                                                                         style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-secondary);padding:4px 8px;border-radius:6px;flex-shrink:0;"
-                                                                         @mouseenter="$el.style.color='var(--danger,#ef4444)'"
-                                                                         @mouseleave="$el.style.color='var(--text-secondary)'">🗑️</button>
-                                                                 <div style="font-size:18px;color:var(--text-secondary);">→</div>
+                                                                  <button @click.stop="
+                                                                          renameProjectTargetId = project.id;
+                                                                          renameProjectName = project.name;
+                                                                          renameProjectPov = project.pov || '3rd person limited';
+                                                                          renameProjectTense = project.tense || 'past';
+                                                                          renameProjectLanguage = project.language || 'English';
+                                                                          showRenameProjectModal = true" title="Edit project"
+                                                                          style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-secondary);padding:4px 6px;border-radius:6px;flex-shrink:0;"
+                                                                          @mouseenter="$el.style.color='var(--accent)'"
+                                                                          @mouseleave="$el.style.color='var(--text-secondary)'">✏️</button>
+                                                                  <button @click.stop="deleteProject(project.id)" title="Delete project"
+                                                                          style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-secondary);padding:4px 8px;border-radius:6px;flex-shrink:0;"
+                                                                          @mouseenter="$el.style.color='var(--danger,#ef4444)'"
+                                                                          @mouseleave="$el.style.color='var(--text-secondary)'">🗑️</button>
+                                                                  <div style="font-size:18px;color:var(--text-secondary);">→</div>
                                                              </div>
-                                                         </template>
-                                                        <div style="display:flex;gap:8px;margin-top:12px;">
+                                                          </template>
+                                                     </div>
+                                                         <div style="display:flex;gap:8px;margin-top:12px;">
                                                             <button class="btn btn-primary" @click="showNewProjectModal = true" style="flex:1;">➕ New Project</button>
                                                             <button class="btn btn-secondary" @click="showW1ImportModal = true" title="Import from Writingway 1">📥 Import</button>
                                                         </div>
@@ -979,16 +991,51 @@
             </div>
         </template>
 
-        <!-- Rename Project Modal -->
+        <!-- Edit Project Modal -->
         <template x-if="showRenameProjectModal">
             <div class="modal-overlay" @click.self="showRenameProjectModal = false">
                 <div class="modal">
-                    <h3>Rename Project</h3>
+                    <h3>Edit Project</h3>
+
+                    <label style="font-size:13px;color:var(--text-secondary);">Project Name</label>
                     <input type="text" x-model="renameProjectName" placeholder="Project name"
                         @keydown.enter="renameCurrentProject">
-                    <div class="modal-buttons">
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">POV</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <template x-for="p in (window.GenreDefs?.POVS || [])" :key="p.id">
+                            <span class="tag-chip"
+                                :class="{ 'tag-chip-active': renameProjectPov === p.id }"
+                                @click="renameProjectPov = p.id"
+                                x-text="p.label">
+                            </span>
+                        </template>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">Tense</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <template x-for="t in (window.GenreDefs?.TENSES || [])" :key="t.id">
+                            <span class="tag-chip"
+                                :class="{ 'tag-chip-active': renameProjectTense === t.id }"
+                                @click="renameProjectTense = t.id"
+                                x-text="t.label">
+                            </span>
+                        </template>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">Language</label>
+                    <div style="margin-top:6px;">
+                        <select x-model="renameProjectLanguage"
+                            style="width:100%;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <template x-for="lang in (window.GenreDefs?.LANGUAGES || [])" :key="lang.id">
+                                <option :value="lang.id" x-text="lang.label"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div class="modal-buttons" style="margin-top:20px;">
                         <button class="btn btn-secondary" @click="showRenameProjectModal = false">Cancel</button>
-                        <button class="btn btn-primary" @click="renameCurrentProject">Rename</button>
+                        <button class="btn btn-primary" @click="renameCurrentProject">Save</button>
                     </div>
                 </div>
             </div>

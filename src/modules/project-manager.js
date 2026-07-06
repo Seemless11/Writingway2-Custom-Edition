@@ -275,12 +275,16 @@
          * @param {Object} app - Alpine app instance
          * @param {string} newName - New project name
          */
-        async renameCurrentProject(app, newName) {
-            if (!app.currentProject || !newName) return;
+        async renameCurrentProject(app, newName, projectId, pov, tense, language) {
+            const id = projectId || app.currentProject?.id;
+            if (!id || !newName) return;
             try {
                 const now = Date.now();
-                await db.projects.update(app.currentProject.id, {
+                await db.projects.update(id, {
                     name: newName,
+                    pov: pov || '3rd person limited',
+                    tense: tense || 'past',
+                    language: language || 'English',
                     modified: new Date(),
                     updatedAt: now
                 });
@@ -288,15 +292,17 @@
                 // Broadcast project update
                 if (window.TabSync) {
                     window.TabSync.broadcast(window.TabSync.MSG_TYPES.PROJECT_SAVED, {
-                        id: app.currentProject.id,
+                        id: id,
                         updatedAt: now
                     });
                 }
 
                 await this.loadProjects(app);
-                // refresh currentProject reference
-                app.currentProject = await db.projects.get(app.currentProject.id);
+                if (app.currentProject && app.currentProject.id === id) {
+                    app.currentProject = await db.projects.get(id);
+                }
                 app.showRenameProjectModal = false;
+                app.renameProjectTargetId = null;
             } catch (e) {
                 console.error('Failed to rename project:', e);
             }

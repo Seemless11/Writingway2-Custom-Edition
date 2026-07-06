@@ -14,6 +14,10 @@ function createAppState() {
         // ========== UI Modal State ==========
         showRenameProjectModal: false,
         renameProjectName: '',
+        renameProjectTargetId: null,
+        renameProjectPov: '3rd person limited',
+        renameProjectTense: 'past',
+        renameProjectLanguage: 'English',
         showExportModal: false,
         exportFormat: 'zip', // 'zip', 'epub', 'html', 'txt'
         exportIncludeSceneTitles: true, // Include scene titles in export (not applicable to ZIP)

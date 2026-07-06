@@ -1247,6 +1247,15 @@ html.light-mode .backup-warning-banner,
 
 .welcome-content {
     max-width: 600px;
+    display: flex;
+    flex-direction: column;
+    max-height: 100%;
+}
+
+.project-list {
+    overflow-y: auto;
+    flex-shrink: 1;
+    min-height: 0;
 }
 
 .welcome-content h2 {
