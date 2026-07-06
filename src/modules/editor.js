@@ -174,6 +174,10 @@
 
                 // Build the full prompt
                 let prompt = rewritePrompt || 'Rewrite the following passage to be more vivid and polished while preserving its meaning and details. Keep roughly the same length.';
+                const editorLang = app?.language || app?.currentProject?.language || 'English';
+                if (editorLang !== 'English') {
+                    prompt += '\n\nWrite entirely in ' + editorLang + '.';
+                }
                 prompt += '\n\nORIGINAL TEXT:\n' + app.rewriteOriginalText + '\n\nREWRITTEN TEXT:';
                 app.rewritePromptPreview = prompt;
                 return prompt;

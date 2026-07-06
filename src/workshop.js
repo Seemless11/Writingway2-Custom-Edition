@@ -33,10 +33,12 @@ window.workshopChat = {
         const systemPrompt = selectedPrompt?.content ||
             "You are a creative writing assistant helping to brainstorm and develop story ideas. Be thoughtful, creative, and supportive.";
 
-        // Add system message
+        // Add system message with language directive
+        const workshopLang = app?.language || app?.currentProject?.language || 'English';
+        const langDirective = workshopLang !== 'English' ? `\n\nWrite entirely in ${workshopLang}.` : '';
         messages.push({
             role: 'system',
-            content: systemPrompt
+            content: systemPrompt + langDirective
         });
 
         // Extract mentions and build context
@@ -577,10 +579,12 @@ window.workshopChat = {
             const messageContent = firstMessage.trim();
 
             // Create a simple prompt to generate a short name
+            const chatNameLang = app?.language || app?.currentProject?.language || 'English';
+            const nameLangDirective = chatNameLang !== 'English' ? ` Write entirely in ${chatNameLang}.` : '';
             const namePrompt = [
                 {
                     role: 'system',
-                    content: 'You are a helpful assistant that generates short, descriptive titles. Generate a 3-5 word title for a chat conversation based on the first message. Only respond with the title, nothing else. Do not use quotes.'
+                    content: 'You are a helpful assistant that generates short, descriptive titles. Generate a 3-5 word title for a chat conversation based on the first message. Only respond with the title, nothing else. Do not use quotes.' + nameLangDirective
                 },
                 {
                     role: 'user',

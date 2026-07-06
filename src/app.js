@@ -616,8 +616,10 @@ document.addEventListener('alpine:init', () => {
                             const promptText = usePrompt.content || '';
 
                             // Build proper messages array with system instruction and user content
+                            const summaryLang = this.language || this.currentProject?.language || 'English';
+                            const langDirective = summaryLang !== 'English' ? `\n\nWrite entirely in ${summaryLang}.` : '';
                             const messages = [
-                                { role: 'system', content: promptText },
+                                { role: 'system', content: promptText + langDirective },
                                 { role: 'user', content: `Analyze the following scene text in depth. Focus on character motivations, emotional arcs, and narrative significance — not just a recap of events:\n\n${text}` }
                             ];
 
@@ -646,8 +648,10 @@ document.addEventListener('alpine:init', () => {
                         try {
                             this.summaryText = 'Generating summary...';
                             const hardcodedPrompt = 'You are a literary analysis assistant. Analyze the text below in depth — explore character motivations, emotional undercurrents, thematic significance, and narrative craft. Explain why moments matter, what they reveal, and how they serve the larger story. Do not simply recount events. Write as much as needed for a thorough analysis.';
+                            const summaryLang = this.language || this.currentProject?.language || 'English';
+                            const langDirective = summaryLang !== 'English' ? `\n\nWrite entirely in ${summaryLang}.` : '';
                             const messages = [
-                                { role: 'system', content: hardcodedPrompt },
+                                { role: 'system', content: hardcodedPrompt + langDirective },
                                 { role: 'user', content: `Analyze the following scene text in depth. Focus on character motivations, emotional arcs, and narrative significance — not just a recap of events:\n\n${text}` }
                             ];
                             let result = '';
@@ -792,8 +796,10 @@ document.addEventListener('alpine:init', () => {
                             const promptText = usePrompt.content || '';
 
                             // Build proper messages array with system instruction and user content
+                            const chapterLang = this.language || this.currentProject?.language || 'English';
+                            const langDirective = chapterLang !== 'English' ? `\n\nWrite entirely in ${chapterLang}.` : '';
                             const messages = [
-                                { role: 'system', content: promptText },
+                                { role: 'system', content: promptText + langDirective },
                                 { role: 'user', content: `Synthesize these scene summaries into a cohesive chapter analysis. Identify overarching character arcs, thematic threads, and narrative momentum that connect the scenes — not just a sequence of events:\n\n${sceneSummaries}` }
                             ];
 
@@ -821,8 +827,10 @@ document.addEventListener('alpine:init', () => {
                         try {
                             this.summaryText = 'Generating chapter summary...';
                             const hardcodedPrompt = 'You are a literary analysis assistant. Analyze the text below in depth — explore character motivations, emotional undercurrents, thematic significance, and narrative craft. Explain why moments matter, what they reveal, and how they serve the larger story. Do not simply recount events. Write as much as needed for a thorough analysis.';
+                            const chapterLang = this.language || this.currentProject?.language || 'English';
+                            const langDirective = chapterLang !== 'English' ? `\n\nWrite entirely in ${chapterLang}.` : '';
                             const messages = [
-                                { role: 'system', content: hardcodedPrompt },
+                                { role: 'system', content: hardcodedPrompt + langDirective },
                                 { role: 'user', content: `Synthesize these scene summaries into a cohesive chapter analysis. Identify overarching character arcs, thematic threads, and narrative momentum that connect the scenes — not just a sequence of events:\n\n${sceneSummaries}` }
                             ];
                             let result = '';
