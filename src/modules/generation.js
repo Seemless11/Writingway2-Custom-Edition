@@ -157,16 +157,18 @@ Generation.generateFromBeat = async function (app) {
         // Generation complete — expose accept/retry/discard actions
         app.showGenActions = true;
         app.showGeneratedHighlight = true;
-        // Place cursor at end and scroll to bottom
+        // Place cursor at end and scroll to bottom (only if user was following)
         app.$nextTick(() => {
             try {
                 const ta = document.querySelector('.editor-textarea');
                 if (ta) {
-                    ta.focus();
-                    const end = (app.currentScene && app.currentScene.content) ? app.currentScene.content.length : 0;
-                    ta.selectionStart = end;
-                    ta.selectionEnd = end;
-                    ta.scrollTop = ta.scrollHeight;
+                    if (app._genFollow) {
+                        ta.focus();
+                        const end = (app.currentScene && app.currentScene.content) ? app.currentScene.content.length : 0;
+                        ta.selectionStart = end;
+                        ta.selectionEnd = end;
+                        ta.scrollTop = ta.scrollHeight;
+                    }
                 }
             } catch (e) { }
             // Auto-hide highlight after 5 seconds

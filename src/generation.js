@@ -47,13 +47,19 @@
                 .replace(/\{tense\}/gi, tenseText)
                 .replace(/\{pov\}/gi, povText)
                 .replace(/\{length\}/gi, lengthInstruction)
-                .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '');
+                .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
+                .replace(/\{language\}/gi, langText);
             if (genreSentence) {
                 systemPrompt += genreSentence;
             }
         } else {
             // Default fallback system prompt
             systemPrompt = `${povSentence}${genreSentence} You are a creative writing assistant. The author provides a BEAT (what happens next) and you expand it into vivid, engaging prose. Write ${lengthInstruction} that bring the beat to life. Match the author's tone and style. Use sensory details. Show, don't tell.`;
+        }
+
+        // Ensure language directive is always present in the system prompt
+        if (langText !== 'English') {
+            systemPrompt += `\n\nWrite entirely in ${langText}.`;
         }
 
         let contextText = '';
@@ -720,16 +726,18 @@
             // Generation complete — expose accept/retry/discard actions
             app.showGenActions = true;
             app.showGeneratedHighlight = true;
-            // Place cursor at end and scroll to bottom
+            // Place cursor at end and scroll to bottom (only if user was following)
             app.$nextTick(() => {
                 try {
                     const ta = document.querySelector('.editor-textarea');
                     if (ta) {
-                        ta.focus();
-                        const end = (app.currentScene && app.currentScene.content) ? app.currentScene.content.length : 0;
-                        ta.selectionStart = end;
-                        ta.selectionEnd = end;
-                        ta.scrollTop = ta.scrollHeight;
+                        if (app._genFollow) {
+                            ta.focus();
+                            const end = (app.currentScene && app.currentScene.content) ? app.currentScene.content.length : 0;
+                            ta.selectionStart = end;
+                            ta.selectionEnd = end;
+                            ta.scrollTop = ta.scrollHeight;
+                        }
                     }
                 } catch (e) { }
                 // Auto-hide highlight after 5 seconds
