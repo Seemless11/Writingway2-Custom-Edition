@@ -1128,13 +1128,10 @@ html.light-mode .backup-warning-banner,
     color: var(--text-secondary);
 }
 
-/* Floating beat control bar (default mode - overlaid on editor) */
+/* Floating beat control bar (default mode - below textarea) */
 .floating-beat-bar {
-    position: absolute;
-    bottom: 12px;
-    left: 12px;
-    right: 12px;
-    z-index: 20;
+    flex-shrink: 0;
+    margin-top: 8px;
     display: flex;
     justify-content: center;
     pointer-events: none;
@@ -1149,31 +1146,6 @@ html.light-mode .backup-warning-banner,
     pointer-events: auto;
     backdrop-filter: blur(8px);
     display: flex;
-    align-items: center;
-}
-
-/* Floating accept/retry/discard bar */
-.floating-gen-actions {
-    position: absolute;
-    bottom: 56px;
-    left: 12px;
-    right: 12px;
-    z-index: 20;
-    display: flex;
-    justify-content: center;
-    pointer-events: none;
-}
-
-.floating-gen-actions-inner {
-    background: rgba(30, 30, 30, 0.92);
-    border: 1px solid rgba(74, 158, 255, 0.2);
-    border-radius: 8px;
-    padding: 6px 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-    pointer-events: auto;
-    backdrop-filter: blur(8px);
-    display: flex;
-    gap: 8px;
     align-items: center;
 }
 
@@ -1195,10 +1167,6 @@ html.light-mode .backup-warning-banner,
     box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.15);
 }
 
-/* Padding bottom on editor textarea to account for floating bar overlay */
-.editor-textarea {
-    padding-bottom: 70px;
-}
 
 /* Preview mode: style ## lines as beat blocks */
 .editor-preview h2 {

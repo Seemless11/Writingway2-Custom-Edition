@@ -603,17 +603,14 @@
                                                         title="Switch to legacy beat input panel" style="font-size:12px;padding:3px 7px;">
                                                         ⌨️
                                                     </button>
-                                                </div>
-                                            </div>
-                                        </div>
 
-                                        <!-- Floating Generation Actions (accept/retry/discard) -->
-                                        <div x-show="!showMarkdownPreview && showGenActions" x-cloak
-                                            class="floating-gen-actions">
-                                            <div class="floating-gen-actions-inner">
-                                                <button class="btn btn-primary" @click="acceptGeneration" style="font-size:12px;padding:4px 12px;">Accept</button>
-                                                <button class="btn btn-secondary" @click="retryGeneration" style="font-size:12px;padding:4px 12px;">Retry</button>
-                                                <button class="btn btn-secondary" @click="discardGeneration" style="font-size:12px;padding:4px 12px;">Discard</button>
+                                                    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;"
+                                                         x-show="showGenActions" x-cloak>
+                                                        <button class="btn btn-primary" @click="acceptGeneration" style="font-size:12px;padding:4px 12px;">Accept</button>
+                                                        <button class="btn btn-secondary" @click="retryGeneration" style="font-size:12px;padding:4px 12px;">Retry</button>
+                                                        <button class="btn btn-secondary" @click="discardGeneration" style="font-size:12px;padding:4px 12px;">Discard</button>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
 
