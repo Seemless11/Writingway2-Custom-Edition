@@ -895,6 +895,38 @@
                     } catch (e) { /* ignore */ }
                 });
             } catch (e) { console.error('selectCompBodyMatch error', e); }
+        },
+
+        /**
+         * Create a compendium entry from text selected in the inline editor.
+         * Creates the entry, opens the compendium panel, and selects it.
+         * @param {Object} app - Alpine app instance
+         * @param {string} text - Selected text to use as entry body
+         * @param {string} category - Target category
+         */
+        async createEntryFromSelection(app, text, category) {
+            if (!app.currentProject || !text) return;
+            const cat = category || 'notes';
+            try {
+                const entry = await window.Compendium.createEntry(app.currentProject.id, {
+                    category: cat,
+                    title: 'New Entry',
+                    body: text
+                });
+                if (!app.openCompCategories.includes(cat)) {
+                    app.openCompCategories.push(cat);
+                }
+                await this.refreshCategoryList(app, cat);
+                await this.loadCompendiumCounts(app);
+                app.showCodexPanel = true;
+                await this._doSelectCompendiumEntry(app, entry.id);
+                app.selectedTextForRewrite = '';
+                app.showCreateCompBtn = false;
+                app.showRewriteBtn = false;
+                app.showCompCategoryPicker = false;
+            } catch (e) {
+                console.error('Failed to create entry from selection:', e);
+            }
         }
     };
 

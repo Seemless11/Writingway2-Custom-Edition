@@ -348,6 +348,8 @@ function createAppState() {
 
         // ========== Rewrite Selection UI with Modal ==========
         showRewriteBtn: false,
+        showCreateCompBtn: false,
+        showCompCategoryPicker: false,
         selectedTextForRewrite: '',
         rewriteSelectionRange: null,
         rewriteTextareaStart: null,

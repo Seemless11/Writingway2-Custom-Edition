@@ -414,6 +414,26 @@
                             ✨ Rewrite
                         </button>
 
+                        <!-- Create Compendium Entry Button -->
+                        <button x-show="showCreateCompBtn && !showMarkdownPreview" @click="showCompCategoryPicker = !showCompCategoryPicker"
+                            class="btn btn-secondary" title="Create compendium entry from selected text">
+                            📖 Create Entry
+                        </button>
+
+                        <!-- Category picker for Create Entry -->
+                        <div x-show="showCompCategoryPicker" @click.away="showCompCategoryPicker = false" x-cloak
+                            style="position:absolute;top:45px;left:180px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:1000;min-width:160px;">
+                            <div style="font-size:11px;color:var(--text-secondary);padding:4px 8px;margin-bottom:4px;">Choose category:</div>
+                            <template x-for="cat in compendiumCategories" :key="cat">
+                                <div @click="createCompendiumEntryFromSelection(cat)"
+                                    style="padding:6px 8px;cursor:pointer;border-radius:4px;text-transform:capitalize;font-size:13px;"
+                                    @mouseenter="$el.style.background='var(--bg-hover)'"
+                                    @mouseleave="$el.style.background=''">
+                                    <span x-text="cat"></span>
+                                </div>
+                            </template>
+                        </div>
+
                         <div x-show="formatMenuOpen" @click.away="formatMenuOpen = false" x-cloak
                             style="position:absolute;top:45px;left:80px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:1000;display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:280px;">
                             <button @click="applyFormatting('bold'); formatMenuOpen=false" class="btn btn-secondary"

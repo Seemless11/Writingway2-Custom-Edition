@@ -258,6 +258,7 @@ document.addEventListener('alpine:init', () => {
                         const editor = document.querySelector('.editor-textarea');
                         if (!editor || editor.tagName !== 'TEXTAREA') {
                             self.showRewriteBtn = false;
+                            self.showCreateCompBtn = false;
                             return;
                         }
 
@@ -267,12 +268,14 @@ document.addEventListener('alpine:init', () => {
 
                         if (start === end) {
                             self.showRewriteBtn = false;
+                            self.showCreateCompBtn = false;
                             return;
                         }
 
                         const selectedText = editor.value.substring(start, end).trim();
                         if (!selectedText) {
                             self.showRewriteBtn = false;
+                            self.showCreateCompBtn = false;
                             return;
                         }
 
@@ -281,9 +284,11 @@ document.addEventListener('alpine:init', () => {
                         self.rewriteTextareaStart = start;
                         self.rewriteTextareaEnd = end;
                         self.showRewriteBtn = true;
+                        self.showCreateCompBtn = true;
                     } catch (e) {
                         // don't let selection code break the app
                         self.showRewriteBtn = false;
+                        self.showCreateCompBtn = false;
                     }
                 };
 
@@ -1860,6 +1865,9 @@ document.addEventListener('alpine:init', () => {
             },
             selectCompBodyMatch(item) {
                 window.CompendiumManager.selectCompBodyMatch(this, item);
+            },
+            async createCompendiumEntryFromSelection(category) {
+                await window.CompendiumManager.createEntryFromSelection(this, this.selectedTextForRewrite, category);
             },
             stopBeatGeneration() {
                 window.Generation.stopBeatGeneration(this);

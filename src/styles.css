@@ -1438,6 +1438,11 @@ html.light-mode .backup-warning-banner,
     pointer-events: auto;
 }
 
+/* Create Entry category picker dropdown */
+.comp-cat-picker-item:hover {
+    background: var(--bg-hover);
+}
+
 /* Rewrite Modal Styles */
 .modal-overlay {
     position: fixed;
