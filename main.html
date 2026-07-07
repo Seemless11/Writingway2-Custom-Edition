@@ -3585,8 +3585,9 @@
                             <thead>
                                 <tr style="border-bottom:1px solid var(--border);">
                                     <th style="padding:8px 12px;text-align:left;width:32px;">
-                                        <input type="checkbox" @click.prevent="toggleAllVaultEntries()"
-                                            :checked="getFilteredVaultEntries().length > 0 && getFilteredVaultEntries().every(e => vaultSelected[e.id])">
+                                        <span @click.stop="toggleAllVaultEntries()"
+                                            style="cursor:pointer;font-size:18px;user-select:none;"
+                                            x-text="getFilteredVaultEntries().length > 0 && getFilteredVaultEntries().every(e => vaultSelected[e.id]) ? '☑' : '☐'"></span>
                                     </th>
                                     <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-primary);">Title</th>
                                     <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-primary);width:160px;">Project</th>
@@ -3598,9 +3599,10 @@
                                     <tr style="border-bottom:1px solid var(--border);cursor:pointer;"
                                         :style="entry.isCurrentProject ? 'background:rgba(74,158,255,0.06);' : ''"
                                         @click="toggleVaultEntry(entry.id)">
-                                        <td style="padding:8px 12px;" @click.stop>
-                                            <input type="checkbox" :checked="vaultSelected[entry.id]"
-                                                @click.prevent="toggleVaultEntry(entry.id)">
+                                        <td style="padding:8px 12px;">
+                                            <span @click.stop="toggleVaultEntry(entry.id)"
+                                                style="cursor:pointer;font-size:18px;user-select:none;"
+                                                x-text="vaultSelected[entry.id] ? '☑' : '☐'"></span>
                                         </td>
                                         <td style="padding:8px 12px;color:var(--text-primary);font-weight:500;" x-text="entry.title"></td>
                                         <td style="padding:8px 12px;color:var(--text-secondary);" x-text="entry.projectName"></td>
