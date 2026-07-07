@@ -28,6 +28,10 @@
                 return db.compendium.where({ projectId, category }).sortBy('order');
             },
 
+            async listByCategoryUnscoped(category) {
+                return db.compendium.where('category').equals(category).toArray();
+            },
+
             async search(projectId, q, options = {}) {
                 q = (q || '').trim().toLowerCase();
                 const limit = options.limit || 20;

@@ -1968,6 +1968,7 @@
                     <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openCharacterCreator()" title="Create a new character with AI assistance">🎭 Create</button>
                             <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="importCharacterCard()" title="Import a SillyTavern character card (JSON or PNG)">📥 Import</button>
                             <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openPasteImport()" title="Paste wiki article or text to extract a character">📋 Paste Import</button>
+                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects">📦 Vault</button>
                     <button class="btn btn-secondary" @click="closeCompendium()">Close</button>
                 </div>
             </div>
@@ -3545,6 +3546,75 @@
                         :disabled="!pasteImportResult">
                         📚 Adopt
                     </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Compendium Vault Modal -->
+    <template x-if="showCompendiumVault">
+        <div class="modal-overlay" @click.self="closeCompendiumVault()" style="z-index:9800;">
+            <div style="width:min(800px,96%);height:min(600px,85vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:20px;">📦</span>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Compendium Vault</h3>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <select x-model="vaultCategory" @change="setVaultCategory(vaultCategory)"
+                            style="padding:6px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <template x-for="cat in compendiumCategories" :key="cat">
+                                <option :value="cat" x-text="cat.charAt(0).toUpperCase() + cat.slice(1)"></option>
+                            </template>
+                        </select>
+                        <button class="btn btn-secondary" @click="closeCompendiumVault()">Close</button>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px 24px;gap:12px;">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="text" x-model="vaultSearch" placeholder="🔍 Filter by title or project..."
+                            style="flex:1;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                        <span style="font-size:12px;color:var(--text-secondary);white-space:nowrap;" x-text="'(' + vaultEntries.length + ' entries, ' + vaultSelectedCount() + ' selected)'"></span>
+                    </div>
+                    <div style="flex:1;overflow:auto;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);">
+                        <div x-show="vaultLoading" style="text-align:center;padding:40px;color:var(--text-secondary);font-size:14px;">Loading...</div>
+                        <template x-if="!vaultLoading && getFilteredVaultEntries().length === 0">
+                            <div style="text-align:center;padding:40px;color:var(--text-secondary);font-size:14px;">No entries found in this category.</div>
+                        </template>
+                        <table x-show="!vaultLoading && getFilteredVaultEntries().length > 0" style="width:100%;border-collapse:collapse;font-size:13px;">
+                            <thead>
+                                <tr style="border-bottom:1px solid var(--border);">
+                                    <th style="padding:8px 12px;text-align:left;width:32px;">
+                                        <input type="checkbox" @click.prevent="toggleAllVaultEntries()"
+                                            :checked="getFilteredVaultEntries().length > 0 && getFilteredVaultEntries().every(e => vaultSelected[e.id])">
+                                    </th>
+                                    <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-primary);">Title</th>
+                                    <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-primary);width:160px;">Project</th>
+                                    <th style="padding:8px 12px;text-align:left;font-weight:600;color:var(--text-primary);width:140px;">Modified</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="entry in getFilteredVaultEntries()" :key="entry.id">
+                                    <tr style="border-bottom:1px solid var(--border);cursor:pointer;"
+                                        :style="entry.isCurrentProject ? 'background:rgba(74,158,255,0.06);' : ''"
+                                        @click="toggleVaultEntry(entry.id)">
+                                        <td style="padding:8px 12px;" @click.stop>
+                                            <input type="checkbox" :checked="vaultSelected[entry.id]"
+                                                @click.prevent="toggleVaultEntry(entry.id)">
+                                        </td>
+                                        <td style="padding:8px 12px;color:var(--text-primary);font-weight:500;" x-text="entry.title"></td>
+                                        <td style="padding:8px 12px;color:var(--text-secondary);" x-text="entry.projectName"></td>
+                                        <td style="padding:8px 12px;color:var(--text-secondary);font-size:12px;" x-text="new Date(entry.modified).toLocaleDateString()"></td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+                    <button class="btn btn-primary" @click="importSelectedVaultEntries()"
+                        :disabled="vaultSelectedCount() === 0"
+                        x-text="'📥 Import Selected (' + vaultSelectedCount() + ')'"></button>
                 </div>
             </div>
         </div>

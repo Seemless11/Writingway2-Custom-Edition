@@ -1955,6 +1955,100 @@ document.addEventListener('alpine:init', () => {
             async createCompendiumEntryFromSelection(category) {
                 await window.CompendiumManager.createEntryFromSelection(this, this.selectedTextForRewrite, category);
             },
+
+            // ========== Compendium Vault ==========
+            openCompendiumVault(category) {
+                this.vaultCategory = category || 'characters';
+                this.vaultEntries = [];
+                this.vaultSelected = {};
+                this.vaultSearch = '';
+                this.vaultLoading = true;
+                this.showCompendiumVault = true;
+                this.$nextTick(() => this.loadCompendiumVault());
+            },
+            closeCompendiumVault() {
+                this.showCompendiumVault = false;
+                this.vaultEntries = [];
+                this.vaultSelected = {};
+                this.vaultSearch = '';
+            },
+            async loadCompendiumVault() {
+                try {
+                    const entries = await window.Compendium.listByCategoryUnscoped(this.vaultCategory);
+                    const projectMap = {};
+                    for (const p of (this.projects || [])) {
+                        projectMap[p.id] = p.name;
+                    }
+                    this.vaultEntries = entries.map(e => ({
+                        ...e,
+                        projectName: projectMap[e.projectId] || 'Unknown Project',
+                        isCurrentProject: e.projectId === this.currentProject?.id
+                    })).sort((a, b) => {
+                        if (a.isCurrentProject && !b.isCurrentProject) return -1;
+                        if (!a.isCurrentProject && b.isCurrentProject) return 1;
+                        return 0;
+                    });
+                } catch (err) {
+                    console.error('Failed to load vault entries:', err);
+                    this.vaultEntries = [];
+                } finally {
+                    this.vaultLoading = false;
+                }
+            },
+            setVaultCategory(category) {
+                if (category === this.vaultCategory) return;
+                this.vaultCategory = category;
+                this.vaultEntries = [];
+                this.vaultSelected = {};
+                this.vaultLoading = true;
+                this.$nextTick(() => this.loadCompendiumVault());
+            },
+            toggleVaultEntry(id) {
+                if (this.vaultSelected[id]) {
+                    delete this.vaultSelected[id];
+                    this.vaultSelected = { ...this.vaultSelected };
+                } else {
+                    this.vaultSelected = { ...this.vaultSelected, [id]: true };
+                }
+            },
+            toggleAllVaultEntries() {
+                const filtered = this.getFilteredVaultEntries();
+                const allSelected = filtered.every(e => this.vaultSelected[e.id]);
+                if (allSelected) {
+                    this.vaultSelected = {};
+                } else {
+                    const sel = {};
+                    for (const e of filtered) sel[e.id] = true;
+                    this.vaultSelected = sel;
+                }
+            },
+            getFilteredVaultEntries() {
+                const q = (this.vaultSearch || '').trim().toLowerCase();
+                if (!q) return this.vaultEntries;
+                return this.vaultEntries.filter(e =>
+                    (e.title || '').toLowerCase().includes(q) ||
+                    (e.projectName || '').toLowerCase().includes(q)
+                );
+            },
+            vaultSelectedCount() {
+                return Object.keys(this.vaultSelected).length;
+            },
+            async importSelectedVaultEntries() {
+                const ids = Object.keys(this.vaultSelected);
+                if (ids.length === 0 || !this.currentProject) return;
+                const entries = this.vaultEntries.filter(e => ids.includes(e.id));
+                if (entries.length === 0) return;
+                try {
+                    await window.Compendium.import(this.currentProject.id, entries);
+                    const cat = this.vaultCategory;
+                    if (this.compendiumLists[cat]) {
+                        await window.CompendiumManager.refreshCategoryList(this, cat);
+                    }
+                    this.closeCompendiumVault();
+                } catch (err) {
+                    alert('Failed to import entries: ' + (err.message || err));
+                }
+            },
             stopBeatGeneration() {
                 window.Generation.stopBeatGeneration(this);
             },

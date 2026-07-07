@@ -273,6 +273,14 @@ function createAppState() {
         pasteImportImageDescription: '',
         pasteImportImageError: '',
 
+        // ========== Compendium Vault State ==========
+        showCompendiumVault: false,
+        vaultCategory: 'characters',
+        vaultEntries: [],
+        vaultSelected: {},
+        vaultSearch: '',
+        vaultLoading: false,
+
         // ========== AI Worker State ==========
         aiWorker: null,
         aiStatus: 'loading', // 'loading', 'ready', 'error'
