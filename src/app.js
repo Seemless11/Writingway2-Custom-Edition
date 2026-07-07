@@ -2036,7 +2036,9 @@ document.addEventListener('alpine:init', () => {
             async importSelectedVaultEntries() {
                 const ids = Object.keys(this.vaultSelected);
                 if (ids.length === 0 || !this.currentProject) return;
-                const entries = this.vaultEntries.filter(e => ids.includes(e.id));
+                const entries = this.vaultEntries
+                    .filter(e => ids.includes(e.id))
+                    .map(e => JSON.parse(JSON.stringify(e)));
                 if (entries.length === 0) return;
                 try {
                     await window.Compendium.import(this.currentProject.id, entries);
