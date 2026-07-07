@@ -227,6 +227,7 @@ function createAppState() {
         charCreatorInstructionTemplates: [],
         charCreatorShowInstructionEditor: false,
         charCreatorEditorSystemPrompt: '',
+        charCreatorDraftAlert: null, // { genre, name, notes, selectedTraits, chatHistory, savedAt } or null
 
         // ========== Compendium State ==========
         get compendiumCategories() {

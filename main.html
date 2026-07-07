@@ -824,10 +824,11 @@
                                         </template>
                                     </select>
                                     <select x-model="workshopFidelityMode" class="workshop-select"
-                                        style="font-size:12px;min-width:64px;">
-                                        <option value="high">High</option>
-                                        <option value="balanced">Balanced</option>
-                                        <option value="compressed">Compressed</option>
+                                        style="font-size:12px;min-width:64px;"
+                                        title="Controls how much conversation history to include in AI requests">
+                                        <option value="high">Fidelity: High</option>
+                                        <option value="balanced">Fidelity: Balanced</option>
+                                        <option value="compressed">Fidelity: Compressed</option>
                                     </select>
                                 </div>
                                 <button class="btn btn-secondary btn-sm" @click="createWorkshopSession"
@@ -857,11 +858,43 @@
 
                             <!-- Workshop Input -->
                             <div class="embedded-workshop-input-area">
-                                <textarea class="embedded-workshop-textarea workshop-textarea" x-model="workshopInput"
-                                    @input="window.workshopChat.onWorkshopInput($data, $event)"
-                                    @keydown="window.workshopChat.handleWorkshopKeydown($data, $event); if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); window.workshopChat.sendMessage($data, workshopInput); }"
-                                    placeholder="Type your message... Use @name for compendium entries, #scene for scenes."
-                                    :disabled="workshopIsGenerating"></textarea>
+                                <div style="position:relative;">
+                                    <textarea class="embedded-workshop-textarea workshop-textarea" x-model="workshopInput"
+                                        @input="window.workshopChat.onWorkshopInput($data, $event)"
+                                        @keydown="window.workshopChat.handleWorkshopKeydown($data, $event); if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); window.workshopChat.sendMessage($data, workshopInput); }"
+                                        placeholder="Type your message... Use @name for compendium entries, #scene for scenes."
+                                        :disabled="workshopIsGenerating"></textarea>
+                                    <!-- Compendium Quick Search Dropdown -->
+                                    <div x-show="showWorkshopQuickSearch" x-cloak class="quick-search-dropdown"
+                                        style="position:absolute;bottom:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:4px;margin-bottom:4px;z-index:9999;">
+                                        <template x-for="(item, idx) in workshopQuickSearchMatches" :key="item.id">
+                                            <div class="quick-search-item"
+                                                @click="window.workshopChat.selectWorkshopQuickMatch($data, item)"
+                                                :class="{ 'active': idx === workshopQuickSearchSelectedIndex }"
+                                                style="padding:8px;cursor:pointer;font-size:13px;">
+                                                <div style="font-weight:600;" x-text="item.title"></div>
+                                                <div style="font-size:11px;color:var(--text-secondary);" x-text="item.category"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <!-- Scene Search Dropdown -->
+                                    <div x-show="showWorkshopSceneSearch" x-cloak class="scene-search-dropdown"
+                                        style="position:absolute;bottom:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:4px;margin-bottom:4px;z-index:9999;">
+                                        <template x-for="(scene, idx) in workshopSceneSearchMatches" :key="scene.id">
+                                            <div class="scene-search-item"
+                                                @click="window.workshopChat.selectWorkshopSceneMatch($data, scene)"
+                                                :class="{ 'active': idx === workshopSceneSearchSelectedIndex }"
+                                                style="padding:8px;cursor:pointer;font-size:13px;">
+                                                <div style="font-weight:600;" x-text="scene.title"></div>
+                                                <div style="font-size:11px;color:var(--text-secondary);">
+                                                    <template x-if="scene.summary">
+                                                        <span x-text="scene.summary.substring(0, 60) + '...'"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
                                 <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
                                     <button class="btn btn-secondary btn-sm"
                                         @click="useWorkshopContextPanel = true; showContextPanel = true"
@@ -3140,7 +3173,7 @@
         </div>
     </template>
     <template x-if="showCharacterCreator">
-        <div class="modal-overlay" @click.self="showCharacterCreator = false" style="z-index:9500;">
+        <div class="modal-overlay" @click.self="closeCharacterCreator()" style="z-index:9500;">
             <div style="width:min(1200px,96%);height:min(800px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
                     <div style="display:flex;align-items:center;gap:12px;">
@@ -3149,12 +3182,17 @@
                     </div>
                     <button class="btn btn-secondary" @click="closeCharacterCreator()">Close</button>
                 </div>
+                <div x-show="charCreatorDraftAlert" x-cloak style="padding:10px 20px;background:rgba(74,158,255,0.12);border-bottom:1px solid rgba(74,158,255,0.3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                    <span style="font-size:14px;">📝 Unsaved character draft found from <span x-text="new Date(charCreatorDraftAlert.savedAt).toLocaleString()"></span></span>
+                    <button class="btn btn-primary" style="font-size:12px;padding:4px 14px;" @click="restoreCharCreatorDraft(charCreatorDraftAlert)">Restore</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;" @click="discardCharCreatorDraft()">Discard</button>
+                </div>
                 <div style="flex:1;display:flex;overflow:hidden;">
                     <div style="width:45%;overflow:auto;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:12px;">
-                        <input type="text" x-model="charCreatorName" placeholder="Character name"
+                        <input type="text" x-model="charCreatorName" @input.debounce.500ms="saveCharCreatorDraft()" placeholder="Character name"
                             style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:15px;font-weight:600;">
 
-                        <textarea x-model="charCreatorNotes" placeholder="Freeform notes, ideas, or backstory snippets..."
+                        <textarea x-model="charCreatorNotes" @input.debounce.500ms="saveCharCreatorDraft()" placeholder="Freeform notes, ideas, or backstory snippets..."
                             style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;min-height:72px;resize:vertical;"></textarea>
 
                         <div style="display:flex;gap:8px;align-items:center;">

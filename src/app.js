@@ -249,6 +249,13 @@ document.addEventListener('alpine:init', () => {
                 this.charCreatorInstructionTemplates = window.CharacterCreator.loadInstructionTemplates();
                 this.charCreatorEditorSystemPrompt = window.CharacterCreator.getSystemPrompt();
 
+                window.addEventListener('beforeunload', (e) => {
+                    if (localStorage.getItem('ww_char_creator_draft')) {
+                        e.preventDefault();
+                        e.returnValue = '';
+                    }
+                });
+
                 this.updateLoadingScreen(85, 'Almost ready...', 'Finalizing setup...');
 
                 // Selection change handler: show Rewrite button when text is selected
@@ -1495,12 +1502,58 @@ document.addEventListener('alpine:init', () => {
                 this.charCreatorEditingEntryId = null;
                 this.showCharacterCreator = true;
                 this.openAllCharacterCreatorCategories();
+                try {
+                    const saved = localStorage.getItem('ww_char_creator_draft');
+                    if (saved) {
+                        const draft = JSON.parse(saved);
+                        if (draft && draft.selectedTraits && Object.keys(draft.selectedTraits).length > 0) {
+                            this.charCreatorDraftAlert = draft;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
             },
             closeCharacterCreator() {
+                this.saveCharCreatorDraft();
                 this.showCharacterCreator = false;
             },
+
+            // === Character Creator Draft Persistence ===
+            saveCharCreatorDraft() {
+                if (!this.showCharacterCreator) return;
+                const draft = {
+                    genre: this.charCreatorGenre,
+                    name: this.charCreatorName,
+                    notes: this.charCreatorNotes,
+                    selectedTraits: JSON.parse(JSON.stringify(this.charCreatorSelectedTraits)),
+                    chatHistory: JSON.parse(JSON.stringify(this.charCreatorChatHistory)),
+                    savedAt: new Date().toISOString()
+                };
+                try {
+                    localStorage.setItem('ww_char_creator_draft', JSON.stringify(draft));
+                } catch (e) { /* ignore */ }
+            },
+            discardCharCreatorDraft() {
+                try {
+                    localStorage.removeItem('ww_char_creator_draft');
+                } catch (e) { /* ignore */ }
+                this.charCreatorDraftAlert = null;
+            },
+            restoreCharCreatorDraft(draft) {
+                if (!draft) return;
+                if (draft.genre) this.charCreatorGenre = draft.genre;
+                if (draft.name) this.charCreatorName = draft.name;
+                if (draft.notes) this.charCreatorNotes = draft.notes;
+                if (draft.selectedTraits) this.charCreatorSelectedTraits = draft.selectedTraits;
+                if (draft.chatHistory) this.charCreatorChatHistory = draft.chatHistory;
+                this.charCreatorDraftAlert = null;
+                this.charCreatorTraitVersion++;
+                const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenre);
+                this.openCharCreatorCategories = cats.map(c => c.id);
+            },
+
             editCharacterInCreator(compEntry) {
                 if (!compEntry || !compEntry._charData) return;
+                this.discardCharCreatorDraft();
                 try {
                     const data = typeof compEntry._charData === 'string'
                         ? JSON.parse(compEntry._charData)
@@ -1532,6 +1585,7 @@ document.addEventListener('alpine:init', () => {
                 this.charCreatorSelectedTraits = {};
                 const cats = window.CharacterCreator.getFilteredCategories(genreId);
                 this.openCharCreatorCategories = cats.map(c => c.id);
+                this.saveCharCreatorDraft();
             },
             toggleCharCreatorCategory(id) {
                 const idx = this.openCharCreatorCategories.indexOf(id);
@@ -1553,12 +1607,15 @@ document.addEventListener('alpine:init', () => {
                     arr.splice(idx, 1);
                 }
                 this.charCreatorSelectedTraits = Object.assign({}, this.charCreatorSelectedTraits);
+                this.saveCharCreatorDraft();
             },
             randomizeCharCreator() {
                 this.charCreatorSelectedTraits = window.CharacterCreator.randomTraitsForGenre(this.charCreatorGenre);
+                this.saveCharCreatorDraft();
             },
             clearCharCreatorTraits() {
                 this.charCreatorSelectedTraits = {};
+                this.saveCharCreatorDraft();
             },
             openAddTraitForm(catId, groupLabel) {
                 this.charCreatorAddTraitForm = { catId, groupLabel };
@@ -1661,6 +1718,7 @@ document.addEventListener('alpine:init', () => {
                     this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
                 } finally {
                     this.charCreatorGenerating = false;
+                    this.saveCharCreatorDraft();
                     this.$nextTick(() => {
                         const chat = document.getElementById('charCreatorChat');
                         if (chat) chat.scrollTop = chat.scrollHeight;
@@ -1778,6 +1836,7 @@ document.addEventListener('alpine:init', () => {
                             await window.CompendiumManager.loadCompendiumCounts(this);
                             await window.CompendiumManager._doSelectCompendiumEntry(this, editingId);
                         }
+                        this.discardCharCreatorDraft();
                         this.showCharacterCreator = false;
                         this.showCodexPanel = true;
                         alert('Character "' + entry.title + '" updated!');
@@ -1793,6 +1852,7 @@ document.addEventListener('alpine:init', () => {
                                 await window.CompendiumManager._doSelectCompendiumEntry(this, saved[0].id);
                             }
                         }
+                        this.discardCharCreatorDraft();
                         this.showCharacterCreator = false;
                         this.showCodexPanel = true;
                         alert('Character "' + entry.title + '" adopted into Compendium!');
