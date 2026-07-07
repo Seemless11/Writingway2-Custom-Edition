@@ -207,7 +207,7 @@ function createAppState() {
 
         // ========== Character Creator State ==========
         showCharacterCreator: false,
-        charCreatorGenre: 'fantasy',
+        charCreatorGenres: ['fantasy'],
         charCreatorName: '',
         charCreatorNotes: '',
         charCreatorInput: '',

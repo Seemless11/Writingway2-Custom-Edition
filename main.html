@@ -3183,7 +3183,7 @@
                     <button class="btn btn-secondary" @click="closeCharacterCreator()">Close</button>
                 </div>
                 <div x-show="charCreatorDraftAlert" x-cloak style="padding:10px 20px;background:rgba(74,158,255,0.12);border-bottom:1px solid rgba(74,158,255,0.3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
-                    <span style="font-size:14px;">📝 Unsaved character draft found from <span x-text="new Date(charCreatorDraftAlert.savedAt).toLocaleString()"></span></span>
+                    <span style="font-size:14px;">📝 Unsaved character draft found from <span x-text="charCreatorDraftAlert?.savedAt ? new Date(charCreatorDraftAlert.savedAt).toLocaleString() : ''"></span></span>
                     <button class="btn btn-primary" style="font-size:12px;padding:4px 14px;" @click="restoreCharCreatorDraft(charCreatorDraftAlert)">Restore</button>
                     <button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;" @click="discardCharCreatorDraft()">Discard</button>
                 </div>
@@ -3195,14 +3195,19 @@
                         <textarea x-model="charCreatorNotes" @input.debounce.500ms="saveCharCreatorDraft()" placeholder="Freeform notes, ideas, or backstory snippets..."
                             style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;min-height:72px;resize:vertical;"></textarea>
 
-                        <div style="display:flex;gap:8px;align-items:center;">
-                            <select x-model="charCreatorGenre" @change="setCharCreatorGenre(charCreatorGenre)" class="cc-genre-select"
-                                style="flex:1;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;font-weight:600;">
-                                <template x-for="genre in window.CharacterCreator.GENRES" :key="genre.id">
-                                    <option :value="genre.id" x-text="genre.icon + ' ' + genre.label"></option>
-                                </template>
-                            </select>
-                            <button class="btn btn-secondary" @click="randomizeCharCreator()" title="Randomize all traits" style="font-size:12px;padding:6px 12px;">🎲</button>
+                        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+                            <template x-for="genre in window.CharacterCreator.GENRES" :key="genre.id">
+                                <span @click="toggleCharCreatorGenre(genre.id)"
+                                    style="padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid;line-height:1.4;display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none;"
+                                    :style="charCreatorGenres.includes(genre.id)
+                                        ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;'
+                                        : 'background:var(--bg-primary);color:var(--text-secondary);border-color:var(--border);opacity:0.7;'"
+                                    :title="'Show ' + genre.label + ' traits'">
+                                    <span x-text="genre.icon"></span>
+                                    <span x-text="genre.label"></span>
+                                </span>
+                            </template>
+                            <button class="btn btn-secondary" @click="randomizeCharCreator()" title="Randomize all traits" style="font-size:12px;padding:6px 12px;margin-left:auto;">🎲</button>
                             <button class="btn btn-secondary" @click="clearCharCreatorTraits()" title="Clear all traits" style="font-size:12px;padding:6px 12px;">✕</button>
                         </div>
 

@@ -1488,10 +1488,13 @@ document.addEventListener('alpine:init', () => {
             // ========== Character Creator Methods ==========
             getFilteredCharCreatorCategories() {
                 const v = this.charCreatorTraitVersion;
-                return window.CharacterCreator.getFilteredCategories(this.charCreatorGenre);
+                const genres = this.charCreatorGenres || ['fantasy'];
+                return window.CharacterCreator.getFilteredCategories(genres);
             },
             openCharacterCreator() {
-                this.charCreatorGenre = 'fantasy';
+                this.charCreatorGenres = this.currentProject?.genres?.length
+                    ? [...this.currentProject.genres]
+                    : ['fantasy'];
                 this.charCreatorName = '';
                 this.charCreatorNotes = '';
                 this.charCreatorInput = '';
@@ -1521,7 +1524,7 @@ document.addEventListener('alpine:init', () => {
             saveCharCreatorDraft() {
                 if (!this.showCharacterCreator) return;
                 const draft = {
-                    genre: this.charCreatorGenre,
+                    genre: this.charCreatorGenres,
                     name: this.charCreatorName,
                     notes: this.charCreatorNotes,
                     selectedTraits: JSON.parse(JSON.stringify(this.charCreatorSelectedTraits)),
@@ -1540,14 +1543,16 @@ document.addEventListener('alpine:init', () => {
             },
             restoreCharCreatorDraft(draft) {
                 if (!draft) return;
-                if (draft.genre) this.charCreatorGenre = draft.genre;
+                if (draft.genre) {
+                    this.charCreatorGenres = Array.isArray(draft.genre) ? draft.genre : [draft.genre];
+                }
                 if (draft.name) this.charCreatorName = draft.name;
                 if (draft.notes) this.charCreatorNotes = draft.notes;
                 if (draft.selectedTraits) this.charCreatorSelectedTraits = draft.selectedTraits;
                 if (draft.chatHistory) this.charCreatorChatHistory = draft.chatHistory;
                 this.charCreatorDraftAlert = null;
                 this.charCreatorTraitVersion++;
-                const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenre);
+                const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenres);
                 this.openCharCreatorCategories = cats.map(c => c.id);
             },
 
@@ -1558,8 +1563,8 @@ document.addEventListener('alpine:init', () => {
                     const data = typeof compEntry._charData === 'string'
                         ? JSON.parse(compEntry._charData)
                         : compEntry._charData;
-                    if (data.genre && typeof data.genre === 'string' && data.genre.length > 0) {
-                        this.charCreatorGenre = data.genre;
+                    if (data.genre) {
+                        this.charCreatorGenres = Array.isArray(data.genre) ? data.genre : [data.genre];
                     }
                     this.charCreatorName = data.name || compEntry.title || '';
                     this.charCreatorNotes = data.notes || '';
@@ -1568,7 +1573,7 @@ document.addEventListener('alpine:init', () => {
                     this.charCreatorChatHistory = data.chatHistory || [];
                     this.charCreatorInput = '';
                     this.charCreatorGenerating = false;
-                    this.openCharCreatorCategories = window.CharacterCreator.getFilteredCategories(this.charCreatorGenre).map(c => c.id);
+                    this.openCharCreatorCategories = window.CharacterCreator.getFilteredCategories(this.charCreatorGenres).map(c => c.id);
                     this.charCreatorTraitVersion++;
                     this.showCharacterCreator = true;
                 } catch (e) {
@@ -1576,14 +1581,17 @@ document.addEventListener('alpine:init', () => {
                 }
             },
             openAllCharacterCreatorCategories() {
-                const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenre);
+                const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenres || ['fantasy']);
                 this.openCharCreatorCategories = cats.map(c => c.id);
             },
-            setCharCreatorGenre(genreId) {
-                if (genreId === this.charCreatorGenre) return;
-                this.charCreatorGenre = genreId;
-                this.charCreatorSelectedTraits = {};
-                const cats = window.CharacterCreator.getFilteredCategories(genreId);
+            toggleCharCreatorGenre(genreId) {
+                const idx = this.charCreatorGenres.indexOf(genreId);
+                if (idx === -1) {
+                    this.charCreatorGenres = [...this.charCreatorGenres, genreId];
+                } else if (this.charCreatorGenres.length > 1) {
+                    this.charCreatorGenres = this.charCreatorGenres.filter(g => g !== genreId);
+                }
+                const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenres);
                 this.openCharCreatorCategories = cats.map(c => c.id);
                 this.saveCharCreatorDraft();
             },
@@ -1610,7 +1618,7 @@ document.addEventListener('alpine:init', () => {
                 this.saveCharCreatorDraft();
             },
             randomizeCharCreator() {
-                this.charCreatorSelectedTraits = window.CharacterCreator.randomTraitsForGenre(this.charCreatorGenre);
+                this.charCreatorSelectedTraits = window.CharacterCreator.randomTraitsForGenre(this.charCreatorGenres || ['fantasy']);
                 this.saveCharCreatorDraft();
             },
             clearCharCreatorTraits() {
@@ -1695,10 +1703,16 @@ document.addEventListener('alpine:init', () => {
                         promptMessages.push({ role: 'system', content: 'Additional notes about the character:\n' + this.charCreatorNotes });
                     }
 
-                    const genreObj = (window.CharacterCreator.GENRES || []).find(g => g.id === this.charCreatorGenre);
-                    if (genreObj) {
-                        const genreDesc = window.GenreDefs ? window.GenreDefs.getCharDescription(genreObj.id) : '';
-                        promptMessages.push({ role: 'system', content: 'The story genre is ' + genreObj.label + '. ' + (genreDesc || 'Tailor descriptions to fit this genre.') });
+                    const activeGenres = (this.charCreatorGenres || ['fantasy'])
+                        .map(id => (window.CharacterCreator.GENRES || []).find(g => g.id === id))
+                        .filter(Boolean);
+                    if (activeGenres.length > 0) {
+                        const labels = activeGenres.map(g => g.label);
+                        const descs = activeGenres.map(g => {
+                            const d = window.GenreDefs ? window.GenreDefs.getCharDescription(g.id) : '';
+                            return d || 'Tailor descriptions to fit this genre.';
+                        });
+                        promptMessages.push({ role: 'system', content: 'The story genre' + (activeGenres.length > 1 ? 's are ' : ' is ') + labels.join(' + ') + '. ' + descs.join(' ') });
                     }
 
                     const recentHistory = this.charCreatorChatHistory.slice(0, -1);
@@ -1727,8 +1741,12 @@ document.addEventListener('alpine:init', () => {
             },
             sendCharCreatorInstruction(tpl) {
                 if (this.charCreatorGenerating) return;
-                const genreObj = (window.GenreDefs?.GENRES || []).find(g => g.id === this.charCreatorGenre);
-                const genreSuffix = genreObj ? ' (This character is from a ' + genreObj.label + ' world.)' : '';
+                const activeGenres = (this.charCreatorGenres || ['fantasy'])
+                    .map(id => (window.GenreDefs?.GENRES || []).find(g => g.id === id))
+                    .filter(Boolean);
+                const genreSuffix = activeGenres.length > 0
+                    ? ' (This character is from a ' + activeGenres.map(g => g.label).join(' + ') + ' world.)'
+                    : '';
                 let fullMsg = tpl.message + genreSuffix;
                 if (tpl.relevantCategories && tpl.relevantCategories.length > 0) {
                     const traitParts = [];
@@ -1799,7 +1817,7 @@ document.addEventListener('alpine:init', () => {
                 const entry = window.CharacterCreator.buildCompendiumEntry(
                     this.charCreatorName,
                     this.charCreatorNotes,
-                    this.charCreatorGenre,
+                    this.charCreatorGenres,
                     this.charCreatorSelectedTraits,
                     this.charCreatorChatHistory
                 );
@@ -1814,7 +1832,7 @@ document.addEventListener('alpine:init', () => {
                 const entry = window.CharacterCreator.buildCompendiumEntry(
                     this.charCreatorName,
                     this.charCreatorNotes,
-                    this.charCreatorGenre,
+                    this.charCreatorGenres,
                     this.charCreatorSelectedTraits,
                     this.charCreatorChatHistory
                 );

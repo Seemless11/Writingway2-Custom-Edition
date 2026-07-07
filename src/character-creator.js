@@ -1139,16 +1139,18 @@
         return t ? (t.hint || '') : '';
     }
 
-    function getCategoryGroupsForGenre(category, genreId) {
+    function getCategoryGroupsForGenre(category, genreIds) {
+        if (!Array.isArray(genreIds)) genreIds = [genreIds];
         return category.groups.filter(g => {
             if (!g.genres || g.genres.length === 0) return true;
-            return g.genres.includes(genreId);
+            return g.genres.some(id => genreIds.includes(id));
         });
     }
 
-    function getFilteredCategories(genreId) {
+    function getFilteredCategories(genreIds) {
+        if (!Array.isArray(genreIds)) genreIds = [genreIds];
         return TRAIT_CATEGORIES.map(cat => {
-            let groups = getCategoryGroupsForGenre(cat, genreId);
+            let groups = getCategoryGroupsForGenre(cat, genreIds);
             const userGroups = userTraits[cat.id];
             if (userGroups) {
                 groups = groups.map(g => {
@@ -1210,7 +1212,7 @@
                 lastUserMsg = m.content;
             } else if (m.role === 'assistant' && m.content && !m.isError) {
                 const stripped = lastUserMsg.replace(/ \(This character is from a .+ world\.\)$/, '');
-                const tpl = INSTRUCTION_TEMPLATES.find(t => t.message && t.message === stripped);
+                const tpl = DEFAULT_INSTRUCTION_TEMPLATES.find(t => t.message && t.message === stripped);
                 const label = tpl ? tpl.label : 'Custom Input';
                 pairs.push({ label, content: m.content.trim() });
                 lastUserMsg = '';
@@ -1240,8 +1242,9 @@
         };
     }
 
-    function randomTraitsForGenre(genreId) {
-        const filtered = getFilteredCategories(genreId);
+    function randomTraitsForGenre(genreIds) {
+        if (!Array.isArray(genreIds)) genreIds = [genreIds];
+        const filtered = getFilteredCategories(genreIds);
         const result = {};
         for (const cat of filtered) {
             const ids = [];
