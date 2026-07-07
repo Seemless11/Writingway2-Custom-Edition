@@ -1170,7 +1170,7 @@ document.addEventListener('alpine:init', () => {
             },
 
             async renameCurrentProject() {
-                await window.ProjectManager.renameCurrentProject(this, this.renameProjectName, this.renameProjectTargetId, this.renameProjectPov, this.renameProjectTense, this.renameProjectLanguage);
+                await window.ProjectManager.renameCurrentProject(this, this.renameProjectName, this.renameProjectTargetId, this.renameProjectPov, this.renameProjectTense, this.renameProjectLanguage, this.renameProjectGenres);
             },
 
             // Show export format selection modal

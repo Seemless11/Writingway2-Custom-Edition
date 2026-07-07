@@ -287,13 +287,14 @@
          * @param {Object} app - Alpine app instance
          * @param {string} newName - New project name
          */
-        async renameCurrentProject(app, newName, projectId, pov, tense, language) {
+        async renameCurrentProject(app, newName, projectId, pov, tense, language, genres) {
             const id = projectId || app.currentProject?.id;
             if (!id || !newName) return;
             try {
                 const now = Date.now();
                 await db.projects.update(id, {
                     name: newName,
+                    genres: genres ? [...genres] : [],
                     pov: pov || '3rd person limited',
                     tense: tense || 'past',
                     language: language || 'English',

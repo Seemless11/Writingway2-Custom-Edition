@@ -18,6 +18,7 @@ function createAppState() {
         renameProjectPov: '3rd person limited',
         renameProjectTense: 'past',
         renameProjectLanguage: 'English',
+        renameProjectGenres: [],
         showExportModal: false,
         exportFormat: 'zip', // 'zip', 'epub', 'html', 'txt'
         exportIncludeSceneTitles: true, // Include scene titles in export (not applicable to ZIP)

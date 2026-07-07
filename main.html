@@ -729,13 +729,14 @@
                                                                      <div style="font-weight:600;font-size:16px;color:var(--text-primary);" x-text="project.name"></div>
                                                                      <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;" x-text="'Last modified: ' + new Date(project.modified).toLocaleDateString()"></div>
                                                                  </div>
-                                                                  <button @click.stop="
-                                                                          renameProjectTargetId = project.id;
-                                                                          renameProjectName = project.name;
-                                                                          renameProjectPov = project.pov || '3rd person limited';
-                                                                          renameProjectTense = project.tense || 'past';
-                                                                          renameProjectLanguage = project.language || 'English';
-                                                                          showRenameProjectModal = true" title="Edit project"
+                                                                   <button @click.stop="
+                                                                           renameProjectTargetId = project.id;
+                                                                           renameProjectName = project.name;
+                                                                           renameProjectPov = project.pov || '3rd person limited';
+                                                                           renameProjectTense = project.tense || 'past';
+                                                                           renameProjectLanguage = project.language || 'English';
+                                                                           renameProjectGenres = [...(project.genres || [])];
+                                                                           showRenameProjectModal = true" title="Edit project"
                                                                           style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-secondary);padding:4px 6px;border-radius:6px;flex-shrink:0;"
                                                                           @mouseenter="$el.style.color='var(--accent)'"
                                                                           @mouseleave="$el.style.color='var(--text-secondary)'">✏️</button>
@@ -1110,6 +1111,17 @@
                                 <option :value="lang.id" x-text="lang.label"></option>
                             </template>
                         </select>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">Genres</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <template x-for="g in (window.GenreDefs?.GENRES || [])" :key="g.id">
+                            <span class="tag-chip"
+                                :class="{ 'tag-chip-active': renameProjectGenres.includes(g.id) }"
+                                @click="renameProjectGenres = renameProjectGenres.includes(g.id) ? renameProjectGenres.filter(x => x !== g.id) : [...renameProjectGenres, g.id]"
+                                x-text="g.icon + ' ' + g.label">
+                            </span>
+                        </template>
                     </div>
 
                     <div class="modal-buttons" style="margin-top:20px;">
