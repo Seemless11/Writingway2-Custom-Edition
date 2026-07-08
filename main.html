@@ -2342,9 +2342,26 @@
                                 </option>
                             </template>
                         </select>
-                    </div>
+                        </div>
 
-                    <!-- Action Buttons Grid -->
+                        <!-- POV Character override -->
+                        <div style="margin-bottom:16px;">
+                            <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px;">
+                                POV Character:
+                            </label>
+                            <select class="move-select" style="width:100%;padding:10px 12px;"
+                                @change="if($event.target.value !== undefined) { povCharacter = $event.target.value; sceneActionsTarget.povCharacter = $event.target.value || ''; saveScene(); }">
+                                <option value="">Project default</option>
+                                <template x-for="char in (compendiumLists['characters'] || []).filter(c => c.isPovCharacter)"
+                                    :key="char.id">
+                                    <option :value="char.title"
+                                        :selected="(sceneActionsTarget.povCharacter || '') === char.title"
+                                        x-text="char.title"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons Grid -->
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
                         <button class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;"
                             @click="moveSceneUp(sceneActionsTarget.id); showSceneActionsModal = false">
