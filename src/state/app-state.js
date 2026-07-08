@@ -329,6 +329,14 @@ function createAppState() {
         maxTokens: 300,
         useProviderDefaults: false, // Don't send temperature/maxTokens, let provider use their defaults
         forceNonStreaming: false, // Force non-streaming mode for models that don't support it
+        topP: 0.9,
+        topK: 40,
+        repetitionPenalty: 1.0,
+        frequencyPenalty: 0.0,
+        presencePenalty: 0.0,
+        minP: 0.0,
+        seed: null,
+        modelPresets: {}, // { [modelId]: { temperature, maxTokens, topP, topK, repetitionPenalty, frequencyPenalty, presencePenalty, minP, seed } }
 
         // ========== Available Models Per Provider ==========
         providerModels: {
