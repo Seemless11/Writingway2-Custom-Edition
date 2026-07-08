@@ -1141,10 +1141,26 @@
 
     function getCategoryGroupsForGenre(category, genreIds) {
         if (!Array.isArray(genreIds)) genreIds = [genreIds];
-        return category.groups.filter(g => {
+        const filtered = category.groups.filter(g => {
             if (!g.genres || g.genres.length === 0) return true;
             return g.genres.some(id => genreIds.includes(id));
         });
+        // Merge groups that share a label (e.g. genre-specific "Profession" variants)
+        // so we never emit duplicate x-for keys when multiple genres are active.
+        const merged = [];
+        const byLabel = new Map();
+        for (const g of filtered) {
+            const existing = byLabel.get(g.label);
+            if (existing) {
+                const seen = new Set(existing.traits.map(t => t.id));
+                existing.traits = existing.traits.concat(g.traits.filter(t => !seen.has(t.id)));
+            } else {
+                const copy = { ...g, traits: [...g.traits] };
+                byLabel.set(g.label, copy);
+                merged.push(copy);
+            }
+        }
+        return merged;
     }
 
     function getFilteredCategories(genreIds) {
@@ -1166,8 +1182,8 @@
                     }
                 }
             }
-            return { ...cat, groups: groups };
-        }).filter(cat => cat.groups.length > 0);
+            return { ...cat, groups: groups || [] };
+        }).filter(cat => cat && Array.isArray(cat.groups) && cat.groups.length > 0);
     }
 
     function buildCompendiumEntry(name, notes, genre, selectedTraits, chatHistory) {

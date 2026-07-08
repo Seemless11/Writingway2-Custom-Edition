@@ -3315,7 +3315,7 @@
                                         <span style="font-size:10px;color:var(--text-secondary);" x-text="openCharCreatorCategories.includes(cat.id) ? '▾' : '▸'"></span>
                                     </span>
                                 </div>
-                                <div x-show="openCharCreatorCategories.includes(cat.id)" x-cloak style="margin-top:8px;padding-left:6px;">
+                                <div x-show="openCharCreatorCategories.includes(cat.id) && cat.groups" x-cloak style="margin-top:8px;padding-left:6px;">
                                     <template x-for="group in cat.groups" :key="group.label">
                                         <div style="margin-bottom:10px;">
                                             <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;padding-left:8px;border-left:3px solid var(--accent);text-transform:uppercase;letter-spacing:0.05em;" x-text="group.label"></div>
