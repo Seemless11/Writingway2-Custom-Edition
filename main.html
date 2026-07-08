@@ -245,7 +245,7 @@
                                 <div x-show="openMenu" x-cloak @click.away="openMenu = false" x-transition
                                     class="action-menu">
                                     <button
-                                        @click.stop="showRenameProjectModal = true; renameProjectName = currentProject?.name; renameProjectPov = currentProject?.pov || '3rd person limited'; renameProjectTense = currentProject?.tense || 'past'; renameProjectLanguage = currentProject?.language || 'English'; renameProjectPovCharacter = currentProject?.povCharacter || ''; openMenu=false">Rename</button>
+                                        @click.stop="showRenameProjectModal = true; renameProjectTargetId = currentProject?.id; renameProjectName = currentProject?.name; renameProjectPov = currentProject?.pov || '3rd person limited'; renameProjectTense = currentProject?.tense || 'past'; renameProjectLanguage = currentProject?.language || 'English'; renameProjectPovCharacter = currentProject?.povCharacter || ''; renameProjectGenres = [...(currentProject?.genres || [])]; openMenu=false">Rename</button>
                                     <div style="border-top:1px solid var(--border);margin:6px 0"></div>
                                     <div style="max-height:200px;overflow:auto;margin-bottom:6px;">
                                         <strong
