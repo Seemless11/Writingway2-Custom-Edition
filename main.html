@@ -245,7 +245,7 @@
                                 <div x-show="openMenu" x-cloak @click.away="openMenu = false" x-transition
                                     class="action-menu">
                                     <button
-                                        @click.stop="showRenameProjectModal = true; renameProjectName = currentProject?.name; renameProjectPov = currentProject?.pov || '3rd person limited'; renameProjectTense = currentProject?.tense || 'past'; renameProjectLanguage = currentProject?.language || 'English'; openMenu=false">Rename</button>
+                                        @click.stop="showRenameProjectModal = true; renameProjectName = currentProject?.name; renameProjectPov = currentProject?.pov || '3rd person limited'; renameProjectTense = currentProject?.tense || 'past'; renameProjectLanguage = currentProject?.language || 'English'; renameProjectPovCharacter = currentProject?.povCharacter || ''; openMenu=false">Rename</button>
                                     <div style="border-top:1px solid var(--border);margin:6px 0"></div>
                                     <div style="max-height:200px;overflow:auto;margin-bottom:6px;">
                                         <strong
@@ -739,7 +739,8 @@
                                                                             renameProjectPov = project.pov || '3rd person limited';
                                                                             renameProjectTense = project.tense || 'past';
                                                                             renameProjectLanguage = project.language || 'English';
-                                                                            renameProjectGenres = [...(project.genres || [])];
+                                                                             renameProjectPovCharacter = project.povCharacter || '';
+                                                                             renameProjectGenres = [...(project.genres || [])];
                                                                             showRenameProjectModal = true" title="Edit project"
                                                                            style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-secondary);padding:4px 6px;border-radius:6px;flex-shrink:0;"
                                                                            @mouseenter="$el.style.color='var(--accent)'"
@@ -1125,6 +1126,19 @@
                                 <option :value="lang.id" x-text="lang.label"></option>
                             </template>
                         </select>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">POV Character (optional)</label>
+                    <div style="margin-top:6px;">
+                        <input type="text" x-model="renameProjectPovCharacter" placeholder="e.g., Alice"
+                            list="edit-project-pov-list"
+                            style="width:100%;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                        <datalist id="edit-project-pov-list">
+                            <template x-for="char in (compendiumLists['characters'] || []).filter(c => c.isPovCharacter)"
+                                :key="char.id">
+                                <option :value="char.title"></option>
+                            </template>
+                        </datalist>
                     </div>
 
                     <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">Genres</label>
