@@ -1063,6 +1063,20 @@
                             </select>
                         </div>
                     </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">POV Character (optional)</label>
+                        <div style="margin-top: 6px;">
+                            <input type="text" x-model="newProjectPovCharacter" placeholder="e.g., Alice"
+                                list="new-project-pov-list"
+                                style="width:100%;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <datalist id="new-project-pov-list">
+                                <template x-for="char in (compendiumLists['characters'] || []).filter(c => c.isPovCharacter)"
+                                    :key="char.id">
+                                    <option :value="char.title"></option>
+                                </template>
+                            </datalist>
+                        </div>
+                    </div>
                     <div class="modal-buttons">
                         <button class="btn btn-secondary" @click="showNewProjectModal = false">Cancel</button>
                         <button class="btn btn-primary" @click="createProject">Create</button>
