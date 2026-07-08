@@ -15,9 +15,10 @@
                 id: now.toString(),
                 name: projectName,
                 genres: (app.selectedGenres || []).slice(),
-                pov: app.newProjectPov || '3rd person limited',
+                    pov: app.newProjectPov || '3rd person limited',
                 tense: app.newProjectTense || 'past',
                 language: app.newProjectLanguage || 'English',
+                povCharacter: app.newProjectPovCharacter || '',
                 created: new Date(),
                 modified: new Date(),
                 updatedAt: now
@@ -40,6 +41,7 @@
             app.newProjectPov = '3rd person limited';
             app.newProjectTense = 'past';
             app.newProjectLanguage = 'English';
+            app.newProjectPovCharacter = '';
 
             // refresh projects list and select the new project
             await this.loadProjects(app);
@@ -119,6 +121,10 @@
             if (projects.length > 0) {
                 app.currentProject = projects[0];
                 app.selectedProjectId = app.currentProject.id;
+                app.pov = app.currentProject.pov || '3rd person limited';
+                app.tense = app.currentProject.tense || 'past';
+                app.language = app.currentProject.language || 'English';
+                app.povCharacter = app.currentProject.povCharacter || '';
                 await app.loadChapters();
                 if (app.scenes.length > 0) {
                     const lastSceneId = localStorage.getItem('writingway:lastScene:' + app.currentProject.id);
@@ -172,50 +178,61 @@
          */
         async selectProject(app, projectId) {
             app.projectLoading = true;
-            // Clear compendium state for the new project
-            app.showCodexPanel = false;
-            app.currentCompEntry = null;
-            app.compendiumOriginalEntry = null;
-            app.compendiumDirty = false;
-            app.compendiumGenerating = false;
-            app.showCompGenActions = false;
-            app.compendiumCounts = {};
-            app.openCompCategories = [];
-            app.compendiumLists = {};
-            app.compendiumSaveStatus = '';
-            app.showCompCategoryPicker = false;
-            const proj = await db.projects.get(projectId);
-            if (!proj) { app.projectLoading = false; return; }
-            app.currentProject = proj;
-            app.selectedProjectId = proj.id;
-            try { localStorage.setItem('writingway:lastProject', proj.id); } catch (e) { }
+            try {
+                // Clear compendium state for the new project
+                app.showCodexPanel = false;
+                app.currentCompEntry = null;
+                app.compendiumOriginalEntry = null;
+                app.compendiumDirty = false;
+                app.compendiumGenerating = false;
+                app.showCompGenActions = false;
+                app.compendiumCounts = {};
+                app.openCompCategories = [];
+                app.compendiumLists = {};
+                app.compendiumSaveStatus = '';
+                app.showCompCategoryPicker = false;
+                const proj = await db.projects.get(projectId);
+                if (!proj) { return; }
+                app.currentProject = proj;
+                app.selectedProjectId = proj.id;
+                app.pov = proj.pov || '3rd person limited';
+                app.tense = proj.tense || 'past';
+                app.language = proj.language || 'English';
+                app.povCharacter = proj.povCharacter || '';
+                try { localStorage.setItem('writingway:lastProject', proj.id); } catch (e) { }
 
-            // Load critical data in parallel (scenes/chapters, prompts, workshop sessions)
-            await Promise.all([
-                app.loadChapters(),
-                app.loadPrompts(),
-                app.loadWorkshopSessions(),
-            ]);
+                // Load critical data in parallel (scenes/chapters, prompts, workshop sessions)
+                await Promise.all([
+                    app.loadChapters(),
+                    app.loadPrompts(),
+                    app.loadWorkshopSessions(),
+                ]);
 
-            // Load prose prompt selection (quick localStorage + DB lookup)
-            try { await this.loadSelectedProsePrompt(app); } catch (e) { /* ignore */ }
-            // Load context panel (localStorage, synchronous, fast)
-            try { app.loadContextPanel(); } catch (e) { console.error('Failed to load context panel:', e); }
+                // Load prose prompt selection (quick localStorage + DB lookup)
+                try { await this.loadSelectedProsePrompt(app); } catch (e) { /* ignore */ }
+                // Load context panel (localStorage, synchronous, fast)
+                try { app.loadContextPanel(); } catch (e) { console.error('Failed to load context panel:', e); }
 
-            // Show the last active scene
-            if (app.scenes.length > 0) {
-                const lastSceneId = localStorage.getItem('writingway:lastScene:' + projectId);
-                const targetScene = lastSceneId && app.scenes.find(s => s.id === lastSceneId);
-                await app.loadScene(targetScene ? targetScene.id : app.scenes[0].id);
-            } else {
-                app.currentScene = null;
+                // Show the last active scene
+                if (app.scenes.length > 0) {
+                    const lastSceneId = localStorage.getItem('writingway:lastScene:' + projectId);
+                    const targetScene = lastSceneId && app.scenes.find(s => s.id === lastSceneId);
+                    await app.loadScene(targetScene ? targetScene.id : app.scenes[0].id);
+                } else {
+                    app.currentScene = null;
+                }
+
+                // Defer non-critical loads (workshop prompt selection)
+                setTimeout(async () => {
+                    try { await app.loadSelectedWorkshopPrompt(); } catch (e) { /* ignore */ }
+                }, 0);
+            } catch (e) {
+                console.error('Failed to select project:', e);
+                app.currentProject = null;
+                app.selectedProjectId = null;
+            } finally {
+                app.projectLoading = false;
             }
-            app.projectLoading = false;
-
-            // Defer non-critical loads (workshop prompt selection)
-            setTimeout(async () => {
-                try { await app.loadSelectedWorkshopPrompt(); } catch (e) { /* ignore */ }
-            }, 0);
         },
 
         /**
@@ -287,7 +304,7 @@
          * @param {Object} app - Alpine app instance
          * @param {string} newName - New project name
          */
-        async renameCurrentProject(app, newName, projectId, pov, tense, language, genres) {
+        async renameCurrentProject(app, newName, projectId, pov, tense, language, povCharacter, genres) {
             const id = projectId || app.currentProject?.id;
             if (!id || !newName) return;
             try {
@@ -298,6 +315,7 @@
                     pov: pov || '3rd person limited',
                     tense: tense || 'past',
                     language: language || 'English',
+                    povCharacter: povCharacter || '',
                     modified: new Date(),
                     updatedAt: now
                 });

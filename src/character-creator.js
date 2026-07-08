@@ -33,7 +33,7 @@
                 {
                     label: 'Eyes',
                     traits: [
-                        { id: 'eyes_blue', label: 'Blue', hint: 'Ice-blue, sky-blue, or深邃 like a winter sea?' },
+                        { id: 'eyes_blue', label: 'Blue', hint: 'Ice-blue, sky-blue, or deep like a winter sea?' },
                         { id: 'eyes_green', label: 'Green', hint: 'Emerald, hazel-green, or something otherworldly?' },
                         { id: 'eyes_brown', label: 'Brown', hint: 'Warm chocolate, cold dark, or golden-flecked?' },
                         { id: 'eyes_grey', label: 'Grey', hint: 'Do they shift color with mood or lighting?' },
@@ -503,7 +503,7 @@
                     genres: ['sci-fi', 'cyberpunk'],
                     traits: [
                         { id: 'origin_colony', label: 'Colony Station', hint: 'Born in a can. The stars are home, not the ground.' },
-                        { id: 'origin_spac habitat', label: 'Space Habitat', hint: 'Artificial gravity and recycled air. Earth is a story.' },
+                        { id: 'origin_space_habitat', label: 'Space Habitat', hint: 'Artificial gravity and recycled air. Earth is a story.' },
                         { id: 'origin_alien_world', label: 'Alien World', hint: 'A foreign biosphere. They adapted to it — or it to them.' },
                         { id: 'origin_generation_ship', label: 'Generation Ship', hint: 'Born in transit. Home is a vessel, not a planet.' },
                         { id: 'origin_underworld', label: 'Underworld', hint: 'The dark side of civilization. Cables, crime, and shadows.' }
@@ -1238,6 +1238,7 @@
             tags: ['created'],
             imageUrl: null,
             alwaysInContext: false,
+            isPovCharacter: false,
                 _charData: JSON.stringify({ name: charName, genre: genre || '', notes: notes || '', selectedTraits: selectedTraits || {}, chatHistory: chatHistory || [] })
         };
     }
@@ -1256,53 +1257,58 @@
                 }
                 const bodyGroup = cat.groups.find(g => g.label === 'Body Type');
                 if (bodyGroup) {
-                    const pick = bodyGroup.traits[Math.floor(Math.random() * bodyGroup.traits.length)];
-                    ids.push(pick.id);
+                    const pick = bodyGroup.traits.length ? bodyGroup.traits[Math.floor(Math.random() * bodyGroup.traits.length)] : null;
+                    if (pick) ids.push(pick.id);
                 }
             } else if (cat.id === 'appearance') {
                 for (const group of cat.groups) {
+                    if (!group.traits.length) continue;
                     const pick = group.traits[Math.floor(Math.random() * group.traits.length)];
                     ids.push(pick.id);
                 }
             } else if (cat.id === 'personality') {
                 for (const group of cat.groups) {
                     if (group.label === 'Core Traits' && Math.random() > 0.5) continue;
+                    if (!group.traits.length) continue;
                     const pick = group.traits[Math.floor(Math.random() * group.traits.length)];
                     ids.push(pick.id);
                 }
             } else if (cat.id === 'background') {
                 const originGroup = cat.groups.find(g => g.label === 'Origin');
-                if (originGroup) {
+                if (originGroup && originGroup.traits.length) {
                     const pick = originGroup.traits[Math.floor(Math.random() * originGroup.traits.length)];
                     ids.push(pick.id);
                 }
                 const profGroups = cat.groups.filter(g => g.label === 'Profession');
                 if (profGroups.length > 0) {
                     const profGroup = profGroups[Math.floor(Math.random() * profGroups.length)];
-                    const pick = profGroup.traits[Math.floor(Math.random() * profGroup.traits.length)];
-                    ids.push(pick.id);
+                    if (profGroup.traits.length) {
+                        const pick = profGroup.traits[Math.floor(Math.random() * profGroup.traits.length)];
+                        ids.push(pick.id);
+                    }
                 }
             } else if (cat.id === 'flaws') {
                 if (Math.random() > 0.3) {
                     const flawGroup = cat.groups.find(g => g.label === 'Flaws');
-                    if (flawGroup) {
+                    if (flawGroup && flawGroup.traits.length) {
                         const pick = flawGroup.traits[Math.floor(Math.random() * flawGroup.traits.length)];
                         ids.push(pick.id);
                     }
                 }
             } else if (cat.id === 'quirks') {
                 const speechGroup = cat.groups.find(g => g.label === 'Speech');
-                if (speechGroup && Math.random() > 0.5) {
+                if (speechGroup && speechGroup.traits.length && Math.random() > 0.5) {
                     const pick = speechGroup.traits[Math.floor(Math.random() * speechGroup.traits.length)];
                     ids.push(pick.id);
                 }
                 const mannerGroup = cat.groups.find(g => g.label === 'Mannerisms');
-                if (mannerGroup && Math.random() > 0.5) {
+                if (mannerGroup && mannerGroup.traits.length && Math.random() > 0.5) {
                     const pick = mannerGroup.traits[Math.floor(Math.random() * mannerGroup.traits.length)];
                     ids.push(pick.id);
                 }
             } else {
                 for (const group of cat.groups) {
+                    if (!group.traits.length) continue;
                     const pick = group.traits[Math.floor(Math.random() * group.traits.length)];
                     ids.push(pick.id);
                 }

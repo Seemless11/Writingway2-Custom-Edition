@@ -822,7 +822,7 @@
                                         style="padding:3px 8px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:4px;font-size:11px;white-space:nowrap;">
                                         ✓ Local
                                     </span>
-                                    <select x-model="selectedWorkshopPromptId" @change="saveSelectedWorkshopPrompt" class="workshop-select"
+                                    <select x-model="selectedWorkshopPromptId" @change="saveSelectedWorkshopPrompt()" class="workshop-select"
                                         style="font-size:12px;min-width:80px;">
                                         <option value="">Default Prompt</option>
                                         <template x-for="p in prompts.filter(p => p.category === 'workshop')" :key="p.id">
@@ -2986,7 +2986,6 @@
                     </div>
                 </div>
             </div>
-    </div>
     </template>
 
     <!-- Inline workshop-chat template (so the page works over file://). -->
@@ -3090,7 +3089,7 @@
                     style="padding:4px 12px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:6px;font-size:12px;">
                     ✓ Local GGUF Model Active
                 </span>
-                <select x-model="selectedWorkshopPromptId" @change="saveSelectedWorkshopPrompt" class="workshop-select">
+                <select x-model="selectedWorkshopPromptId" @change="saveSelectedWorkshopPrompt()" class="workshop-select">
                     <option value="">Default Workshop Prompt</option>
                     <template x-for="p in prompts.filter(p => p.category === 'workshop')" :key="p.id">
                         <option :value="p.id" x-text="p.title"></option>

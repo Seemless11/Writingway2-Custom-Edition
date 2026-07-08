@@ -89,12 +89,8 @@
                 title: scene.title || '',
                 order: typeof scene.order === 'number' ? scene.order : 0,
                 chapterId: scene.chapterId || null,
-                // prefer app-level UI values if present (the POV/tense/language inputs are bound to app props),
-                // fallback to currentScene fields, then to defaults
+                // per-scene POV character override (project-level POV/tense/language are on the project record)
                 povCharacter: (app.povCharacter !== undefined && app.povCharacter !== null ? app.povCharacter : (scene.povCharacter || '')),
-                pov: (app.pov && app.pov.trim() ? app.pov : (scene.pov || '3rd person limited')),
-                tense: (app.tense && app.tense.trim() ? app.tense : (scene.tense || 'past')),
-                language: (app.language && app.language.trim() ? app.language : (scene.language || app.currentProject?.language || 'English')),
                 modified: new Date(),
                 updatedAt: now,
                 wordCount
@@ -131,8 +127,10 @@
             }
 
             let mergedScene = null;
+            let saveOk = false;
             try {
                 mergedScene = await safeMergeUpdate(scene.id, scenePatch);
+                saveOk = !!mergedScene;
 
                 // Broadcast scene change
                 if (window.TabSync && mergedScene) {
@@ -189,8 +187,8 @@
                 app.currentScene.contentLoadedUpdatedAt = now;
             }
 
-            app.saveStatus = 'Saved';
-            return true;
+            app.saveStatus = saveOk ? 'Saved' : 'Error saving';
+            return saveOk;
         } catch (err) {
             console.error('saveScene error', err);
             app.saveStatus = 'Error';

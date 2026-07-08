@@ -34,6 +34,19 @@ document.addEventListener('alpine:init', () => {
                 return total;
             },
 
+            get compendiumCategories() {
+                const base = ['characters', 'places', 'items', 'lore', 'notes'];
+                if (this.currentProject?.genres?.length && window.GenreDefs) {
+                    const extra = window.GenreDefs.getExtraCompendiumCategories(this.currentProject.genres);
+                    return [...base, ...extra.filter(c => !base.includes(c))];
+                }
+                return base;
+            },
+
+            get hasWorkshopSessions() {
+                return this.workshopSessions && this.workshopSessions.length > 0;
+            },
+
             // Helper to update loading screen
             updateLoadingScreen(progress, status, tip) {
                 try {
@@ -127,11 +140,8 @@ document.addEventListener('alpine:init', () => {
                     console.error('Failed to load projects:', e);
                 }
 
-                // Show the app UI immediately — AI init continues in the background
-                this.hideLoadingScreen();
-
                 // One-time migration: ensure scenes have a projectId so they are discoverable
-                // Deferred after UI show so the user sees the picker without delay
+                // Deferred so the user sees the picker without delay
                 try { await this.migrateMissingSceneProjectIds(); } catch (e) { /* ignore */ }
 
                 this.updateLoadingScreen(30, 'Checking local AI...', 'Looking for GGUF models and llama.cpp...');
@@ -143,6 +153,9 @@ document.addEventListener('alpine:init', () => {
                 await this.loadAISettings();
 
                 this.updateLoadingScreen(50, 'Initializing AI...', 'This may take 2-3 minutes on first run...');
+
+                // Show the app UI — AI init continues in the background
+                this.hideLoadingScreen();
 
                 // Initialize tab sync for multi-tab coordination
                 if (window.TabSync && typeof window.TabSync.init === 'function') {
@@ -505,6 +518,53 @@ document.addEventListener('alpine:init', () => {
             },
             saveGenerationParams() {
                 window.AISettings.saveGenerationParams(this);
+            },
+            savePresetParam() {
+                if (!this.aiModel) return;
+                this.modelPresets[this.aiModel] = {
+                    temperature: this.temperature,
+                    maxTokens: this.maxTokens,
+                    topP: this.topP,
+                    topK: this.topK,
+                    repetitionPenalty: this.repetitionPenalty,
+                    frequencyPenalty: this.frequencyPenalty,
+                    presencePenalty: this.presencePenalty,
+                    minP: this.minP,
+                    seed: this.seed
+                };
+                if (this.useProviderDefaults) this.useProviderDefaults = false;
+                window.AISettings.saveGenerationParams(this);
+            },
+            switchModelPreset() {
+                if (!this.aiModel) return;
+                const preset = this.modelPresets[this.aiModel];
+                if (preset) {
+                    this.temperature = preset.temperature;
+                    this.maxTokens = preset.maxTokens;
+                    this.topP = preset.topP;
+                    this.topK = preset.topK;
+                    this.repetitionPenalty = preset.repetitionPenalty;
+                    this.frequencyPenalty = preset.frequencyPenalty;
+                    this.presencePenalty = preset.presencePenalty;
+                    this.minP = preset.minP;
+                    this.seed = preset.seed;
+                } else {
+                    this.temperature = 0.8;
+                    this.maxTokens = 300;
+                    this.topP = 0.9;
+                    this.topK = 40;
+                    this.repetitionPenalty = 1.0;
+                    this.frequencyPenalty = 0.0;
+                    this.presencePenalty = 0.0;
+                    this.minP = 0.0;
+                    this.seed = null;
+                }
+                window.AISettings.saveGenerationParams(this);
+            },
+            clearModelPreset() {
+                if (!this.aiModel) return;
+                delete this.modelPresets[this.aiModel];
+                this.switchModelPreset();
             },
             async saveAISettings() {
                 await window.AISettings.saveAISettings(this);
@@ -1170,7 +1230,7 @@ document.addEventListener('alpine:init', () => {
             },
 
             async renameCurrentProject() {
-                await window.ProjectManager.renameCurrentProject(this, this.renameProjectName, this.renameProjectTargetId, this.renameProjectPov, this.renameProjectTense, this.renameProjectLanguage, this.renameProjectGenres);
+                await window.ProjectManager.renameCurrentProject(this, this.renameProjectName, this.renameProjectTargetId, this.renameProjectPov, this.renameProjectTense, this.renameProjectLanguage, this.renameProjectPovCharacter, this.renameProjectGenres);
             },
 
             // Show export format selection modal
@@ -1393,7 +1453,8 @@ document.addEventListener('alpine:init', () => {
                     category: 'characters',
                     tags: ['imported', 'wiki-import'],
                     imageUrl: this.pasteImportImageData || null,
-                    alwaysInContext: false
+                    alwaysInContext: false,
+                    isPovCharacter: false
                 };
                 try {
                     var imported = await window.Compendium.import(this.currentProject.id, [entry]);
