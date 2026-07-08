@@ -62,20 +62,20 @@ const Workshop = {
             console.error('Failed to save workshop sessions:', error);
         }
     },
-    createWorkshopSession(app) {
+    async createWorkshopSession(app) {
         const newSession = window.workshopChat.createNewSession(app);
         app.workshopSessions.push(newSession);
         app.currentWorkshopSessionIndex = app.workshopSessions.length - 1;
-        Workshop.saveWorkshopSessions(app);
+        await Workshop.saveWorkshopSessions(app);
     },
-    renameWorkshopSession(app, index) {
+    async renameWorkshopSession(app, index) {
         const session = app.workshopSessions[index];
         if (!session) return;
         const newName = prompt('Rename conversation:', session.name);
         if (newName && newName.trim()) {
             session.name = newName.trim();
             app.workshopSessions = [...app.workshopSessions];
-            Workshop.saveWorkshopSessions(app);
+            await Workshop.saveWorkshopSessions(app);
         }
     },
     async clearWorkshopSession(app, index) {

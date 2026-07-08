@@ -321,16 +321,6 @@ document.addEventListener('alpine:init', () => {
                     if (saved !== null) this.showMiniBeatInput = saved === 'true';
                 } catch (err) { /* ignore */ }
 
-                // Add global enforcement of LTR direction on editor
-                document.addEventListener('DOMNodeInserted', () => {
-                    const editor = document.querySelector('.editor-textarea[contenteditable="true"]');
-                    if (editor) {
-                        editor.setAttribute('dir', 'ltr');
-                        editor.style.direction = 'ltr';
-                        editor.style.unicodeBidi = 'normal';
-                    }
-                });
-
                 // Also enforce on focus events
                 document.addEventListener('focusin', (e) => {
                     if (e.target && e.target.classList && e.target.classList.contains('editor-textarea')) {
