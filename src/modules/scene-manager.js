@@ -111,10 +111,12 @@
             };
 
             // Load scene-specific generation options into UI state
+            // pov/tense/language are project-level settings (see save-utils.js); only
+            // povCharacter is overridable per scene.
             app.povCharacter = scene.povCharacter || '';
-            app.pov = scene.pov || '3rd person limited';
-            app.tense = scene.tense || 'past';
-            app.language = scene.language || app.currentProject?.language || 'English';
+            app.pov = app.currentProject?.pov || '3rd person limited';
+            app.tense = app.currentProject?.tense || 'past';
+            app.language = app.currentProject?.language || 'English';
 
             // Force LTR direction on the editor after it's rendered
             app.$nextTick(() => {
