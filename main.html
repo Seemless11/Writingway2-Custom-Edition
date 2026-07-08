@@ -280,7 +280,7 @@
                     <div class="scene-list">
                         <template x-for="chapter in chapters.filter(ch => !sceneSearchQuery || ch.title.toLowerCase().includes(sceneSearchQuery.toLowerCase()) || (ch.scenes && ch.scenes.some(s => s.title.toLowerCase().includes(sceneSearchQuery.toLowerCase()))))" :key="chapter.id">
                             <div class="chapter-item">
-                                <div class="chapter-header" style="align-items:center;gap:8px;">
+                                <div class="chapter-header" style="align-items:center;gap:8px;cursor:pointer;" @click="currentChapter = chapter">
                                     <div
                                         style="flex:1;display:flex;justify-content:space-between;align-items:center;position:relative;">
                                         <div style="flex:1;display:flex;align-items:center;gap:8px;">
