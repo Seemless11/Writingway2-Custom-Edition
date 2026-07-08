@@ -1481,7 +1481,7 @@ document.addEventListener('alpine:init', () => {
             },
             mergeImageDescriptionIntoResult() {
                 if (!this.pasteImportResult || !this.pasteImportImageDescription) return;
-                var descSection = '\n\n## Appearance (from image)\n' + this.pasteImportImageDescription.trim();
+                var descSection = '\n\n## Visual Description\n' + this.pasteImportImageDescription.trim();
                 this.pasteImportResult.body = descSection + '\n\n' + this.pasteImportResult.body;
             },
 

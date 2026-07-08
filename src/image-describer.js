@@ -2,22 +2,22 @@
 // Standalone vision API caller — uses OpenRouter with a hardcoded vision model.
 // Does NOT depend on Generation, Compendium, or the user's selected AI provider/model.
 (function () {
-    var IMAGE_DESCRIPTION_PROMPT = `Examine the character in this image and produce a thorough physical description.
+    var IMAGE_DESCRIPTION_PROMPT = `Examine this character and produce a thorough physical description suitable for a character compendium. Cover all visible physical traits from head to toe — write in natural, descriptive prose that captures the character's appearance vividly.
 
-Cover ALL of the following:
-- Hair (color, length, style)
-- Eyes (color, shape, notable features)
-- Skin tone, facial structure
-- Head/face shape, neck
-- Shoulders, upper body, arms, hands
+Include:
+- Height, build, and overall proportions — estimate where possible
+- Hair (color, length, style, texture)
+- Eyes (color, shape, expression)
+- Face (shape, features, skin, complexion)
+- Neck, shoulders, upper body
+- Arms, hands, fingers
 - Torso (chest, waist, core)
-- Hips, legs, feet (if visible)
-- Overall proportions, visible height
+- Hips, legs, feet
 - Clothing, footwear, accessories, jewelry
 - Expression, posture, demeanor
-- Any scars, tattoos, or distinguishing marks
+- Scars, tattoos, piercings, or distinguishing marks
 
-Format as concise bullet points. Describe only what is clearly visible. Do NOT use words like "maybe", "probably", "perhaps", or any hedging. If a detail is not visible, state "not visible" — do not guess or speculate.`;
+Describe with confidence and specificity. Do NOT hedge with "maybe" or "probably". If a detail is fully obscured or impossible to determine, omit it rather than stating it's not visible.`;
 
     // Hardcoded — only this model is supported.
     var VISION_MODEL = 'google/gemini-2.5-flash-lite';
