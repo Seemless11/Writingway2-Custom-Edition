@@ -586,17 +586,19 @@ document.addEventListener('alpine:init', () => {
             },
 
             // Get the active beat text: from beatInput in legacy mode, or scan content for last ## line
+            // A ## beat spans from the ## marker to the end of content (multi-line support)
             getCurrentBeat() {
                 if (this.showMiniBeatInput) {
                     return this.beatInput || '';
                 }
-                // In default mode, scan content backwards for last ##  line
                 const content = (this.currentScene && this.currentScene.content) || '';
                 const lines = content.split('\n');
                 for (let i = lines.length - 1; i >= 0; i--) {
                     const trimmed = lines[i].trim();
                     if (trimmed.startsWith('## ')) {
-                        return trimmed.slice(3).trim();
+                        const markerPos = lines[i].indexOf('## ');
+                        const beat = lines[i].substring(markerPos + 3) + '\n' + lines.slice(i + 1).join('\n');
+                        return beat.trim();
                     }
                 }
                 return '';
@@ -1536,6 +1538,76 @@ document.addEventListener('alpine:init', () => {
                 this.pasteImportResult.body = descSection + '\n\n' + this.pasteImportResult.body;
             },
 
+            // ========== Character Creator Image Describe ==========
+            triggerCharCreatorImageUpload() {
+                this.charCreatorImageError = '';
+                var el = document.getElementById('charCreatorImageInput');
+                if (el) el.click();
+            },
+            onCharCreatorImageSelected(event) {
+                var file = event.target.files?.[0];
+                if (!file) return;
+                this.charCreatorImageError = '';
+                var allowed = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+                if (!allowed.includes(file.type)) {
+                    this.charCreatorImageError = 'Unsupported format. Use PNG, JPEG, WebP, or GIF.';
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    this.charCreatorImageError = 'Image too large (max 10MB).';
+                    return;
+                }
+                this.charCreatorImageFileName = file.name;
+                var self = this;
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    self.charCreatorImageData = e.target.result;
+                    self.charCreatorImageDescription = '';
+                    self.charCreatorImageError = '';
+                };
+                reader.onerror = function () {
+                    self.charCreatorImageError = 'Failed to read file.';
+                };
+                reader.readAsDataURL(file);
+                event.target.value = '';
+            },
+            removeCharCreatorImage() {
+                this.charCreatorImageData = null;
+                this.charCreatorImageFileName = '';
+                this.charCreatorImageDescription = '';
+                this.charCreatorImageError = '';
+                this.charCreatorImageDescrLoading = false;
+            },
+            async describeCharCreatorImage() {
+                if (!this.charCreatorImageData) return;
+                if (this.charCreatorImageDescrLoading) return;
+                if (!this.aiApiKey) {
+                    this.charCreatorImageError = 'No API key found. Set your OpenRouter API key in AI Settings.';
+                    return;
+                }
+                this.charCreatorImageDescrLoading = true;
+                this.charCreatorImageError = '';
+                try {
+                    var result = await window.ImageDescriber.describe(
+                        this.charCreatorImageData,
+                        this.currentProject?.language || 'English',
+                        this.aiApiKey
+                    );
+                    if (result?.error) {
+                        this.charCreatorImageError = result.error;
+                    } else if (result?.description) {
+                        this.charCreatorImageDescription = result.description;
+                    } else {
+                        this.charCreatorImageError = 'No description could be generated.';
+                    }
+                } catch (e) {
+                    this.charCreatorImageError = e.message || 'Image description failed';
+                    console.error('Image description error:', e);
+                } finally {
+                    this.charCreatorImageDescrLoading = false;
+                }
+            },
+
             // ========== Character Creator Methods ==========
             getFilteredCharCreatorCategories() {
                 const v = this.charCreatorTraitVersion;
@@ -1554,6 +1626,11 @@ document.addEventListener('alpine:init', () => {
                 this.charCreatorSelectedTraits = {};
                 this.charCreatorChatHistory = [];
                 this.charCreatorEditingEntryId = null;
+                this.charCreatorImageData = null;
+                this.charCreatorImageFileName = '';
+                this.charCreatorImageDescription = '';
+                this.charCreatorImageError = '';
+                this.charCreatorImageDescrLoading = false;
                 this.showCharacterCreator = true;
                 this.openAllCharacterCreatorCategories();
                 try {
@@ -1580,6 +1657,7 @@ document.addEventListener('alpine:init', () => {
                     notes: this.charCreatorNotes,
                     selectedTraits: JSON.parse(JSON.stringify(this.charCreatorSelectedTraits)),
                     chatHistory: JSON.parse(JSON.stringify(this.charCreatorChatHistory)),
+                    imageDescription: this.charCreatorImageDescription || '',
                     savedAt: new Date().toISOString()
                 };
                 try {
@@ -1601,6 +1679,7 @@ document.addEventListener('alpine:init', () => {
                 if (draft.notes) this.charCreatorNotes = draft.notes;
                 if (draft.selectedTraits) this.charCreatorSelectedTraits = draft.selectedTraits;
                 if (draft.chatHistory) this.charCreatorChatHistory = draft.chatHistory;
+                if (draft.imageDescription) this.charCreatorImageDescription = draft.imageDescription;
                 this.charCreatorDraftAlert = null;
                 this.charCreatorTraitVersion++;
                 const cats = window.CharacterCreator.getFilteredCategories(this.charCreatorGenres);
@@ -1624,6 +1703,11 @@ document.addEventListener('alpine:init', () => {
                     this.charCreatorChatHistory = data.chatHistory || [];
                     this.charCreatorInput = '';
                     this.charCreatorGenerating = false;
+                    this.charCreatorImageData = null;
+                    this.charCreatorImageFileName = '';
+                    this.charCreatorImageDescription = data.imageDescription || '';
+                    this.charCreatorImageError = '';
+                    this.charCreatorImageDescrLoading = false;
                     this.openCharCreatorCategories = window.CharacterCreator.getFilteredCategories(this.charCreatorGenres).map(c => c.id);
                     this.charCreatorTraitVersion++;
                     this.showCharacterCreator = true;
@@ -1708,7 +1792,7 @@ document.addEventListener('alpine:init', () => {
                 }
                 this.charCreatorTraitVersion++;
             },
-            async sendCharCreatorMessage() {
+            async sendCharCreatorMessage(traitOverride) {
                 const msg = (this.charCreatorInput || '').trim();
                 if (!msg || this.charCreatorGenerating) return;
                 this.charCreatorGenerating = true;
@@ -1728,9 +1812,10 @@ document.addEventListener('alpine:init', () => {
                     }
                     promptMessages.push({ role: 'system', content: charCreatorSystemPrompt });
 
+                    const traitSource = traitOverride || this.charCreatorSelectedTraits;
                     const traitParts = [];
                     for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
-                        const ids = this.charCreatorSelectedTraits[cat.id] || [];
+                        const ids = traitSource[cat.id] || [];
                         if (ids.length === 0) continue;
                         const labels = [];
                         for (const g of cat.groups) {
@@ -1771,17 +1856,23 @@ document.addEventListener('alpine:init', () => {
                         promptMessages.push({ role: m.role, content: m.content });
                     }
 
+                    this.charCreatorAbortController = new AbortController();
                     let fullResponse = '';
                     await window.Generation.streamGeneration(promptMessages, (token) => {
                         fullResponse += token;
                         this.charCreatorChatHistory[assistantIdx].content = fullResponse;
                         this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
-                    }, this);
+                    }, this, this.charCreatorAbortController.signal);
                 } catch (err) {
-                    this.charCreatorChatHistory[assistantIdx].content = 'Error: ' + (err.message || err);
-                    this.charCreatorChatHistory[assistantIdx].isError = true;
-                    this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
+                    if (err.name === 'AbortError') {
+                        console.log('Character creator generation stopped by user');
+                    } else {
+                        this.charCreatorChatHistory[assistantIdx].content = 'Error: ' + (err.message || err);
+                        this.charCreatorChatHistory[assistantIdx].isError = true;
+                        this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
+                    }
                 } finally {
+                    this.charCreatorAbortController = null;
                     this.charCreatorGenerating = false;
                     this.saveCharCreatorDraft();
                     this.$nextTick(() => {
@@ -1790,8 +1881,89 @@ document.addEventListener('alpine:init', () => {
                     });
                 }
             },
+            deleteCharCreatorMessage(idx) {
+                this.charCreatorChatHistory.splice(idx, 1);
+                this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
+                this.saveCharCreatorDraft();
+            },
+            stopCharCreatorGeneration() {
+                if (this.charCreatorAbortController) {
+                    this.charCreatorAbortController.abort();
+                    this.charCreatorAbortController = null;
+                }
+            },
             sendCharCreatorInstruction(tpl) {
                 if (this.charCreatorGenerating) return;
+                if (!tpl.message || !tpl.message.trim()) {
+                    const activeGenres = (this.charCreatorGenres || ['fantasy'])
+                        .map(id => (window.GenreDefs?.GENRES || []).find(g => g.id === id))
+                        .filter(Boolean);
+                    const genreSuffix = activeGenres.length > 0
+                        ? ' (This character is from a ' + activeGenres.map(g => g.label).join(' + ') + ' world.)'
+                        : '';
+                    this.charCreatorInput = tpl.message + genreSuffix;
+                    return;
+                }
+                this.openCharCreatorTraitPicker(tpl);
+            },
+
+            // ========== Trait Picker for Instructions ==========
+            getCharCreatorTraitPickerItems() {
+                const tpl = this.charCreatorTraitPickerTemplate;
+                if (!tpl || !tpl.relevantCategories || tpl.relevantCategories.length === 0) return [];
+                const items = [];
+                for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
+                    if (!tpl.relevantCategories.includes(cat.id)) continue;
+                    const ids = this.charCreatorSelectedTraits[cat.id] || [];
+                    if (ids.length === 0) continue;
+                    const catEntry = { catId: cat.id, catLabel: cat.label, groups: [] };
+                    for (const g of cat.groups) {
+                        const groupTraits = [];
+                        for (const t of g.traits) {
+                            if (ids.includes(t.id)) {
+                                groupTraits.push({ traitId: t.id, traitLabel: t.label });
+                            }
+                        }
+                        if (groupTraits.length > 0) {
+                            catEntry.groups.push({ groupLabel: g.label, traits: groupTraits });
+                        }
+                    }
+                    if (catEntry.groups.length > 0) {
+                        items.push(catEntry);
+                    }
+                }
+                return items;
+            },
+            openCharCreatorTraitPicker(tpl) {
+                const selections = {};
+                if (tpl.relevantCategories && tpl.relevantCategories.length > 0) {
+                    for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
+                        if (!tpl.relevantCategories.includes(cat.id)) continue;
+                        const ids = this.charCreatorSelectedTraits[cat.id] || [];
+                        for (const g of cat.groups) {
+                            for (const t of g.traits) {
+                                if (ids.includes(t.id)) {
+                                    selections[t.id] = true;
+                                }
+                            }
+                        }
+                    }
+                }
+                this.charCreatorTraitPickerSelections = selections;
+                this.charCreatorTraitPickerTemplate = tpl;
+                this.charCreatorTraitPickerVisible = true;
+            },
+            toggleCharCreatorTraitPickerTrait(traitId) {
+                if (this.charCreatorTraitPickerSelections[traitId]) {
+                    this.charCreatorTraitPickerSelections[traitId] = false;
+                } else {
+                    this.charCreatorTraitPickerSelections[traitId] = true;
+                }
+                this.charCreatorTraitPickerSelections = Object.assign({}, this.charCreatorTraitPickerSelections);
+            },
+            confirmCharCreatorTraitPicker() {
+                const tpl = this.charCreatorTraitPickerTemplate;
+                if (!tpl) { this.cancelCharCreatorTraitPicker(); return; }
                 const activeGenres = (this.charCreatorGenres || ['fantasy'])
                     .map(id => (window.GenreDefs?.GENRES || []).find(g => g.id === id))
                     .filter(Boolean);
@@ -1799,16 +1971,18 @@ document.addEventListener('alpine:init', () => {
                     ? ' (This character is from a ' + activeGenres.map(g => g.label).join(' + ') + ' world.)'
                     : '';
                 let fullMsg = tpl.message + genreSuffix;
-                if (tpl.relevantCategories && tpl.relevantCategories.length > 0) {
+                const selectedIds = Object.keys(this.charCreatorTraitPickerSelections)
+                    .filter(id => this.charCreatorTraitPickerSelections[id]);
+                if (selectedIds.length > 0) {
                     const traitParts = [];
                     for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
-                        if (!tpl.relevantCategories.includes(cat.id)) continue;
                         const ids = this.charCreatorSelectedTraits[cat.id] || [];
-                        if (ids.length === 0) continue;
+                        const active = ids.filter(id => selectedIds.includes(id));
+                        if (active.length === 0) continue;
                         const labels = [];
                         for (const g of cat.groups) {
                             for (const t of g.traits) {
-                                if (ids.includes(t.id)) {
+                                if (active.includes(t.id)) {
                                     labels.push(t.label);
                                 }
                             }
@@ -1821,8 +1995,37 @@ document.addEventListener('alpine:init', () => {
                         fullMsg += '\n\nRelevant traits to weave in: ' + traitParts.join(' | ');
                     }
                 }
+                const traitOverride = {};
+                for (const cat of window.CharacterCreator.TRAIT_CATEGORIES) {
+                    const ids = this.charCreatorSelectedTraits[cat.id] || [];
+                    const active = ids.filter(id => selectedIds.includes(id));
+                    if (active.length > 0) {
+                        traitOverride[cat.id] = active;
+                    }
+                }
+                this.charCreatorTraitPickerVisible = false;
+                this.charCreatorTraitPickerTemplate = null;
+                this.charCreatorTraitPickerSelections = {};
                 this.charCreatorInput = fullMsg;
-                this.sendCharCreatorMessage();
+                this.sendCharCreatorMessage(Object.keys(traitOverride).length > 0 ? traitOverride : null);
+            },
+            cancelCharCreatorTraitPicker() {
+                this.charCreatorTraitPickerVisible = false;
+                this.charCreatorTraitPickerTemplate = null;
+                this.charCreatorTraitPickerSelections = {};
+            },
+            toggleTemplateCategory(idx, catId) {
+                const tpl = this.charCreatorInstructionTemplates[idx];
+                if (!tpl) return;
+                const arr = tpl.relevantCategories;
+                const pos = arr.indexOf(catId);
+                if (pos === -1) {
+                    arr.push(catId);
+                } else {
+                    arr.splice(pos, 1);
+                }
+                this.charCreatorInstructionTemplates = this.charCreatorInstructionTemplates.slice();
+                window.CharacterCreator.saveInstructionTemplates(this.charCreatorInstructionTemplates);
             },
 
             // ========== Instruction Template Editor ==========
@@ -1870,7 +2073,8 @@ document.addEventListener('alpine:init', () => {
                     this.charCreatorNotes,
                     this.charCreatorGenres,
                     this.charCreatorSelectedTraits,
-                    this.charCreatorChatHistory
+                    this.charCreatorChatHistory,
+                    this.charCreatorImageDescription
                 );
                 this.charCreatorPreviewHtml = this.markdownToHtml(entry.body || '(empty)');
                 this.showCharCreatorPreview = true;
@@ -1885,7 +2089,8 @@ document.addEventListener('alpine:init', () => {
                     this.charCreatorNotes,
                     this.charCreatorGenres,
                     this.charCreatorSelectedTraits,
-                    this.charCreatorChatHistory
+                    this.charCreatorChatHistory,
+                    this.charCreatorImageDescription
                 );
                 if (!entry.title.trim()) {
                     alert('Please give the character a name.');
@@ -2861,9 +3066,11 @@ document.addEventListener('alpine:init', () => {
                     if (this.showMiniBeatInput) {
                         this.beatInput = this.lastBeat;
                     } else {
-                        // In default mode, re-insert the ## beat line
+                        // In default mode, re-insert the ## beat block
                         const c = this.currentScene.content || '';
-                        this.currentScene.content = c + (c ? '\n' : '') + '## ' + this.lastBeat;
+                        const beatLines = this.lastBeat.split('\n');
+                        const beatInsert = '## ' + beatLines[0] + (beatLines.length > 1 ? '\n' + beatLines.slice(1).join('\n') : '');
+                        this.currentScene.content = c + (c ? '\n' : '') + beatInsert;
                     }
                     await this.generateFromBeat();
                 }
@@ -2883,6 +3090,18 @@ document.addEventListener('alpine:init', () => {
                 this.lastBeat = '';
                 if (this.showMiniBeatInput) this.beatInput = '';
                 await this.saveScene();
+            },
+
+            reuseBeat(beat) {
+                if (this.showMiniBeatInput) {
+                    this.beatInput = beat;
+                } else if (this.currentScene) {
+                    const content = this.currentScene.content || '';
+                    const beatLines = beat.split('\n');
+                    const insert = '## ' + beatLines[0] + (beatLines.length > 1 ? '\n' + beatLines.slice(1).join('\n') : '');
+                    this.currentScene.content = content + (content ? '\n' : '') + insert;
+                }
+                this.showPromptHistory = false;
             },
 
             countWords(text) {

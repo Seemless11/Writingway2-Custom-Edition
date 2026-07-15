@@ -2510,7 +2510,7 @@
                                         </div>
                                     </div>
                                     <button class="btn btn-primary"
-                                        @click="if (showMiniBeatInput) { beatInput = item.beat; } else if (currentScene) { currentScene.content = (currentScene.content || '') + '\n## ' + item.beat; } showPromptHistory = false"
+                                        @click="reuseBeat(item.beat)"
                                         style="font-size:11px;padding:4px 8px;">
                                         Reuse Beat
                                     </button>
@@ -3288,6 +3288,37 @@
                         <textarea x-model="charCreatorNotes" @input.debounce.500ms="saveCharCreatorDraft()" placeholder="Freeform notes, ideas, or backstory snippets..."
                             style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;min-height:72px;resize:vertical;"></textarea>
 
+                        <!-- Image upload / describe -->
+                        <input type="file" id="charCreatorImageInput" accept="image/png,image/jpeg,image/webp,image/gif" @change="onCharCreatorImageSelected" style="display:none;">
+
+                        <div x-show="!charCreatorImageData" style="flex-shrink:0;">
+                            <button class="btn btn-secondary" @click="triggerCharCreatorImageUpload" style="font-size:12px;padding:6px 12px;">
+                                📷 Add Image
+                            </button>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">Uses <code>google/gemini-2.5-flash-lite</code> via OpenRouter</div>
+                        </div>
+
+                        <div x-show="charCreatorImageData" style="flex-shrink:0;display:flex;align-items:start;gap:8px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;">
+                            <img :src="charCreatorImageData" style="width:60px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;">
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="charCreatorImageFileName"></div>
+                                <div style="display:flex;gap:6px;margin-top:4px;">
+                                    <button class="btn btn-primary" style="font-size:11px;padding:4px 8px;" @click="describeCharCreatorImage" :disabled="charCreatorImageDescrLoading">
+                                        <span x-show="!charCreatorImageDescrLoading">🖼️ Describe Image</span>
+                                        <span x-show="charCreatorImageDescrLoading">...</span>
+                                    </button>
+                                    <button class="btn btn-secondary" style="font-size:11px;padding:4px 8px;" @click="removeCharCreatorImage">✕</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div x-show="charCreatorImageDescription" style="flex-shrink:0;border:1px solid var(--border);border-radius:8px;">
+                            <label style="font-size:12px;font-weight:600;padding:6px 10px 0;display:block;color:var(--text-primary);">Image Description</label>
+                            <textarea x-model="charCreatorImageDescription" style="width:100%;padding:8px 10px;background:transparent;border:none;font-size:12px;resize:vertical;min-height:60px;font-family:inherit;color:var(--text-primary);box-sizing:border-box;"></textarea>
+                        </div>
+
+                        <div x-show="charCreatorImageError" x-cloak style="flex-shrink:0;font-size:12px;color:#e74c3c;padding:4px 0;" x-text="charCreatorImageError"></div>
+
                         <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
                             <template x-for="genre in window.CharacterCreator.GENRES" :key="genre.id">
                                 <span @click="toggleCharCreatorGenre(genre.id)"
@@ -3394,6 +3425,10 @@
                                             style="cursor:pointer;background:none;border:none;padding:0;font-size:12px;opacity:0.4;transition:opacity 0.15s;"
                                             @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0.4'"
                                             title="Edit response">✏️</button>
+                                        <button @click="deleteCharCreatorMessage(idx)"
+                                            style="cursor:pointer;background:none;border:none;padding:0;font-size:12px;opacity:0.35;transition:opacity 0.15s;margin-left:auto;"
+                                            @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0.35'"
+                                            title="Delete this message">✕</button>
                                     </div>
                                     <template x-if="charCreatorEditingIdx !== idx">
                                         <div style="font-size:13px;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;"
@@ -3432,9 +3467,14 @@
                                     style="flex:1;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;"
                                     @keydown.enter.prevent="sendCharCreatorMessage()">
                                 <button class="btn btn-primary" @click="sendCharCreatorMessage()"
-                                    :disabled="charCreatorGenerating || !charCreatorInput.trim()">
-                                    <span x-show="!charCreatorGenerating">Send</span>
-                                    <span x-show="charCreatorGenerating">...</span>
+                                    x-show="!charCreatorGenerating"
+                                    :disabled="!charCreatorInput.trim()">
+                                    Send
+                                </button>
+                                <button class="btn btn-danger" @click="stopCharCreatorGeneration()"
+                                    x-show="charCreatorGenerating"
+                                    style="font-size:13px;padding:8px 14px;">
+                                    ⏹ Stop
                                 </button>
                             </div>
                             <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
@@ -3506,6 +3546,19 @@
                                             style="width:100%;padding:6px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:13px;font-weight:600;margin-bottom:6px;box-sizing:border-box;">
                                         <textarea x-model="charCreatorInstructionTemplates[idx].message"
                                             style="width:100%;padding:6px 10px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;resize:vertical;min-height:60px;font-family:inherit;box-sizing:border-box;"></textarea>
+                                        <div style="margin-top:8px;">
+                                            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Relevant Trait Categories:</div>
+                                            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                                <template x-for="cat in window.CharacterCreator.TRAIT_CATEGORIES" :key="cat.id">
+                                                    <span @click="toggleTemplateCategory(idx, cat.id)"
+                                                        style="font-size:11px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;padding:3px 8px;border-radius:4px;background:var(--bg-secondary);border:1px solid var(--border);user-select:none;"
+                                                        :style="charCreatorInstructionTemplates[idx].relevantCategories.includes(cat.id) ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);' : ''">
+                                                        <span x-text="charCreatorInstructionTemplates[idx].relevantCategories.includes(cat.id) ? '☑' : '☐'" style="font-size:12px;"></span>
+                                                        <span x-text="cat.label"></span>
+                                                    </span>
+                                                </template>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div style="flex-shrink:0;padding-top:2px;">
                                         <button class="btn btn-secondary" style="font-size:11px;padding:3px 8px;color:var(--danger-color, #e74c3c);"
@@ -3528,6 +3581,64 @@
                         <textarea x-model="charCreatorEditorSystemPrompt"
                             style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:12px;resize:vertical;min-height:120px;font-family:inherit;box-sizing:border-box;line-height:1.5;"></textarea>
                     </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="charCreatorTraitPickerVisible">
+        <div class="modal-overlay" @click.self="cancelCharCreatorTraitPicker()" style="z-index:9750;">
+            <div style="width:min(600px,94%);height:min(500px,80vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:16px;">🎯</span>
+                        <h3 style="margin:0;font-size:16px;color:var(--text-primary);" x-text="'Choose Traits — ' + (charCreatorTraitPickerTemplate ? charCreatorTraitPickerTemplate.label : '')"></h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="cancelCharCreatorTraitPicker()" style="font-size:12px;padding:4px 10px;">Cancel</button>
+                </div>
+                <div style="flex:1;overflow:auto;padding:14px 20px;">
+                    <template x-if="charCreatorTraitPickerTemplate && (!charCreatorTraitPickerTemplate.relevantCategories || charCreatorTraitPickerTemplate.relevantCategories.length === 0)">
+                        <div style="text-align:center;padding:30px 20px;color:var(--text-secondary);font-size:13px;">
+                            <p>No trait categories are associated with this template.</p>
+                            <p style="font-size:12px;margin-top:6px;">Add categories in the <strong>Manage Instructions</strong> panel (gear icon).</p>
+                            <button class="btn btn-primary" @click="confirmCharCreatorTraitPicker()" style="margin-top:12px;font-size:13px;padding:8px 20px;">Send Without Traits</button>
+                        </div>
+                    </template>
+                    <template x-if="charCreatorTraitPickerTemplate && charCreatorTraitPickerTemplate.relevantCategories && charCreatorTraitPickerTemplate.relevantCategories.length > 0">
+                        <div>
+                            <p style="font-size:12px;color:var(--text-secondary);margin:0 0 12px 0;">Uncheck any traits you want to exclude from this prompt.</p>
+                            <template x-for="cat in getCharCreatorTraitPickerItems()" :key="cat.catId">
+                                <div style="margin-bottom:14px;">
+                                    <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px;padding-left:8px;border-left:3px solid var(--accent);" x-text="cat.catLabel"></div>
+                                    <template x-for="group in cat.groups" :key="group.groupLabel">
+                                        <div style="margin-left:12px;margin-bottom:8px;">
+                                            <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;" x-text="group.groupLabel"></div>
+                                            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                                <template x-for="trait in group.traits" :key="trait.traitId">
+                                                    <span @click="toggleCharCreatorTraitPickerTrait(trait.traitId)"
+                                                        style="font-size:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg-primary);user-select:none;"
+                                                        :style="charCreatorTraitPickerSelections[trait.traitId] ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);font-weight:600;' : 'opacity:0.7;'">
+                                                        <span x-text="charCreatorTraitPickerSelections[trait.traitId] ? '☑' : '☐'" style="font-size:12px;"></span>
+                                                        <span x-text="trait.traitLabel"></span>
+                                                    </span>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="getCharCreatorTraitPickerItems().length === 0">
+                                <div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:13px;">
+                                    <p>No selected traits match this template's categories.</p>
+                                    <p style="font-size:12px;margin-top:4px;">Select traits from the relevant categories first, or send without traits.</p>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;padding:12px 20px;border-top:1px solid var(--border);flex-shrink:0;">
+                    <button class="btn btn-secondary" @click="cancelCharCreatorTraitPicker()" style="font-size:12px;padding:6px 14px;">Cancel</button>
+                    <button class="btn btn-primary" @click="confirmCharCreatorTraitPicker()" style="font-size:13px;padding:8px 20px;">Send</button>
                 </div>
             </div>
         </div>

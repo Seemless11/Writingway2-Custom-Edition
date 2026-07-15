@@ -18,6 +18,7 @@ function createAppState() {
         renameProjectPov: '3rd person limited',
         renameProjectTense: 'past',
         renameProjectLanguage: 'English',
+        renameProjectPovCharacter: '',
         renameProjectGenres: [],
         showExportModal: false,
         exportFormat: 'zip', // 'zip', 'epub', 'html', 'txt'
@@ -43,6 +44,7 @@ function createAppState() {
         newProjectPov: '3rd person limited',
         newProjectTense: 'past',
         newProjectLanguage: 'English',
+        newProjectPovCharacter: '',
         newSceneName: '',
         renameChapterId: null,
         renameChapterName: '',
@@ -229,6 +231,15 @@ function createAppState() {
         charCreatorShowInstructionEditor: false,
         charCreatorEditorSystemPrompt: '',
         charCreatorDraftAlert: null, // { genre, name, notes, selectedTraits, chatHistory, savedAt } or null
+        charCreatorImageData: null,
+        charCreatorImageFileName: '',
+        charCreatorImageDescrLoading: false,
+        charCreatorImageDescription: '',
+        charCreatorImageError: '',
+        charCreatorTraitPickerVisible: false,
+        charCreatorTraitPickerTemplate: null,
+        charCreatorTraitPickerSelections: {},
+        charCreatorAbortController: null,
 
         // ========== Compendium State ==========
         get compendiumCategories() {
@@ -329,6 +340,9 @@ function createAppState() {
         maxTokens: 300,
         useProviderDefaults: false, // Don't send temperature/maxTokens, let provider use their defaults
         forceNonStreaming: false, // Force non-streaming mode for models that don't support it
+        modelPresets: {}, // { [modelId]: { temperature, maxTokens, topP, ... } }
+
+        // Per-model preset fields
         topP: 0.9,
         topK: 40,
         repetitionPenalty: 1.0,
@@ -336,7 +350,6 @@ function createAppState() {
         presencePenalty: 0.0,
         minP: 0.0,
         seed: null,
-        modelPresets: {}, // { [modelId]: { temperature, maxTokens, topP, topK, repetitionPenalty, frequencyPenalty, presencePenalty, minP, seed } }
 
         // ========== Available Models Per Provider ==========
         providerModels: {
