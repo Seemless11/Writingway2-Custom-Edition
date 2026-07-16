@@ -2056,8 +2056,10 @@
                                                 <div style="flex:1;cursor:pointer;" @click="selectCompendiumEntry(e.id)"
                                                     @keydown.enter="selectCompendiumEntry(e.id)">
                                                     <div class="comp-entry-title" x-text="e.title"></div>
-                                                    <div class="comp-entry-meta"
-                                                        x-text="new Date(e.modified).toLocaleString()"></div>
+                                                    <div class="comp-entry-meta" style="display:flex;gap:6px;">
+                                                        <span style="color:var(--text-secondary);font-size:11px;" x-text="'~' + Math.ceil((e.body || '').length / 4) + ' tokens'"></span>
+                                                        <span x-text="new Date(e.modified).toLocaleString()"></span>
+                                                    </div>
                                                 </div>
 
                                                 <div class="item-actions" style="margin-left:8px;"
@@ -2141,6 +2143,9 @@
                                             @input="updateCompendiumDirtyFlag(); onCompBodyInput($event)"
                                             @keydown="onCompBodyKey($event)"
                                             style="width:100%;"></textarea>
+                                        <div style="text-align:right;font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                                            ~<span x-text="Math.ceil((currentCompEntry.body || '').length / 4)"></span> tokens
+                                        </div>
 
                                         <div x-show="compBodySearchOpen" x-cloak
                                             style="position:absolute;top:100%;left:0;right:0;z-index:5000;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:6px;max-height:200px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
@@ -2840,7 +2845,10 @@
                                                             :checked="contextPanel.compendiumIds.includes(entry.id)"
                                                             @change="toggleContextCompendium(entry.id)"
                                                             style="cursor:pointer;width:16px;height:16px;">
-                                                        <span x-text="entry.title" style="flex:1;"></span>
+                                                        <span style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                                                            <span x-text="entry.title"></span>
+                                                            <span style="font-size:11px;color:var(--text-secondary);white-space:nowrap;" x-text="'~' + Math.ceil((entry.body || '').length / 4) + ' tokens'"></span>
+                                                        </span>
                                                     </label>
                                                 </template>
                                             </div>

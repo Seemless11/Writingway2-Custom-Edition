@@ -17,6 +17,11 @@
             return plainText.trim().split(/\s+/).filter(word => word.length > 0).length;
         },
 
+        estimateTokens(text) {
+            if (!text) return 0;
+            return Math.ceil(text.length / 4);
+        },
+
         /**
          * Insert special character at cursor position in editor
          * @param {Object} app - Alpine app instance
