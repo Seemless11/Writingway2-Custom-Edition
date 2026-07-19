@@ -17,6 +17,7 @@
             if (curr.body !== orig.body) return true;
             if (curr.imageUrl !== orig.imageUrl) return true;
             if (Boolean(curr.alwaysInContext) !== Boolean(orig.alwaysInContext)) return true;
+            if (Boolean(curr.isPovCharacter) !== Boolean(orig.isPovCharacter)) return true;
             // Compare tags arrays
             const currTags = curr.tags || [];
             const origTags = orig.tags || [];
@@ -332,7 +333,8 @@
                     body: app.currentCompEntry.body || '',
                     tags: JSON.parse(JSON.stringify(app.currentCompEntry.tags || [])),
                     imageUrl: app.currentCompEntry.imageUrl || null,
-                    alwaysInContext: app.currentCompEntry.alwaysInContext || false
+                    alwaysInContext: app.currentCompEntry.alwaysInContext || false,
+                    isPovCharacter: app.currentCompEntry.isPovCharacter || false
                 };
                 if (app.currentCompEntry._charData) {
                     updates._charData = app.currentCompEntry._charData;
@@ -563,10 +565,8 @@
          * @param {Object} app - Alpine app instance
          */
         async importCharacterCard(app) {
-            if (!app.currentProject) {
-                alert('Please open a project first.');
-                return;
-            }
+            // Use the current project ID or a sentinel for standalone chat mode
+            const pid = app.currentProject?.id || '__chat_global__';
 
             // Create a hidden file input
             const input = document.createElement('input');
@@ -594,18 +594,23 @@
                     const entry = window.CharacterCardImporter.convertToCompendiumEntry(importData);
 
                     // Save to DB
-                    const saved = await window.Compendium.import(app.currentProject.id, [entry]);
+                    const saved = await window.Compendium.import(pid, [entry]);
 
                     // Refresh the characters category
-                    if (!app.openCompCategories.includes('characters')) {
-                        app.openCompCategories.push('characters');
-                    }
-                    await this.refreshCategoryList(app, 'characters');
-                    await this.loadCompendiumCounts(app);
-
-                    // Select the new entry
-                    if (saved && saved.length > 0) {
-                        await this._doSelectCompendiumEntry(app, saved[0].id);
+                    if (app.currentProject) {
+                        if (!app.openCompCategories.includes('characters')) {
+                            app.openCompCategories.push('characters');
+                        }
+                        await this.refreshCategoryList(app, 'characters');
+                        await this.loadCompendiumCounts(app);
+                        if (saved && saved.length > 0) {
+                            await this._doSelectCompendiumEntry(app, saved[0].id);
+                        }
+                    } else {
+                        // If in chat mode with no project, refresh the roster
+                        if (window.ChatMode) {
+                            window.ChatMode.loadCharacterRoster(app);
+                        }
                     }
 
                     const charName = importData.name || 'Character';

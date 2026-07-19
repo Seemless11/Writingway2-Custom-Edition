@@ -177,7 +177,8 @@
             category: 'characters',
             tags: ['imported', 'sillytavern'],
             imageUrl: importData.image_base64 ? 'data:image/png;base64,' + importData.image_base64 : null,
-            alwaysInContext: false
+            alwaysInContext: false,
+            isPovCharacter: false
         };
     }
 

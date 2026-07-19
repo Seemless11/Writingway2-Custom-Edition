@@ -5,7 +5,7 @@
             async createEntry(projectId, { category = 'lore', title = '', body = '', tags = [] } = {}) {
                 const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
                 const now = new Date();
-                const entry = { id, projectId, category, title, body, summary: '', tags: (tags || []).slice(0, 10), created: now, modified: now, order: 0 };
+                const entry = { id, projectId, category, title, body, summary: '', tags: (tags || []).slice(0, 10), created: now, modified: now, order: 0, alwaysInContext: false, isPovCharacter: false };
                 await db.compendium.add(entry);
                 return entry;
             },

@@ -321,6 +321,17 @@ document.addEventListener('alpine:init', () => {
                     if (saved !== null) this.showMiniBeatInput = saved === 'true';
                 } catch (err) { /* ignore */ }
 
+                // Load writing mode preference
+                if (window.ChatMode) {
+                    window.ChatMode.loadWritingMode(this);
+                    window.ChatMode.loadPersona(this);
+                    window.ChatMode.loadChatResponseMode(this);
+                    window.ChatMode.loadChatRoleplayFormatting(this);
+                    if (this.writingMode === 'chat' && !this.chatCharacter) {
+                        window.ChatMode.loadRecentCharacters(this);
+                    }
+                }
+
                 // Also enforce on focus events
                 document.addEventListener('focusin', (e) => {
                     if (e.target && e.target.classList && e.target.classList.contains('editor-textarea')) {
@@ -602,6 +613,18 @@ document.addEventListener('alpine:init', () => {
                     }
                 }
                 return '';
+            },
+
+            // Switch between editor mode and character chat mode
+            switchWritingMode(mode) {
+                this.writingMode = mode;
+                try { localStorage.setItem('ww2_writingMode', mode); } catch (e) { }
+                if (mode === 'chat') {
+                    window.ChatMode.loadRecentCharacters(this);
+                    if (this.chatCharacter && !this.chatCharacterSessionId) {
+                        window.ChatMode.loadOrCreateCharacterSession(this);
+                    }
+                }
             },
 
             // Toggle between floating bar mode and legacy beat panel
@@ -1121,10 +1144,19 @@ document.addEventListener('alpine:init', () => {
 
             // Navigate back to inline project picker
             backToProjects() {
-                this.currentProject = null;
-                this.chapters = [];
-                this.scenes = [];
-                this.currentScene = null;
+                if (this.writingMode === 'chat') {
+                    this.chatCharacterSessionId = null;
+                    this.chatCharacterMessages = [];
+                    this.chatCharacterId = null;
+                    this.chatCharacter = null;
+                    window.ChatMode.loadRecentCharacters(this);
+                } else {
+                    this.currentProject = null;
+                    this.writingMode = 'editor';
+                    this.chapters = [];
+                    this.scenes = [];
+                    this.currentScene = null;
+                }
             },
 
             // Delete a project
@@ -3153,7 +3185,11 @@ document.addEventListener('alpine:init', () => {
                 // fallback: do nothing
             },
 
-
+            async generateFlowFromBeat() {
+                if (window.Generation && typeof window.Generation.generateFlowFromBeat === 'function') {
+                    return window.Generation.generateFlowFromBeat(this);
+                }
+            },
 
             // Normalize chapter and scene order fields to be consecutive integers.
             async normalizeAllOrders() {

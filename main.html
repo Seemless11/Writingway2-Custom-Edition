@@ -42,6 +42,7 @@
     <script defer src="src/app.js"></script>
     <script defer src="src/compendium.js"></script>
     <script defer src="src/image-describer.js"></script>
+    <script defer src="src/chat-mode.js"></script>
     <!-- Local vendor Alpine (use a real alpine.min.js here for offline runs) -->
     <script defer src="src/vendor/alpine.min.js"></script>
 
@@ -141,6 +142,16 @@
                     <div class="sidebar-header" style="position:relative;">
                         <h1>Writingway</h1>
                         <p>AI-Powered Creative Writing</p>
+
+                        <!-- Mode Tab Bar -->
+                        <div style="display:flex;border-bottom:1px solid var(--border);">
+                            <button @click="switchWritingMode('editor')"
+                                :style="writingMode === 'editor' ? 'flex:1;padding:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;border-right:1px solid var(--border);' : 'flex:1;padding:8px;background:transparent;color:var(--text-secondary);border:none;cursor:pointer;font-size:12px;border-right:1px solid var(--border);'"
+                                title="Story Editor Mode">📝 Editor</button>
+                            <button @click="switchWritingMode('chat')"
+                                :style="writingMode === 'chat' ? 'flex:1;padding:8px;background:var(--accent);color:#fff;border:none;cursor:pointer;font-size:12px;font-weight:600;' : 'flex:1;padding:8px;background:transparent;color:var(--text-secondary);border:none;cursor:pointer;font-size:12px;'"
+                                title="Character Chat Mode">💬 Chat</button>
+                        </div>
 
                         <!-- Header Actions -->
                         <div style="position:absolute;top:12px;right:12px;display:flex;align-items:center;gap:8px;">
@@ -371,7 +382,7 @@
                     <div class="editor-container">
                     <div class="editor-header">
                         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-                            <div class="editor-title" x-text="currentScene ? currentScene.title : 'No scene selected'">
+                            <div class="editor-title" x-text="writingMode === 'chat' ? (chatCharacter?.name ? 'Chat: ' + chatCharacter.name : 'Character Chat') : (currentScene ? currentScene.title : 'No scene selected')">
                             </div>
                             <div style="display:flex;align-items:center;gap:12px;">
                                 <div class="editor-stats" style="white-space:nowrap;">
@@ -462,8 +473,243 @@
                         </div>
                     </div>
 
+                    <!-- Character Chat Mode UI -->
+                    <div x-show="writingMode === 'chat'" x-cloak class="character-chat-container">
+                        <template x-if="!chatCharacter">
+                            <div style="flex:1;overflow-y:auto;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:40px;text-align:center;">
+                                <div style="font-size:48px;opacity:0.3;">💬</div>
+                                <h3 style="color:var(--text-secondary);margin:0;">No Character Selected</h3>
+                                <!-- Recent Characters -->
+                                <template x-if="recentChatCharacters.length > 0">
+                                    <div style="width:100%;max-width:420px;margin:8px 0;">
+                                        <!-- Recent Imported Cards -->
+                                        <template x-if="recentChatCharacters.filter(e => e.tags?.includes('imported') && e.tags?.includes('sillytavern')).length > 0">
+                                            <div style="margin-bottom:16px;">
+                                                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;text-align:left;">Recent Imported Cards</div>
+                                                <template x-for="entry in recentChatCharacters.filter(e => e.tags?.includes('imported') && e.tags?.includes('sillytavern'))" :key="entry.id">
+                                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
+                                                        style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;margin-bottom:4px;border:1px solid transparent;"
+                                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(74,158,255,0.3)'"
+                                                        @mouseleave="$el.style.background='var(--bg-primary)';$el.style.borderColor='transparent'">
+                                                        <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:var(--accent);"
+                                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
+                                                            <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
+                                                        </div>
+                                                        <div style="flex:1;min-width:0;text-align:left;">
+                                                            <div style="font-weight:600;font-size:14px;color:var(--text-primary);" x-text="entry.title"></div>
+                                                            <div style="font-size:11px;color:var(--text-tertiary);" x-text="'Last used ' + (entry.lastUsed ? new Date(entry.lastUsed).toLocaleDateString() : '')"></div>
+                                                        </div>
+                                                        <div style="font-size:14px;color:var(--text-secondary);opacity:0.5;">→</div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <!-- Recent Compendium Characters -->
+                                        <template x-if="recentChatCharacters.filter(e => !e.tags?.includes('imported') || !e.tags?.includes('sillytavern')).length > 0">
+                                            <div>
+                                                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;text-align:left;">Recent Characters</div>
+                                                <template x-for="entry in recentChatCharacters.filter(e => !e.tags?.includes('imported') || !e.tags?.includes('sillytavern'))" :key="entry.id">
+                                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
+                                                        style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;margin-bottom:4px;border:1px solid transparent;"
+                                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(74,158,255,0.3)'"
+                                                        @mouseleave="$el.style.background='var(--bg-primary)';$el.style.borderColor='transparent'">
+                                                        <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--accent);"
+                                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
+                                                            <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
+                                                        </div>
+                                                        <div style="flex:1;min-width:0;text-align:left;">
+                                                            <div style="font-weight:600;font-size:14px;color:var(--text-primary);" x-text="entry.title"></div>
+                                                            <div style="font-size:11px;color:var(--text-tertiary);" x-text="'Last used ' + (entry.lastUsed ? new Date(entry.lastUsed).toLocaleDateString() : '')"></div>
+                                                        </div>
+                                                        <div style="font-size:14px;color:var(--text-secondary);opacity:0.5;">→</div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="recentChatCharacters.length === 0">
+                                    <p style="color:var(--text-tertiary);max-width:400px;line-height:1.6;">
+                                        Select a character to start chatting. Characters are stored in your compendium with the "characters" category.
+                                        You can also import SillyTavern character cards.
+                                    </p>
+                                </template>
+                                <button class="btn btn-primary" @click="window.ChatMode.loadCharacterRoster($data)"
+                                    style="margin-top:8px;">
+                                    📋 Select Character
+                                </button>
+                            </div>
+                        </template>
+                        <template x-if="chatCharacter">
+                            <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
+                                <!-- Chat Header -->
+                                <div style="padding:10px 20px;background:var(--bg-secondary);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;gap:10px;">
+                                    <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                                        <div style="width:40px;height:40px;border-radius:50%;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid var(--accent);cursor:pointer;"
+                                            @click="window.ChatMode.showCharacterInfo($data)"
+                                            title="View/Edit Character"
+                                            :style="chatCharacter.avatar ? `background-image:url('${chatCharacter.avatar}');background-size:cover;background-position:center;` : ''">
+                                            <span x-show="!chatCharacter.avatar" x-text="(chatCharacter.name || '?')[0]"></span>
+                                        </div>
+                                        <div style="min-width:0;cursor:pointer;" @click="window.ChatMode.showCharacterInfo($data)" title="View/Edit Character">
+                                            <div style="font-weight:700;font-size:15px;" x-text="chatCharacter.name"></div>
+                                            <div style="font-size:11px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
+                                                x-text="chatCharacter.description ? chatCharacter.description.substring(0,80) + (chatCharacter.description.length > 80 ? '...' : '') : ''"></div>
+                                        </div>
+                                    </div>
+                                    <div x-data="{ chatSettingsOpen: false }" style="position:relative;">
+                                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                                            <button class="btn btn-secondary" @click="window.ChatMode.showCharacterInfo($data)"
+                                                style="padding:4px 8px;font-size:12px;" title="View/Edit Character">📝</button>
+                                            <button class="btn btn-secondary" @click="chatSettingsOpen = !chatSettingsOpen"
+                                                style="padding:4px 8px;font-size:12px;" title="Generation Settings">⚙️</button>
+                                            <button class="btn btn-secondary" @click="window.ChatMode.loadCharacterRoster($data)"
+                                                style="padding:4px 8px;font-size:12px;" title="Switch Character">🔄</button>
+                                            <button class="btn btn-secondary" @click="window.ChatMode.startNewCharacterChat($data, chatCharacter)"
+                                                style="padding:4px 8px;font-size:12px;" title="New Conversation">➕</button>
+                                            <button class="btn btn-secondary"
+                                                @click="window.ChatMode.toggleChatRoleplayFormatting($data)"
+                                                style="padding:4px 8px;font-size:12px;"
+                                                :style="chatRoleplayFormatting ? 'border-color:var(--accent);color:var(--accent);' : 'opacity:0.5;'"
+                                                :title="chatRoleplayFormatting ? 'Disable roleplay formatting' : 'Enable roleplay formatting'">
+                                                <span x-text="chatRoleplayFormatting ? 'RP ON' : 'RP OFF'"></span>
+                                            </button>
+                                            <button class="btn btn-secondary" @click="showPersonaSettings = true"
+                                                style="padding:4px 8px;font-size:12px;" title="Persona Settings">👤</button>
+                                            <button class="btn btn-secondary" @click="window.ChatMode.deleteCharacterSession($data)"
+                                                style="padding:4px 8px;font-size:12px;color:#ef4444;" title="Delete Conversation">🗑</button>
+                                        </div>
+                                        <!-- Settings Dropdown -->
+                                        <div x-show="chatSettingsOpen" x-cloak @click.away="chatSettingsOpen = false" class="chat-settings-dropdown">
+                                            <div class="chat-settings-group">
+                                                <label>Response Mode</label>
+                                                <select x-model="chatResponseMode"
+                                                    @change="window.ChatMode.saveChatResponseMode($data)"
+                                                    style="padding:5px 8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:12px;">
+                                                    <option value="character">🎭 In-Character</option>
+                                                    <option value="narrative">📖 Narrative</option>
+                                                </select>
+                                            </div>
+                                            <div class="chat-settings-group">
+                                                <label>Output Length</label>
+                                                <div class="chat-length-presets">
+                                                    <template x-for="len in [{w:200,p:'2-3 ¶'},{w:400,p:'3-4 ¶'},{w:600,p:'4-6 ¶'}]" :key="len.w">
+                                                        <button class="btn btn-secondary" type="button"
+                                                            @click="maxTokens = len.w"
+                                                            :style="'font-size:11px;padding:3px 7px;' + (maxTokens === len.w ? 'border-color:var(--accent);color:var(--accent);' : '')"
+                                                            x-text="len.w + ' (' + len.p + ')'"></button>
+                                                    </template>
+                                                    <input type="number" class="chat-length-custom" x-model.number="maxTokens"
+                                                        min="1" max="20000" step="50" title="Custom target length in words">
+                                                </div>
+                                            </div>
+                                            <div class="chat-settings-group">
+                                                <label>Temperature: <span x-text="temperature.toFixed(1)"></span></label>
+                                                <input type="range" class="chat-temp-slider" x-model.number="temperature"
+                                                    min="0.1" max="2.0" step="0.1">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Chat Messages -->
+                                <div class="character-chat-messages" x-ref="chatMessages">
+                                    <template x-if="chatCharacterMessages.length === 0">
+                                        <div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-tertiary);padding:40px;">
+                                            <div>
+                                                <div style="font-size:36px;margin-bottom:12px;opacity:0.3;">💬</div>
+                                                <p style="max-width:400px;line-height:1.6;">
+                                                    Start a conversation with <strong x-text="chatCharacter.name"></strong>.
+                                                    <template x-if="chatCharacter.firstMessage">
+                                                        <span>The character has a first message that will appear when you send your first message.</span>
+                                                    </template>
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <template x-for="(msg, idx) in chatCharacterMessages" :key="idx">
+                                        <div class="chat-message"
+                                            style="display:flex;flex-direction:column;gap:4px;max-width:80%;position:relative;"
+                                            :style="msg.role === 'user' ? 'align-self:flex-end;' : 'align-self:flex-start;'">
+                                            <div style="display:flex;align-items:center;gap:6px;padding:0 4px;">
+                                                <span style="font-size:11px;font-weight:600;color:var(--text-secondary);"
+                                                    x-text="msg.role === 'user' ? (userPersona?.name || 'You') : (chatCharacter?.name || 'Assistant')"></span>
+                                                <span style="font-size:10px;color:var(--text-tertiary);"
+                                                    x-text="msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''"></span>
+                                            </div>
+                                            <!-- Edit Mode -->
+                                            <template x-if="editingMessageIndex === idx">
+                                                <div style="display:flex;flex-direction:column;gap:6px;">
+                                                    <textarea class="chat-edit-textarea" x-model="editingMessageContent"
+                                                        x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 400) + 'px'; })"
+                                                        @input="$el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 400) + 'px'"
+                                                        @keydown="if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); window.ChatMode.saveEdit($data); }"></textarea>
+                                                    <div style="display:flex;gap:6px;justify-content:flex-end;">
+                                                        <button class="btn btn-secondary" @click="window.ChatMode.cancelEdit($data)" style="font-size:11px;padding:3px 8px;">Cancel</button>
+                                                        <button class="btn btn-primary" @click="window.ChatMode.saveEdit($data)" style="font-size:11px;padding:3px 8px;">Save</button>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                            <!-- Display Mode -->
+                                            <template x-if="editingMessageIndex !== idx">
+                                                <div style="position:relative;">
+                                                    <div class="chat-message-bubble"
+                                                        :class="'chat-message-bubble-' + msg.role"
+                                                        :style="msg.isError
+                                                            ? 'background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;padding:12px 16px;border-radius:12px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;'
+                                                            : msg.role === 'user'
+                                                                ? 'background:var(--accent);color:#fff;border-bottom-right-radius:4px;padding:12px 16px;border-radius:12px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;'
+                                                                : 'background:var(--bg-tertiary);color:var(--text-primary);border-bottom-left-radius:4px;padding:12px 16px;border-radius:12px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;'"
+                                                         x-effect="renderChatMessage($el, msg, chatRoleplayFormatting)">
+                                                    </div>
+                                                    <!-- Hover Actions -->
+                                                    <div class="chat-message-actions">
+                                                        <button @click="window.ChatMode.editMessage($data, idx)" title="Edit">✏️</button>
+                                                        <button @click="window.ChatMode.retryMessage($data, idx)" title="Retry">🔄</button>
+                                                        <button @click="window.ChatMode.deleteMessage($data, idx)" title="Delete">🗑️</button>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                    <div x-show="chatCharacterIsGenerating" style="align-self:flex-start;padding:10px 14px;background:var(--bg-tertiary);border-radius:12px;border-bottom-left-radius:4px;color:var(--text-secondary);font-size:13px;">
+                                        <span x-text="(chatCharacter ? chatCharacter.name : 'Assistant') + ' is typing...'"></span>
+                                    </div>
+                                </div>
+
+                                <!-- Formatting Toolbar -->
+                                <div x-show="chatRoleplayFormatting" class="chat-formatting-toolbar" style="padding:4px 16px 0;display:flex;gap:4px;flex-shrink:0;align-items:center;">
+                                    <button class="rp-toolbar-btn" @click="window.ChatMode.wrapFormat($data, 'action')" title="Wrap in *...* for action">*A*</button>
+                                    <button class="rp-toolbar-btn" @click="window.ChatMode.wrapFormat($data, 'dialogue')" title="Wrap in quotes for dialogue">"D"</button>
+                                    <button class="rp-toolbar-btn" @click="window.ChatMode.wrapFormat($data, 'bold')" title="Wrap in **...** for bold"><b>B</b></button>
+                                </div>
+                                <!-- Chat Input -->
+                                <div class="character-chat-input-area">
+                                    <div class="chat-input-wrapper">
+                                        <textarea class="chat-input-textarea" x-model="chatCharacterInput"
+                                            rows="1"
+                                            @keydown="if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); if (!chatCharacterIsGenerating) window.ChatMode.sendMessage($data, chatCharacterInput); }"
+                                            @input="$el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 150) + 'px'"
+                                            placeholder="Type a message..."
+                                            :disabled="chatCharacterIsGenerating"
+                                            :style="chatCharacterIsGenerating ? 'opacity:0.5;' : ''"></textarea>
+                                        <button class="chat-send-button"
+                                            @click="window.ChatMode.sendMessage($data, chatCharacterInput)"
+                                            :disabled="!chatCharacterInput.trim() || chatCharacterIsGenerating"
+                                            title="Send (Enter)">
+                                            <span x-show="!chatCharacterIsGenerating">➤</span>
+                                            <span x-show="chatCharacterIsGenerating" style="font-size:14px;">⋯</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
                     <!-- Editor/Workshop Split Container -->
-                    <div class="editor-workshop-split" x-data="{ isDragging: false }"
+                    <div x-show="writingMode === 'editor'" class="editor-workshop-split" x-data="{ isDragging: false }"
                         @mouseup.window="isDragging = false" @mousemove.window="if (isDragging) { 
                             const container = $el;
                             const rect = container.getBoundingClientRect();
@@ -566,12 +812,12 @@
                                             <div class="floating-beat-bar-inner">
                                                 <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                                                     <div class="beat-length-presets" style="display:flex;gap:3px;align-items:center;">
-                                                        <template x-for="len in [200, 400, 600]" :key="len">
+                                                        <template x-for="len in [{w:200,p:'2-3 ¶'},{w:400,p:'3-4 ¶'},{w:600,p:'4-6 ¶'}]" :key="len.w">
                                                             <button class="btn btn-secondary" type="button"
-                                                                @click="maxTokens = len; saveGenerationParams()"
-                                                                :style="'font-size:11px;padding:3px 7px;' + (maxTokens === len ? 'border-color:var(--accent);color:var(--accent);' : '')"
-                                                                :title="'Target ~' + len + ' words of output'"
-                                                                x-text="len"></button>
+                                                                @click="maxTokens = len.w; saveGenerationParams()"
+                                                                :style="'font-size:11px;padding:3px 7px;' + (maxTokens === len.w ? 'border-color:var(--accent);color:var(--accent);' : '')"
+                                                                :title="'Target ~' + len.w + ' words (~' + len.p + ') of output'"
+                                                                x-text="len.w + ' (' + len.p + ')'"></button>
                                                         </template>
                                                         <input type="number" x-model.number="maxTokens"
                                                             @input="saveGenerationParams()" min="1" max="20000" step="50"
@@ -608,6 +854,13 @@
                                                         :disabled="!getCurrentBeat() || aiStatus !== 'ready'"
                                                         title="Generate Text" style="font-size:12px;padding:3px 10px;">
                                                         ✨ Gen
+                                                    </button>
+                                                    <button class="btn btn-secondary" @click="generateFlowFromBeat"
+                                                        x-show="!isGenerating"
+                                                        :disabled="aiStatus !== 'ready'"
+                                                        title="Generate flowing narrative prose — continues naturally with or without a beat direction"
+                                                        style="font-size:12px;padding:3px 10px;">
+                                                        🌊 Flow
                                                     </button>
                                                     <button class="btn btn-danger" @click="stopBeatGeneration"
                                                         x-show="isGenerating"
@@ -655,17 +908,21 @@
                                                     x-show="!isGenerating"
                                                     :disabled="!beatInput || aiStatus !== 'ready'"
                                                     style="font-size:12px;padding:4px 12px;white-space:nowrap;">✨ Generate</button>
+                                                <button class="btn btn-secondary" @click="generateFlowFromBeat"
+                                                    x-show="!isGenerating"
+                                                    :disabled="aiStatus !== 'ready'"
+                                                    style="font-size:12px;padding:4px 12px;white-space:nowrap;">🌊 Flow</button>
                                                 <button class="btn btn-danger" @click="stopBeatGeneration"
                                                     x-show="isGenerating"
                                                     style="font-size:12px;padding:4px 12px;white-space:nowrap;">⏹ Stop</button>
                                             </div>
                                             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
                                                 <div class="beat-length-presets" style="display:flex;gap:3px;align-items:center;">
-                                                    <template x-for="len in [200, 400, 600]" :key="len">
+                                                    <template x-for="len in [{w:200,p:'2-3 ¶'},{w:400,p:'3-4 ¶'},{w:600,p:'4-6 ¶'}]" :key="len.w">
                                                         <button class="btn btn-secondary" type="button"
-                                                            @click="maxTokens = len; saveGenerationParams()"
-                                                            :style="'font-size:11px;padding:2px 6px;' + (maxTokens === len ? 'border-color:var(--accent);color:var(--accent);' : '')"
-                                                            x-text="len"></button>
+                                                            @click="maxTokens = len.w; saveGenerationParams()"
+                                                            :style="'font-size:11px;padding:2px 6px;' + (maxTokens === len.w ? 'border-color:var(--accent);color:var(--accent);' : '')"
+                                                            x-text="len.w + ' (' + len.p + ')'"></button>
                                                     </template>
                                                     <input type="number" x-model.number="maxTokens"
                                                         @input="saveGenerationParams()" min="1" max="20000" step="50"
@@ -3757,6 +4014,256 @@
                         :disabled="!pasteImportResult">
                         📚 Adopt
                     </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Character Roster Modal -->
+    <template x-if="showCharacterRoster">
+        <div class="modal-overlay" @click.self="showCharacterRoster = false" style="z-index:9800;">
+            <div style="width:min(700px,96%);height:min(600px,85vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:20px;">🎭</span>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Select Character</h3>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <button class="btn btn-secondary" @click="importCharacterCard()"
+                            style="font-size:12px;padding:6px 12px;">📥 Import Card</button>
+                        <button class="btn btn-secondary" @click="showCharacterRoster = false">Close</button>
+                    </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;padding:16px 24px;gap:12px;">
+                    <input type="text" x-model="characterRosterSearch" placeholder="🔍 Search characters..."
+                        style="width:100%;padding:8px 12px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;flex-shrink:0;">
+                    <div style="flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;">
+                        <div x-show="characterRosterLoading" style="text-align:center;padding:40px;color:var(--text-secondary);">Loading characters...</div>
+                        <template x-if="!characterRosterLoading && window.ChatMode.getFilteredRosterEntries($data).length === 0">
+                            <div style="text-align:center;padding:40px;color:var(--text-secondary);">
+                                <div style="font-size:36px;margin-bottom:12px;opacity:0.3;">🎭</div>
+                                <p style="line-height:1.6;">No characters found. Import a SillyTavern character card or create one using the Character Creator.</p>
+                            </div>
+                        </template>
+
+                        <!-- Imported Cards Section -->
+                        <template x-if="!characterRosterLoading && window.ChatMode.getFilteredImportedEntries($data).length > 0">
+                            <div>
+                                <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                                    <span>📥 Imported Cards</span>
+                                    <span style="background:var(--accent);color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;" x-text="window.ChatMode.getFilteredImportedEntries($data).length"></span>
+                                </div>
+                                <template x-for="entry in window.ChatMode.getFilteredImportedEntries($data)" :key="entry.id">
+                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
+                                        style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:all 0.2s;border:1px solid transparent;margin-bottom:4px;"
+                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                        @mouseenter="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.15)' : 'var(--bg-tertiary)'"
+                                        @mouseleave="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.1)' : 'var(--bg-primary)'">
+                                        <div style="width:64px;height:64px;border-radius:8px;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;color:var(--accent);"
+                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
+                                            <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
+                                        </div>
+                                        <div style="flex:1;min-width:0;">
+                                            <div style="font-weight:600;font-size:14px;display:flex;align-items:center;gap:6px;" x-text="entry.title"></div>
+                                            <div style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                                <span x-text="entry.projectName"></span>
+                                                <span x-show="entry.isCurrentProject" style="color:var(--accent);margin-left:4px;">(current project)</span>
+                                            </div>
+                                        </div>
+                                        <div style="font-size:18px;color:var(--text-secondary);">→</div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- Compendium Characters Section -->
+                        <template x-if="!characterRosterLoading && window.ChatMode.getFilteredCompendiumEntries($data).length > 0">
+                            <div>
+                                <div style="font-size:11px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;display:flex;align-items:center;gap:6px;">
+                                    <span>🎭 Compendium Characters</span>
+                                    <span style="background:var(--bg-tertiary);color:var(--text-secondary);border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;" x-text="window.ChatMode.getFilteredCompendiumEntries($data).length"></span>
+                                </div>
+                                <template x-for="entry in window.ChatMode.getFilteredCompendiumEntries($data)" :key="entry.id">
+                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
+                                        style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:all 0.2s;border:1px solid transparent;margin-bottom:4px;"
+                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                        @mouseenter="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.15)' : 'var(--bg-tertiary)'"
+                                        @mouseleave="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.1)' : 'var(--bg-primary)'">
+                                        <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;color:var(--accent);"
+                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
+                                            <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
+                                        </div>
+                                        <div style="flex:1;min-width:0;">
+                                            <div style="font-weight:600;font-size:14px;" x-text="entry.title"></div>
+                                            <div style="font-size:11px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                                <span x-text="entry.projectName"></span>
+                                                <span x-show="entry.isCurrentProject" style="color:var(--accent);margin-left:4px;">(current project)</span>
+                                            </div>
+                                        </div>
+                                        <div style="font-size:18px;color:var(--text-secondary);">→</div>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Character Info/Edit Modal -->
+    <template x-if="showCharacterInfo">
+        <div class="modal-overlay" @click.self="showCharacterInfo = false" style="z-index:9800;">
+            <div style="width:min(640px,96%);max-height:85vh;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="character-avatar-preview"
+                            :style="chatCharacter?.avatar ? `background-image:url('${chatCharacter.avatar}')` : ''">
+                            <span x-show="!chatCharacter?.avatar" x-text="(chatCharacter?.name || '?')[0]"></span>
+                        </div>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);" x-text="'Edit: ' + (chatCharacter?.name || 'Character')"></h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="showCharacterInfo = false">Done</button>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:20px 24px;">
+                    <div class="character-info-grid">
+                        <div class="character-info-field full-width">
+                            <label>Name</label>
+                            <input type="text" x-model="characterInfoDraft.name" placeholder="Character name">
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Description</label>
+                            <textarea x-model="characterInfoDraft.description" rows="3" placeholder="Brief description of the character"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterDescriptionGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterDescription($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character description with AI">✨ Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterDescriptionGenerating"
+                                    @click="window.ChatMode.stopCharacterDescriptionGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Personality</label>
+                            <textarea x-model="characterInfoDraft.personality" rows="4" placeholder="Personality traits, quirks, mannerisms"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterPersonalityGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterPersonality($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character personality with AI">✨ Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterPersonalityGenerating"
+                                    @click="window.ChatMode.stopCharacterPersonalityGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Scenario</label>
+                            <textarea x-model="characterInfoDraft.scenario" rows="3" placeholder="The current scenario or setting"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterScenarioGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterScenario($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character scenario with AI">✨ Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterScenarioGenerating"
+                                    @click="window.ChatMode.stopCharacterScenarioGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>First Message</label>
+                            <textarea x-model="characterInfoDraft.firstMessage" rows="3" placeholder="The character's first message in a new conversation"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterFirstMessageGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterFirstMessage($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character first message with AI">✨ Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterFirstMessageGenerating"
+                                    @click="window.ChatMode.stopCharacterFirstMessageGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Example Dialogue</label>
+                            <textarea x-model="characterInfoDraft.examples" rows="5" placeholder="Example conversations between {{char}} and {{user}}"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterExamplesGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterExamples($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate example dialogues with AI">✨ Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterExamplesGenerating"
+                                    @click="window.ChatMode.stopCharacterExamplesGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>System Prompt</label>
+                            <textarea x-model="characterInfoDraft.systemPrompt" rows="4" placeholder="Additional system-level instructions for the AI"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterSystemPromptGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterSystemPrompt($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate system prompt with AI">✨ Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterSystemPromptGenerating"
+                                    @click="window.ChatMode.stopCharacterSystemPromptGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+                    <button class="btn btn-secondary" @click="showCharacterInfo = false">Cancel</button>
+                    <button class="btn btn-primary" @click="window.ChatMode.saveCharacterInfo($data)">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Persona Settings Modal -->
+    <template x-if="showPersonaSettings">
+        <div class="modal-overlay" @click.self="showPersonaSettings = false" style="z-index:9800;">
+            <div style="width:min(480px,96%);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <span style="font-size:20px;">👤</span>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Your Persona</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="showPersonaSettings = false">Done</button>
+                </div>
+                <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Your Name</label>
+                        <input type="text" x-model="userPersona.name" placeholder="How the AI refers to you"
+                            @input="window.ChatMode.savePersona($data)"
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Description</label>
+                        <textarea x-model="userPersona.description" placeholder="Describe yourself — the AI will use this to understand who it's talking to."
+                            @input="window.ChatMode.savePersona($data)"
+                            style="width:100%;min-height:100px;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;padding:10px 14px;background:var(--bg-primary);border-radius:6px;border:1px solid var(--border);">
+                        Your persona is used in character chat mode. The AI will refer to you by your name and incorporate your description into the conversation context.
+                    </div>
                 </div>
             </div>
         </div>

@@ -149,8 +149,17 @@
         const aiModel = app?.aiModel || '';
         const aiEndpoint = app?.aiEndpoint || 'http://localhost:8080';
         const useProviderDefaults = app?.useProviderDefaults || false;
-        const temperature = app?.temperature || 0.8;
-        const maxTokens = app?.maxTokens || 300;
+        const hasPreset = aiModel && app?.modelPresets?.[aiModel];
+        const preset = hasPreset ? app.modelPresets[aiModel] : {};
+        const temperature = preset.temperature ?? app?.temperature ?? 0.8;
+        const maxTokens = app?.maxTokens ?? preset.maxTokens ?? 300;
+        const topP = preset.topP ?? app?.topP ?? 0.9;
+        const topK = preset.topK ?? app?.topK ?? 40;
+        const repetitionPenalty = preset.repetitionPenalty ?? app?.repetitionPenalty ?? 1.0;
+        const frequencyPenalty = preset.frequencyPenalty ?? app?.frequencyPenalty ?? 0.0;
+        const presencePenalty = preset.presencePenalty ?? app?.presencePenalty ?? 0.0;
+        const minP = preset.minP ?? app?.minP ?? 0.0;
+        const seed = preset.seed !== undefined ? preset.seed : (app?.seed !== undefined ? app.seed : null);
 
         // Convert prompt to appropriate format
         let promptStr = prompt;
@@ -172,12 +181,14 @@
             }
         }
 
+        const extraParams = hasPreset ? preset : {};
+
         if (aiMode === 'api') {
             // API Mode - use configured provider with messages
-            return await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal);
+            return await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams);
         } else {
             // Local Mode - use llama-server with string prompt
-            return await streamGenerationLocal(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal);
+            return await streamGenerationLocal(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams);
         }
     }
 
@@ -198,20 +209,26 @@
         return result;
     }
 
-    async function streamGenerationLocal(prompt, onToken, endpoint, temperature, maxTokens, useProviderDefaults, abortSignal) {
+    async function streamGenerationLocal(prompt, onToken, endpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams) {
         // Local llama-server completion
         const requestBody = {
             prompt: prompt,
-            top_p: 0.9,
             stop: ['<|im_end|>', '<|endoftext|>', '\n\n\n\n', 'USER:', 'HUMAN:'],
             stream: true
         };
 
-        // Only include temperature and maxTokens if not using provider defaults
+        // Only include parameters if not using provider defaults
         if (!useProviderDefaults) {
-            const tokenBudget = Math.max(4096, Math.round((maxTokens || 300) / 0.75 * 2));
+            const tokenBudget = Math.round((maxTokens || 300) / 0.75 * 2);
             requestBody.n_predict = tokenBudget;
             requestBody.temperature = temperature || 0.8;
+            if (extraParams) {
+                if (extraParams.topP !== undefined) requestBody.top_p = extraParams.topP;
+                if (extraParams.topK !== undefined) requestBody.top_k = extraParams.topK;
+                if (extraParams.repetitionPenalty !== undefined) requestBody.repeat_penalty = extraParams.repetitionPenalty;
+                if (extraParams.minP !== undefined) requestBody.min_p = extraParams.minP;
+                if (extraParams.seed !== undefined) requestBody.seed = extraParams.seed;
+            }
         }
 
         const response = await fetch(endpoint + '/completion', {
@@ -256,7 +273,7 @@
         }
     }
 
-    async function streamGenerationAPI(prompt, onToken, provider, apiKey, model, customEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal) {
+    async function streamGenerationAPI(prompt, onToken, provider, apiKey, model, customEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams = {}) {
         // API Mode - construct request based on provider
         let url, headers, body;
 
@@ -272,7 +289,7 @@
 
         const temp = temperature || 0.8;
         const rawWordTarget = maxTokens || 300;
-        const maxTok = Math.max(4096, Math.round(rawWordTarget / 0.75 * 2));
+        const maxTok = Math.round(rawWordTarget * 2.0);
 
         // Check if user has explicitly forced non-streaming mode
         const userForcedNonStreaming = app?.forceNonStreaming || false;
@@ -319,10 +336,16 @@
                 messages: messages,
                 stream: !shouldDisableStreaming // Disable streaming for thinking models or if forced
             };
-            // Only include temperature/max_tokens if not using provider defaults
+            // Always send max_tokens — output length is a deliberate user choice
+            body.max_tokens = maxTok;
+            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            // Only include other parameters if not using provider defaults
             if (!useProviderDefaults) {
                 body.temperature = temp;
-                body.max_tokens = maxTok;
+                if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
+                if (extraParams.frequencyPenalty !== undefined) body.frequency_penalty = extraParams.frequencyPenalty;
+                if (extraParams.presencePenalty !== undefined) body.presence_penalty = extraParams.presencePenalty;
+                if (extraParams.seed !== undefined) body.seed = extraParams.seed;
             }
         } else if (provider === 'anthropic') {
             url = 'https://api.anthropic.com/v1/messages';
@@ -336,13 +359,13 @@
                 messages: messages,
                 stream: true // Anthropic models all support streaming
             };
-            // Only include temperature/max_tokens if not using provider defaults
+            // Anthropic requires max_tokens — always send it
+            body.max_tokens = maxTok;
+            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
-                body.max_tokens = maxTok;
-            } else {
-                // Anthropic requires max_tokens to be set, use a high default
-                body.max_tokens = 4096;
+                if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
+                if (extraParams.topK !== undefined) body.top_k = extraParams.topK;
             }
         } else if (provider === 'openai') {
             url = 'https://api.openai.com/v1/chat/completions';
@@ -355,10 +378,14 @@
                 messages: messages,
                 stream: !shouldDisableStreaming // Disable streaming for thinking models or if forced
             };
-            // Only include temperature/max_tokens if not using provider defaults
+            body.max_tokens = maxTok;
+            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
-                body.max_tokens = maxTok;
+                if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
+                if (extraParams.frequencyPenalty !== undefined) body.frequency_penalty = extraParams.frequencyPenalty;
+                if (extraParams.presencePenalty !== undefined) body.presence_penalty = extraParams.presencePenalty;
+                if (extraParams.seed !== undefined) body.seed = extraParams.seed;
             }
         } else if (provider === 'google') {
             // Google AI uses a different API format - extract text from messages
@@ -368,12 +395,13 @@
             body = {
                 contents: [{ parts: [{ text: text }] }]
             };
-            // Only include generationConfig if not using provider defaults
             if (!useProviderDefaults) {
                 body.generationConfig = {
                     temperature: temp,
                     maxOutputTokens: maxTok
                 };
+                if (extraParams.topP !== undefined) body.generationConfig.topP = extraParams.topP;
+                if (extraParams.topK !== undefined) body.generationConfig.topK = extraParams.topK;
             }
         } else if (provider === 'nanogpt') {
             // NanoGPT uses OpenAI-compatible API
@@ -389,10 +417,14 @@
                 messages: messages,
                 stream: !shouldDisableStreaming
             };
-            // Only include temperature/max_tokens if not using provider defaults
+            body.max_tokens = maxTok;
+            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
-                body.max_tokens = maxTok;
+                if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
+                if (extraParams.frequencyPenalty !== undefined) body.frequency_penalty = extraParams.frequencyPenalty;
+                if (extraParams.presencePenalty !== undefined) body.presence_penalty = extraParams.presencePenalty;
+                if (extraParams.seed !== undefined) body.seed = extraParams.seed;
             }
         } else if (provider === 'lmstudio') {
             // LM Studio uses OpenAI-compatible API
@@ -408,10 +440,14 @@
                 messages: messages,
                 stream: true
             };
-            // Only include temperature/max_tokens if not using provider defaults
+            body.max_tokens = maxTok;
+            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
-                body.max_tokens = maxTok;
+                if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
+                if (extraParams.frequencyPenalty !== undefined) body.frequency_penalty = extraParams.frequencyPenalty;
+                if (extraParams.presencePenalty !== undefined) body.presence_penalty = extraParams.presencePenalty;
+                if (extraParams.seed !== undefined) body.seed = extraParams.seed;
             }
         } else if (provider === 'custom') {
             url = customEndpoint;
@@ -424,10 +460,14 @@
                 messages: messages,
                 stream: true
             };
-            // Only include temperature/max_tokens if not using provider defaults
+            body.max_tokens = maxTok;
+            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
-                body.max_tokens = maxTok;
+                if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
+                if (extraParams.frequencyPenalty !== undefined) body.frequency_penalty = extraParams.frequencyPenalty;
+                if (extraParams.presencePenalty !== undefined) body.presence_penalty = extraParams.presencePenalty;
+                if (extraParams.seed !== undefined) body.seed = extraParams.seed;
             }
         }
 
@@ -435,7 +475,7 @@
         console.log('🚀 API Request to:', provider);
         console.log('📨 Messages being sent:', JSON.stringify(messages, null, 2));
         if (useProviderDefaults) {
-            console.log('⚙️ Using provider defaults (temperature and max_tokens not specified)');
+            console.log('⚙️ Using provider defaults (temperature not specified; max_tokens always sent)');
         } else {
             console.log('⚙️ Temperature:', temp, 'Word Target:', rawWordTarget, 'Token Cap:', maxTok);
         }
@@ -626,6 +666,254 @@
         }
     }
 
+    function buildFlowPrompt(beat, sceneContext, options = {}) {
+        try {
+            console.debug('[buildFlowPrompt] received prosePrompt:', JSON.stringify(options.prosePrompt));
+            console.debug('[buildFlowPrompt] received systemPrompt:', JSON.stringify(options.systemPrompt));
+        } catch (e) { /* ignore */ }
+        const povName = (options.povCharacter && options.povCharacter.trim()) ? options.povCharacter.trim() : 'the protagonist';
+        const tenseMap = {
+            'past': 'past tense',
+            'present': 'present tense',
+            'future': 'future tense',
+            'past perfect': 'past perfect tense',
+            'present perfect': 'present perfect tense'
+        };
+        const tenseText = tenseMap[options.tense] || 'past tense';
+        const povText = options.pov || '3rd person limited';
+        const langText = options.language || 'English';
+        const povSentence = `You are a co-author tasked with assisting your partner. You are writing a story from the point of view of ${povName} in ${tenseText}, in ${povText}.${langText !== 'English' ? ` Write in ${langText}.` : ''}`;
+
+        let genreSentence = '';
+        if (options.projectGenres && options.projectGenres.length > 0 && window.GenreDefs) {
+            const descriptors = window.GenreDefs.getPromptDescriptor(options.projectGenres);
+            if (descriptors.length > 0) {
+                const labels = options.projectGenres
+                    .map(gid => window.GenreDefs.findGenre(gid)?.label || gid)
+                    .join(' ');
+                genreSentence = `\nThis is a ${labels} story. Write with ${descriptors.join(', and ')}.`;
+            }
+        }
+
+        const targetWords = options.maxTokens || 300;
+        const lengthInstruction = `at least ${targetWords} words`;
+
+        let systemPrompt;
+        if (options.systemPrompt && typeof options.systemPrompt === 'string' && options.systemPrompt.trim()) {
+            systemPrompt = options.systemPrompt.trim()
+                .replace(/\{povName\}/gi, povName)
+                .replace(/\{tense\}/gi, tenseText)
+                .replace(/\{pov\}/gi, povText)
+                .replace(/\{length\}/gi, lengthInstruction)
+                .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
+                .replace(/\{language\}/gi, langText);
+            if (genreSentence) {
+                systemPrompt += genreSentence;
+            }
+        } else {
+            systemPrompt = `${povSentence}${genreSentence} You are a creative writing partner continuing a story. Write seamless, flowing narrative prose that extends the scene. Maintain the established tone, voice, and pacing. Avoid abrupt transitions, mechanical expansions, or announcing what you are doing. If given a direction, weave it into the narrative organically. Use sensory details and interiority. Show, don't tell. Write ${lengthInstruction}.`;
+        }
+
+        if (langText !== 'English') {
+            systemPrompt += `\n\nWrite entirely in ${langText}.`;
+        }
+
+        let contextText = '';
+        if (sceneContext && sceneContext.length > 0) {
+            contextText = `\n\nCURRENT SCENE SO FAR:\n${sceneContext}`;
+        }
+
+        let proseTemplateText = '';
+        if (options.prosePrompt && typeof options.prosePrompt === 'string' && options.prosePrompt.trim()) {
+            if (options.preview) {
+                proseTemplateText = `\n\n${options.prosePrompt.trim()}`;
+            } else {
+                proseTemplateText = `\n\n--- PROMPT TEMPLATE START ---\n${options.prosePrompt.trim()}\n--- PROMPT TEMPLATE END ---`;
+            }
+        }
+
+        let compendiumText = '';
+        if (options.compendiumEntries && Array.isArray(options.compendiumEntries) && options.compendiumEntries.length > 0) {
+            compendiumText = '\n\nCOMPENDIUM REFERENCES:\n';
+            for (const ce of options.compendiumEntries) {
+                try {
+                    const title = ce.title || ('entry ' + (ce.id || ''));
+                    const body = (ce.body || ce.body || ce.description || '') || ce.body || '';
+                    compendiumText += `\n-- ${title} --\n${body}\n`;
+                } catch (e) { /* ignore */ }
+            }
+        }
+
+        let sceneSummariesText = '';
+        if (options.sceneSummaries && Array.isArray(options.sceneSummaries) && options.sceneSummaries.length > 0) {
+            sceneSummariesText = '\n\nPREVIOUS SCENES:\n';
+            for (const scene of options.sceneSummaries) {
+                try {
+                    const title = scene.title || 'Untitled Scene';
+                    const summary = scene.summary || '';
+                    if (summary) {
+                        sceneSummariesText += `\n-- ${title} --\n${summary}\n`;
+                    }
+                } catch (e) { /* ignore */ }
+            }
+        }
+
+        let userContent = `${contextText}${proseTemplateText}`;
+        if (compendiumText) {
+            userContent += compendiumText;
+        }
+        if (sceneSummariesText) {
+            userContent += sceneSummariesText;
+        }
+
+        let cleanedBeat = beat;
+        cleanedBeat = cleanedBeat.replace(/@\[([^\]]+)\]/g, '');
+        cleanedBeat = cleanedBeat.replace(/#\[([^\]]+)\]/g, '');
+        cleanedBeat = cleanedBeat.replace(/\s+/g, ' ').trim();
+
+        if (cleanedBeat) {
+            userContent += `\n\nContinue the story from here, weaving the following naturally into the prose — do not announce it or break the flow:\n\n${cleanedBeat}`;
+        } else {
+            userContent += `\n\nContinue the story from here. Let it flow naturally.`;
+        }
+
+        const result = {
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userContent }
+            ],
+            asString: function () {
+                return `<|im_start|>system\n${systemPrompt}<|im_end|>\n<|im_start|>user\n${userContent}<|im_end|>\n<|im_start|>assistant\n`;
+            }
+        };
+        return result;
+    }
+
+    /**
+     * Generate flowing narrative prose from optional beat input
+     * @param {Object} app - Alpine app instance
+     */
+    async function generateFlowFromBeat(app) {
+        const sceneContentRaw = (app.currentScene && app.currentScene.content) || '';
+        let beatText = app.getCurrentBeat();
+        let sceneContent = sceneContentRaw;
+        if (!app.showMiniBeatInput) {
+            const lines = sceneContent.split('\n');
+            for (let i = lines.length - 1; i >= 0; i--) {
+                if (lines[i].trim().startsWith('## ')) {
+                    lines.splice(i);
+                    break;
+                }
+            }
+            sceneContent = lines.join('\n');
+        }
+        if (!beatText && app.aiStatus !== 'ready') return;
+        if (!beatText && !sceneContent) return;
+        app.isGenerating = true;
+        try {
+            if (beatText) app.lastBeat = beatText;
+
+            const proseInfo = await app.resolveProsePromptInfo();
+            const prosePromptText = proseInfo && proseInfo.text ? proseInfo.text : null;
+            const systemPromptText = proseInfo && proseInfo.systemText ? proseInfo.systemText : null;
+            const panelContext = await app.buildContextFromPanel();
+            let beatCompEntries = [];
+            let beatSceneSummaries = [];
+            if (beatText) {
+                try { beatCompEntries = await app.resolveCompendiumEntriesFromBeat(beatText); } catch (e) { beatCompEntries = []; }
+                try { beatSceneSummaries = await app.resolveSceneSummariesFromBeat(beatText); } catch (e) { beatSceneSummaries = []; }
+            }
+            const compMap = new Map();
+            panelContext.compendiumEntries.forEach(e => compMap.set(e.id, e));
+            beatCompEntries.forEach(e => compMap.set(e.id, e));
+            const compEntries = Array.from(compMap.values());
+            const sceneMap = new Map();
+            panelContext.sceneSummaries.forEach(s => sceneMap.set(s.title, s));
+            beatSceneSummaries.forEach(s => sceneMap.set(s.title, s));
+            const sceneSummaries = Array.from(sceneMap.values());
+            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, language: app.language || app.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres };
+            let prompt = buildFlowPrompt(beatText || '', sceneContent, genOpts);
+            try {
+                await db.promptHistory.add({
+                    id: Date.now().toString() + '-' + Math.random().toString(36).slice(2, 9),
+                    projectId: app.currentProject?.id,
+                    sceneId: app.currentScene?.id,
+                    timestamp: new Date(),
+                    beat: beatText || '(flow)',
+                    prompt: typeof prompt === 'object' && prompt.asString ? prompt.asString() : String(prompt)
+                });
+            } catch (e) {
+                console.warn('Failed to save prompt history:', e);
+            }
+
+            if (!app.showMiniBeatInput) {
+                app.currentScene.content = sceneContent;
+            }
+
+            if (app.currentScene && app.currentScene.content && !app.currentScene.content.endsWith('\n')) {
+                app.currentScene.content += '\n';
+            }
+            const prevLen = app.currentScene ? (app.currentScene.content ? app.currentScene.content.length : 0) : 0;
+            app.lastGenStart = prevLen;
+            app.lastGenText = '';
+            app.showGenActions = false;
+            app.beatAbortController = new AbortController();
+            app._genFollow = true;
+            const ta = document.querySelector('.editor-textarea');
+            if (ta) {
+                const onScroll = () => {
+                    app._genFollow = ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 20;
+                };
+                ta.addEventListener('scroll', onScroll);
+                app._genScrollCleanup = () => ta.removeEventListener('scroll', onScroll);
+            }
+            await streamGeneration(prompt, (token) => {
+                app.currentScene.content += token;
+                app.lastGenText += token;
+                app.$nextTick(() => {
+                    const ta = document.querySelector('.editor-textarea');
+                    if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
+                });
+            }, app, app.beatAbortController.signal);
+            app.showGenActions = true;
+            app.showGeneratedHighlight = true;
+            app.$nextTick(() => {
+                try {
+                    const ta = document.querySelector('.editor-textarea');
+                    if (ta) {
+                        if (app._genFollow) {
+                            ta.focus();
+                            const end = (app.currentScene && app.currentScene.content) ? app.currentScene.content.length : 0;
+                            ta.selectionStart = end;
+                            ta.selectionEnd = end;
+                            ta.scrollTop = ta.scrollHeight;
+                        }
+                    }
+                } catch (e) { }
+                setTimeout(() => {
+                    app.showGeneratedHighlight = false;
+                }, 5000);
+            });
+            if (app.showMiniBeatInput) app.beatInput = '';
+            await app.saveScene();
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Flow generation stopped by user');
+                app.showGenActions = true;
+            } else {
+                console.error('Flow generation error:', error);
+                alert('Failed to generate text. Make sure llama-server is running.\n\nError: ' + (error && error.message ? error.message : error));
+            }
+        } finally {
+            if (app._genScrollCleanup) {
+                app._genScrollCleanup();
+                app._genScrollCleanup = null;
+            }
+            app.beatAbortController = null;
+            app.isGenerating = false;
+        }
+    }
+
     /**
      * Generate prose from beat input
      * @param {Object} app - Alpine app instance
@@ -637,13 +925,13 @@
         try {
             app.lastBeat = beatText;
 
-            // In default mode, strip the last ##  beat line from content before generating
+            // In default mode, strip the ## beat block (from ## marker to end) from content before generating
             let sceneContent = (app.currentScene && app.currentScene.content) || '';
             if (!app.showMiniBeatInput) {
                 const lines = sceneContent.split('\n');
                 for (let i = lines.length - 1; i >= 0; i--) {
                     if (lines[i].trim().startsWith('## ')) {
-                        lines.splice(i, 1);
+                        lines.splice(i);
                         break;
                     }
                 }
@@ -901,10 +1189,12 @@ Write ${lengthInstruction}, rich with specific details that fit the world.${titl
 
     window.Generation = {
         buildPrompt,
+        buildFlowPrompt,
         buildCompendiumPrompt,
         streamGeneration,
         loadPromptHistory,
         generateFromBeat,
+        generateFlowFromBeat,
         stopBeatGeneration
     };
 })();

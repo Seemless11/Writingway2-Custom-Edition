@@ -5,10 +5,11 @@ const Workshop = {
     async loadWorkshopSessions(app) {
         if (!app.currentProject) return;
         try {
-            const sessions = await db.workshopSessions
+            let sessions = await db.workshopSessions
                 .where('projectId')
                 .equals(app.currentProject.id)
                 .toArray();
+            sessions = (sessions || []).filter(s => !s.characterId);
             console.log('Loaded workshop sessions:', sessions.length, sessions);
             if (sessions.length > 0) {
                 app.workshopSessions = sessions;

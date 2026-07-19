@@ -62,7 +62,9 @@
                 app.beatInput = beat || app.beatInput || '';
             } else if (beat && app.currentScene) {
                 const content = app.currentScene.content || '';
-                app.currentScene.content = content + (content ? '\n' : '') + '## ' + beat;
+                const beatLines = beat.split('\n');
+                const insert = '## ' + beatLines[0] + (beatLines.length > 1 ? '\n' + beatLines.slice(1).join('\n') : '');
+                app.currentScene.content = content + (content ? '\n' : '') + insert;
             }
             if (typeof app.generateFromBeat === 'function') {
                 await app.generateFromBeat();

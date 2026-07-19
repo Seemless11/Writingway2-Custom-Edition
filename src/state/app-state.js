@@ -62,6 +62,38 @@ function createAppState() {
         showW1ImportModal: false,
         w1ImportInProgress: false,
 
+        // ========== Writing Mode ==========
+        writingMode: 'editor', // 'editor' | 'chat'
+        chatResponseMode: 'character', // 'character' | 'narrative'
+
+        // ========== Character Chat State ==========
+        chatRoleplayFormatting: true,
+        chatCharacterId: null,
+        chatCharacter: null, // Cached character card data
+        showCharacterRoster: false,
+        characterRosterEntries: [],
+        characterRosterImported: [],
+        characterRosterCompendium: [],
+        characterRosterSearch: '',
+        characterRosterLoading: false,
+        chatCharacterInput: '',
+        chatCharacterIsGenerating: false,
+        chatCharacterMessages: [],
+        chatCharacterSessionId: null,
+        showCharacterInfo: false,
+        characterInfoDraft: {},
+        recentChatCharacters: [],
+        editingMessageIndex: null,
+        editingMessageContent: '',
+
+        // ========== User Persona State ==========
+        showPersonaSettings: false,
+        userPersona: {
+            name: 'You',
+            description: '',
+            avatar: null
+        },
+
         // ========== Workshop Chat State ==========
         showWorkshopChat: false,
         showEmbeddedWorkshop: false,
@@ -269,6 +301,22 @@ function createAppState() {
         showCompGenActions: false, // Show Accept/Retry/Discard after generation
         compGenPreTitle: '', // Snapshot of entry title before generation
         compGenPreBody: '', // Snapshot of entry body before generation
+
+        // Character Info Generation State
+        characterDescriptionGenerating: false,
+        characterPersonalityGenerating: false,
+        characterScenarioGenerating: false,
+        characterFirstMessageGenerating: false,
+        characterExamplesGenerating: false,
+        characterSystemPromptGenerating: false,
+
+        // Character Info Generation Abort Controllers
+        characterDescriptionAbortController: null,
+        characterPersonalityAbortController: null,
+        characterScenarioAbortController: null,
+        characterFirstMessageAbortController: null,
+        characterExamplesAbortController: null,
+        characterSystemPromptAbortController: null,
 
         // ========== Paste Import State ==========
         showPasteImport: false,

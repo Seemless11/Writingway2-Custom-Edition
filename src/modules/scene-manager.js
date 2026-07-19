@@ -42,11 +42,8 @@
                 chapterId: targetChapter.id,
                 title: sceneName,
                 order: (targetChapter.scenes || []).length,
-                // initialize with current POV/tense/language options, ensuring proper defaults
-                povCharacter: app.povCharacter || '',
-                pov: (app.pov && app.pov.trim()) ? app.pov : '3rd person limited',
-                tense: (app.tense && app.tense.trim()) ? app.tense : 'past',
-                language: app.language || app.currentProject?.language || 'English',
+                // inherit from project defaults, with optional per-scene POV character
+                povCharacter: app.povCharacter || app.currentProject?.povCharacter || '',
                 created: new Date(),
                 modified: new Date(),
                 updatedAt: now
@@ -111,9 +108,7 @@
             };
 
             // Load scene-specific generation options into UI state
-            // pov/tense/language are project-level settings (see save-utils.js); only
-            // povCharacter is overridable per scene.
-            app.povCharacter = scene.povCharacter || '';
+            app.povCharacter = scene.povCharacter || app.currentProject?.povCharacter || '';
             app.pov = app.currentProject?.pov || '3rd person limited';
             app.tense = app.currentProject?.tense || 'past';
             app.language = app.currentProject?.language || 'English';

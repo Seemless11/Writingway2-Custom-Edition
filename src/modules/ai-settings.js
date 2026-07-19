@@ -159,7 +159,15 @@
                     temperature: app.temperature,
                     maxTokens: app.maxTokens,
                     useProviderDefaults: app.useProviderDefaults || false,
-                    forceNonStreaming: app.forceNonStreaming || false
+                    forceNonStreaming: app.forceNonStreaming || false,
+                    topP: app.topP,
+                    topK: app.topK,
+                    repetitionPenalty: app.repetitionPenalty,
+                    frequencyPenalty: app.frequencyPenalty,
+                    presencePenalty: app.presencePenalty,
+                    minP: app.minP,
+                    seed: app.seed,
+                    modelPresets: app.modelPresets || {}
                 };
                 localStorage.setItem('writingway:aiSettings', JSON.stringify(settings));
             } catch (e) {
@@ -187,7 +195,15 @@
                     temperature: app.temperature,
                     maxTokens: app.maxTokens,
                     useProviderDefaults: app.useProviderDefaults || false,
-                    forceNonStreaming: app.forceNonStreaming || false
+                    forceNonStreaming: app.forceNonStreaming || false,
+                    topP: app.topP,
+                    topK: app.topK,
+                    repetitionPenalty: app.repetitionPenalty,
+                    frequencyPenalty: app.frequencyPenalty,
+                    presencePenalty: app.presencePenalty,
+                    minP: app.minP,
+                    seed: app.seed,
+                    modelPresets: app.modelPresets || {}
                 };
                 localStorage.setItem('writingway:aiSettings', JSON.stringify(settings));
 
@@ -342,10 +358,18 @@
                     app.aiApiKey = settings.apiKey || '';
                     const savedModel = settings.model || '';
                     app.aiEndpoint = settings.endpoint || '';
-                    app.temperature = settings.temperature || 0.8;
-                    app.maxTokens = settings.maxTokens || 300;
+                    app.temperature = settings.temperature !== undefined ? settings.temperature : 0.8;
+                    app.maxTokens = settings.maxTokens !== undefined ? settings.maxTokens : 300;
                     app.useProviderDefaults = settings.useProviderDefaults || false;
                     app.forceNonStreaming = settings.forceNonStreaming || false;
+                    app.topP = settings.topP !== undefined ? settings.topP : 0.9;
+                    app.topK = settings.topK !== undefined ? settings.topK : 40;
+                    app.repetitionPenalty = settings.repetitionPenalty !== undefined ? settings.repetitionPenalty : 1.0;
+                    app.frequencyPenalty = settings.frequencyPenalty !== undefined ? settings.frequencyPenalty : 0.0;
+                    app.presencePenalty = settings.presencePenalty !== undefined ? settings.presencePenalty : 0.0;
+                    app.minP = settings.minP !== undefined ? settings.minP : 0.0;
+                    app.seed = settings.seed !== undefined ? settings.seed : null;
+                    app.modelPresets = settings.modelPresets || {};
 
                     // Fetch fresh model list if we have API credentials (or LM Studio which doesn't need a key)
                     if (app.aiMode === 'api' && (app.aiApiKey || app.aiProvider === 'lmstudio')) {

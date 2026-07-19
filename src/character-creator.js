@@ -1145,8 +1145,6 @@
             if (!g.genres || g.genres.length === 0) return true;
             return g.genres.some(id => genreIds.includes(id));
         });
-        // Merge groups that share a label (e.g. genre-specific "Profession" variants)
-        // so we never emit duplicate x-for keys when multiple genres are active.
         const merged = [];
         const byLabel = new Map();
         for (const g of filtered) {
@@ -1186,7 +1184,7 @@
         }).filter(cat => cat && Array.isArray(cat.groups) && cat.groups.length > 0);
     }
 
-    function buildCompendiumEntry(name, notes, genre, selectedTraits, chatHistory) {
+    function buildCompendiumEntry(name, notes, genre, selectedTraits, chatHistory, imageDescription) {
         const lines = [];
         const charName = name || 'Unnamed Character';
 
@@ -1194,6 +1192,13 @@
             lines.push('## Notes');
             lines.push('');
             lines.push(notes);
+        }
+
+        if (imageDescription) {
+            if (lines.length) lines.push('');
+            lines.push('## Visual Description');
+            lines.push('');
+            lines.push(imageDescription.trim());
         }
 
         const catMap = {};
@@ -1255,7 +1260,7 @@
             imageUrl: null,
             alwaysInContext: false,
             isPovCharacter: false,
-                _charData: JSON.stringify({ name: charName, genre: genre || '', notes: notes || '', selectedTraits: selectedTraits || {}, chatHistory: chatHistory || [] })
+                _charData: JSON.stringify({ name: charName, genre: genre || '', notes: notes || '', selectedTraits: selectedTraits || {}, chatHistory: chatHistory || [], imageDescription: imageDescription || '' })
         };
     }
 
