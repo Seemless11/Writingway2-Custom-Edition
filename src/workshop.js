@@ -144,7 +144,9 @@ window.workshopChat = {
 
                 // Add compendium entries from context panel
                 for (const entry of panelContext.compendiumEntries) {
-                    contextParts.push(`[${entry.category}: ${entry.title}]\n${entry.body}`);
+                    const title = window.MacroUtils ? window.MacroUtils.stripSTMacros(entry.title || '') : entry.title;
+                    const body = window.MacroUtils ? window.MacroUtils.stripSTMacros(entry.body || '') : entry.body;
+                    contextParts.push(`[${entry.category}: ${title}]\n${body}`);
                 }
 
                 // Add scenes from context panel

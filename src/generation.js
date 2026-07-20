@@ -86,8 +86,8 @@
             compendiumText = '\n\nCOMPENDIUM REFERENCES:\n';
             for (const ce of options.compendiumEntries) {
                 try {
-                    const title = ce.title || ('entry ' + (ce.id || ''));
-                    const body = (ce.body || ce.body || ce.description || '') || ce.body || '';
+                    const title = window.MacroUtils.stripSTMacros(ce.title || '') || ('entry ' + (ce.id || ''));
+                    const body = window.MacroUtils.stripSTMacros((ce.body || ce.body || ce.description || '') || ce.body || '');
                     compendiumText += `\n-- ${title} --\n${body}\n`;
                 } catch (e) { /* ignore */ }
             }
@@ -737,8 +737,8 @@
             compendiumText = '\n\nCOMPENDIUM REFERENCES:\n';
             for (const ce of options.compendiumEntries) {
                 try {
-                    const title = ce.title || ('entry ' + (ce.id || ''));
-                    const body = (ce.body || ce.body || ce.description || '') || ce.body || '';
+                    const title = window.MacroUtils.stripSTMacros(ce.title || '') || ('entry ' + (ce.id || ''));
+                    const body = window.MacroUtils.stripSTMacros((ce.body || ce.body || ce.description || '') || ce.body || '');
                     compendiumText += `\n-- ${title} --\n${body}\n`;
                 } catch (e) { /* ignore */ }
             }

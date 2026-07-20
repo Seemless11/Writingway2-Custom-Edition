@@ -19,6 +19,7 @@
     <script defer src="src/modules/editor.js"></script>
     <!-- Phase 4 Refactoring: Context panel extracted -->
     <script defer src="src/modules/context-panel.js"></script>
+    <script defer src="src/macro-utils.js"></script>
     <script defer src="src/generation.js"></script>
     <script defer src="src/prompts.js"></script>
     <script defer src="src/ai.js"></script>
@@ -28,6 +29,8 @@
     <script defer src="src/modules/scene-manager.js"></script>
     <script defer src="src/modules/beat-mentions.js"></script>
     <script defer src="src/modules/compendium-manager.js"></script>
+    <script defer src="src/lorebook-importer.js"></script>
+    <script defer src="src/modules/lorebook-manager.js"></script>
     <script defer src="src/modules/ai-settings.js"></script>
     <script defer src="src/modules/github-backup.js"></script>
     <script defer src="src/modules/filesystem-save.js"></script>
@@ -578,6 +581,8 @@
                                             </button>
                                             <button class="btn btn-secondary" @click="showPersonaSettings = true"
                                                 style="padding:4px 8px;font-size:12px;" title="Persona Settings">👤</button>
+                                            <button class="btn btn-secondary" @click="openLorebookPanel()"
+                                                style="padding:4px 8px;font-size:12px;" title="Lorebook Entries">📚</button>
                                             <button class="btn btn-secondary" @click="window.ChatMode.deleteCharacterSession($data)"
                                                 style="padding:4px 8px;font-size:12px;color:#ef4444;" title="Delete Conversation">🗑</button>
                                         </div>
@@ -2270,6 +2275,7 @@
                             <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="importCharacterCard()" title="Import a SillyTavern character card (JSON or PNG)">📥 Import</button>
                             <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openPasteImport()" title="Paste wiki article or text to extract a character">📋 Paste Import</button>
                             <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects">📦 Vault</button>
+                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openLorebookPanel()" title="View imported lorebooks">📚 Lorebooks</button>
                     <button class="btn btn-secondary" @click="closeCompendium()">Close</button>
                 </div>
             </div>
@@ -2506,6 +2512,105 @@
                                 :class="{ 'saving': compendiumSaveStatus === 'Saving...' }"
                                 x-text="compendiumSaveStatus"></span>
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lorebook Slide Panel -->
+        <div id="lorebook-panel" class="slide-panel-right lorebook-panel" :class="{ 'open': showLorebookPanel }" x-cloak :aria-hidden="!showLorebookPanel">
+            <div class="slide-panel-header">
+                <h3 style="margin:0;">📚 Lorebook Imports</h3>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span x-show="lorebookDirty" x-cloak style="font-size:12px;color:var(--warning);">Unsaved changes</span>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="importLorebook()" title="Import a SillyTavern lorebook JSON">📥 Import</button>
+                    <button class="btn btn-secondary" @click="closeLorebookPanel()">Close</button>
+                </div>
+            </div>
+            <div class="slide-panel-body">
+                <div style="display:flex;gap:12px;height:100%;">
+                    <!-- Left: Lorebook group list -->
+                    <div style="width:40%;overflow:auto;">
+                        <div style="margin-bottom:12px;">
+                            <input type="text" x-model="lorebookSearchQuery" placeholder="🔍 Search entries..."
+                                style="width:100%;padding:8px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                        </div>
+                        <template x-for="(entries, sourceTag) in lorebookSources" :key="sourceTag">
+                            <div style="margin-bottom:12px;">
+                                <div class="comp-category" :class="{ 'active': openLorebookSources.includes(sourceTag) }"
+                                    tabindex="0" role="button"
+                                    @click="openLorebookSources.includes(sourceTag) ? openLorebookSources = openLorebookSources.filter(s => s !== sourceTag) : openLorebookSources.push(sourceTag)"
+                                    @keydown.enter="openLorebookSources.includes(sourceTag) ? openLorebookSources = openLorebookSources.filter(s => s !== sourceTag) : openLorebookSources.push(sourceTag)">
+                                    <div class="comp-category-label" style="font-weight:700;color:var(--text-primary);" x-text="sourceTag.replace('ST:', '')"></div>
+                                    <div style="display:flex;align-items:center;gap:6px;">
+                                        <div class="comp-category-count" style="font-size:12px;color:var(--text-secondary);" x-text="entries.length"></div>
+                                        <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;" @click.stop="deleteLorebookSource(sourceTag)" :title="'Delete all ' + sourceTag.replace('ST:', '') + ' entries'">🗑️</button>
+                                    </div>
+                                </div>
+                                <div x-show="openLorebookSources.includes(sourceTag) || lorebookSearchQuery" x-cloak style="margin-top:6px;">
+                                    <template x-for="e in (entries.filter(x => !lorebookSearchQuery || (x.title || '').toLowerCase().includes(lorebookSearchQuery.toLowerCase()) || (x.body || '').toLowerCase().includes(lorebookSearchQuery.toLowerCase())))" :key="e.id">
+                                        <div class="comp-entry" :class="{ 'active': currentLorebookEntry && currentLorebookEntry.id === e.id }" tabindex="0">
+                                            <div style="cursor:pointer;" @click="selectLorebookEntry(e.id)" @keydown.enter="selectLorebookEntry(e.id)">
+                                                <div class="comp-entry-title" x-text="e.title"></div>
+                                                <div class="comp-entry-meta" style="font-size:11px;color:var(--text-secondary);" x-text="'~' + Math.ceil((e.body || '').length / 4) + ' tokens'"></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="Object.keys(lorebookSources).length === 0" style="color:var(--text-secondary);padding:20px;text-align:center;">
+                            No lorebooks imported yet. Click "Import" to add one.
+                        </div>
+                    </div>
+                    <!-- Right: Lorebook entry editor -->
+                    <div style="flex:1;display:flex;flex-direction:column;">
+                        <template x-if="!currentLorebookEntry">
+                            <div style="color:var(--text-secondary);">Select an entry to view and edit.</div>
+                        </template>
+                        <template x-if="currentLorebookEntry">
+                            <div style="display:flex;flex-direction:column;height:100%;">
+                                <div style="flex:0 0 auto;margin-bottom:6px;">
+                                    <input type="text" x-model="currentLorebookEntry.title" placeholder="Entry title"
+                                        @input="updateLorebookDirtyFlag()"
+                                        style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;margin-bottom:6px;box-sizing:border-box;">
+                                </div>
+                                <div style="flex:1;overflow:auto;min-height:0;">
+                                    <textarea x-model="currentLorebookEntry.body" placeholder="Entry content..."
+                                        @input="updateLorebookDirtyFlag()"
+                                        style="width:100%;height:100%;min-height:200px;padding:12px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;resize:none;font-family:inherit;line-height:1.6;box-sizing:border-box;"></textarea>
+                                    <div style="text-align:right;font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                                        ~<span x-text="Math.ceil((currentLorebookEntry.body || '').length / 4)"></span> tokens
+                                    </div>
+                                </div>
+                                <div style="flex:0 0 auto;margin-top:8px;">
+                                    <div class="comp-tags">
+                                        <div class="tag-list">
+                                            <template x-for="(t,ti) in (currentLorebookEntry.tags || [])" :key="ti">
+                                                <span class="tag-chip" @click.stop="removeLorebookTag(ti)" title="Remove tag" x-text="t" :style="t.startsWith('ST:') ? 'background:var(--accent);color:white;' : ''"></span>
+                                            </template>
+                                        </div>
+                                        <input class="tag-input" x-model="newLorebookTag" placeholder="Add tag and press Enter" @keydown.enter.prevent="addLorebookTag()">
+                                    </div>
+                                </div>
+                                <div style="flex:0 0 auto;margin-top:8px;padding:8px;background:rgba(74,158,255,0.05);border:1px solid rgba(74,158,255,0.2);border-radius:6px;">
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                        <input type="checkbox" x-model="currentLorebookEntry.alwaysInContext"
+                                            @change="updateLorebookDirtyFlag()"
+                                            style="cursor:pointer;">
+                                        <span style="font-size:13px;color:rgba(255,255,255,0.9);">Always include in chat context</span>
+                                    </label>
+                                    <p style="margin:4px 0 0 26px;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.3;">
+                                        When enabled, this entry will be automatically included in all chat generation prompts.
+                                    </p>
+                                </div>
+                                <div style="flex:0 0 auto;display:flex;gap:8px;margin-top:8px;align-items:center;">
+                                    <button class="btn btn-primary" @click="saveLorebookEntry()" :disabled="!lorebookDirty">Save</button>
+                                    <button class="btn btn-danger" @click="deleteLorebookEntry(currentLorebookEntry.id)">Delete</button>
+                                    <span x-show="lorebookSaveStatus" style="font-size:12px;color:var(--text-secondary);" x-text="lorebookSaveStatus"></span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -4019,6 +4124,69 @@
         </div>
     </template>
 
+    <!-- Lorebook Import Options Modal -->
+    <template x-if="showLorebookImport">
+        <div class="modal-overlay" @click.self="closeLorebookImport()" style="z-index:9800;">
+            <div style="width:min(500px,90%);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);">
+                    <h3 style="margin:0;font-size:18px;">📚 Import Lorebook</h3>
+                    <button class="btn btn-secondary" @click="closeLorebookImport()">Cancel</button>
+                </div>
+                <div style="padding:24px;">
+                    <div style="margin-bottom:12px;">
+                        <p style="margin:0 0 4px;">Book: <strong x-text="lorebookImportBookName"></strong></p>
+                        <p style="margin:0;">Entries: <strong x-text="lorebookImportEntryCount"></strong></p>
+                    </div>
+                    <div style="margin:16px 0;">
+                        <label style="display:block;margin-bottom:6px;font-weight:600;color:var(--text-primary);">Target category</label>
+                        <select x-model="lorebookImportCategory" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-primary);color:var(--text-primary);">
+                            <template x-for="cat in compendiumCategories" :key="cat">
+                                <option :value="cat" x-text="cat" :selected="cat === 'lore'"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div style="margin:16px 0;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text-primary);">
+                            <input type="checkbox" x-model="lorebookImportIncludeKeys" style="cursor:pointer;">
+                            <span>Include ST trigger keys as tags <span style="color:var(--text-secondary);font-size:12px;">(max 9 per entry; extra keys reported)</span></span>
+                        </label>
+                    </div>
+                    <template x-if="lorebookImportTruncations.length > 0">
+                        <div style="margin:16px 0;padding:12px;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:6px;">
+                            <p style="margin:0 0 8px;font-weight:600;color:var(--warning);">⚠️ Tag cap warnings</p>
+                            <ul style="margin:0;padding-left:20px;font-size:12px;color:var(--text-primary);">
+                                <template x-for="t in lorebookImportTruncations" :key="t.title">
+                                    <li x-text="t.title + ': ' + t.dropped + ' key(s) dropped (10 tag cap)'"></li>
+                                </template>
+                            </ul>
+                        </div>
+                    </template>
+                    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:20px;">
+                        <button class="btn btn-primary" @click="confirmLorebookImport()" :disabled="lorebookImporting">
+                            <span x-show="!lorebookImporting">Import</span>
+                            <span x-show="lorebookImporting">Importing...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Lorebook Unsaved Changes Modal -->
+    <template x-if="showLorebookUnsavedModal">
+        <div class="modal-overlay" @click.self="cancelLorebookAction()">
+            <div class="modal" style="max-width:400px;">
+                <h3 style="margin-top:0;">Leave this entry?</h3>
+                <p style="color:var(--text-secondary);margin-bottom:20px;">Unsaved changes will be lost.</p>
+                <div class="modal-buttons" style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button class="btn btn-secondary" @click="showLorebookUnsavedModal = false; pendingLorebookAction = null">Cancel</button>
+                    <button class="btn btn-danger" @click="discardAndProceedLorebook()">Leave without saving</button>
+                    <button class="btn btn-primary" @click="saveAndProceedLorebook()">Save &amp; leave</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <!-- Character Roster Modal -->
     <template x-if="showCharacterRoster">
         <div class="modal-overlay" @click.self="showCharacterRoster = false" style="z-index:9800;">
@@ -4244,11 +4412,26 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
                     <div style="display:flex;align-items:center;gap:10px;">
                         <span style="font-size:20px;">👤</span>
-                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Your Persona</h3>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Your Personas</h3>
                     </div>
                     <button class="btn btn-secondary" @click="showPersonaSettings = false">Done</button>
                 </div>
                 <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <select x-model="activePersonaId"
+                            @change="window.ChatMode.switchPersona($data, activePersonaId)"
+                            style="flex:1;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <template x-for="p in userPersonas" :key="p.id">
+                                <option :value="p.id" x-text="p.name"></option>
+                            </template>
+                        </select>
+                        <button class="btn btn-secondary" @click="window.ChatMode.createPersona($data)"
+                            style="font-size:12px;padding:6px 10px;white-space:nowrap;" title="New persona">+ New</button>
+                        <button class="btn btn-danger" 
+                            x-show="userPersonas.length > 1"
+                            @click="window.ChatMode.deletePersona($data, activePersonaId)"
+                            style="font-size:12px;padding:6px 10px;" title="Delete persona">🗑</button>
+                    </div>
                     <div>
                         <label style="display:block;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Your Name</label>
                         <input type="text" x-model="userPersona.name" placeholder="How the AI refers to you"
@@ -4260,6 +4443,18 @@
                         <textarea x-model="userPersona.description" placeholder="Describe yourself — the AI will use this to understand who it's talking to."
                             @input="window.ChatMode.savePersona($data)"
                             style="width:100%;min-height:100px;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
+                        <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                            <button class="btn btn-secondary" 
+                                x-show="!personaDescriptionGenerating"
+                                :disabled="!userPersona.name || aiStatus !== 'ready'"
+                                @click="window.ChatMode.generatePersonaDescription($data)"
+                                style="font-size:12px;padding:4px 10px;" 
+                                title="Generate persona description with AI">✨ Generate</button>
+                            <button class="btn btn-danger" 
+                                x-show="personaDescriptionGenerating"
+                                @click="window.ChatMode.stopPersonaDescriptionGeneration($data)"
+                                style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                        </div>
                     </div>
                     <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;padding:10px 14px;background:var(--bg-primary);border-radius:6px;border:1px solid var(--border);">
                         Your persona is used in character chat mode. The AI will refer to you by your name and incorporate your description into the conversation context.

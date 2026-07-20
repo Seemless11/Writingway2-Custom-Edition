@@ -159,6 +159,22 @@ db.version(9).stores({
     // noop: index addition handled by Dexie
 });
 
+// Add settings table for app-level key-value storage (personas, preferences, etc.) (v10)
+db.version(10).stores({
+    projects: 'id, name, created, modified, updatedAt',
+    chapters: 'id, projectId, title, order, created, modified, updatedAt',
+    scenes: 'id, projectId, chapterId, title, order, created, modified, updatedAt',
+    content: 'sceneId, text, wordCount, updatedAt',
+    prompts: 'id, [category+title], [projectId+category+title], projectId, category, title, created, modified, updatedAt',
+    codex: 'id, projectId, title, created, modified, updatedAt',
+    compendium: 'id, [projectId+category], projectId, category, title, modified, tags, updatedAt',
+    promptHistory: 'id, projectId, sceneId, timestamp, beat, prompt',
+    workshopSessions: 'id, [projectId+createdAt], projectId, name, createdAt, updatedAt',
+    settings: 'key'
+}).upgrade(async tx => {
+    // noop: new table created automatically
+});
+
 // Expose the global Dexie instance for debugging and console usage
 try { window.db = window.db || db; } catch (e) { /* ignore in non-browser env */ }
 

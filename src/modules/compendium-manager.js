@@ -616,6 +616,26 @@
                     const charName = importData.name || 'Character';
                     const imgInfo = importData.image_base64 ? ' + avatar' : '';
                     alert(`Imported "${charName}" into the Characters category.${imgInfo}`);
+
+                    // Check for embedded lorebook (character_book) in the card
+                    const charBook = importData.raw_data?.character_book;
+                    if (charBook && charBook.entries && charBook.entries.length > 0 && app.currentProject) {
+                        const bookName = (typeof charBook.name === 'string' && charBook.name.trim())
+                            ? charBook.name.trim()
+                            : charName + "'s Lore";
+                        if (confirm(`This character has an embedded lorebook "${bookName}" with ${charBook.entries.length} entries.\n\nImport it into your compendium?`)) {
+                            try {
+                                const result = await window.LorebookImporter.importLorebookData(app, charBook.entries, bookName, {
+                                    category: 'lore',
+                                    includeKeys: true,
+                                    silent: true
+                                });
+                                alert('Imported ' + result.count + ' lorebook entries from "' + bookName + '".' + (result.truncations.length > 0 ? '\n⚠️ ' + result.truncations.length + ' entries had keys dropped (10 tag cap).' : ''));
+                            } catch (e) {
+                                alert('Lorebook import failed: ' + e.message);
+                            }
+                        }
+                    }
                 } catch (err) {
                     alert('Import failed: ' + err.message);
                     console.error('Character card import error:', err);

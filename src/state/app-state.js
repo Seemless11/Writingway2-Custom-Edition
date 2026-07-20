@@ -88,11 +88,15 @@ function createAppState() {
 
         // ========== User Persona State ==========
         showPersonaSettings: false,
+        userPersonas: [],
+        activePersonaId: null,
         userPersona: {
             name: 'You',
             description: '',
             avatar: null
         },
+        personaDescriptionGenerating: false,
+        personaDescriptionAbortController: null,
 
         // ========== Workshop Chat State ==========
         showWorkshopChat: false,
@@ -301,6 +305,33 @@ function createAppState() {
         showCompGenActions: false, // Show Accept/Retry/Discard after generation
         compGenPreTitle: '', // Snapshot of entry title before generation
         compGenPreBody: '', // Snapshot of entry body before generation
+
+        // ========== Lorebook Panel State ==========
+        showLorebookPanel: false,
+        currentLorebookEntry: null,
+        lorebookOriginalEntry: null,
+        lorebookDirty: false,
+        lorebookSources: {}, // { "ST:BookName": [entries...] }
+        lorebookSaveStatus: '',
+        newLorebookTag: '',
+
+        // Lorebook Import modal state
+        showLorebookImport: false,
+        lorebookImportFile: null, // { rawEntries, sourceTag } or null
+        lorebookImportCategory: 'lore',
+        lorebookImportIncludeKeys: true,
+        lorebookImportBookName: '',
+        lorebookImportEntryCount: 0,
+        lorebookImportTruncations: [], // [{ title, dropped }]
+        lorebookImporting: false,
+
+        // Lorebook unsaved guard
+        showLorebookUnsavedModal: false,
+        pendingLorebookAction: null, // { type: 'select', id } | { type: 'close' }
+
+        // Lorebook panel browser
+        openLorebookSources: [], // expanded source tags
+        lorebookSearchQuery: '',
 
         // Character Info Generation State
         characterDescriptionGenerating: false,

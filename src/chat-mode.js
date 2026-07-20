@@ -245,7 +245,7 @@ window.ChatMode = {
 
     // ========== Prompt Building ==========
 
-    buildCharacterPrompt(app, mode) {
+    async buildCharacterPrompt(app, mode) {
         const char = app.chatCharacter;
         const persona = app.userPersona;
         const responseMode = app.chatResponseMode;
@@ -254,6 +254,24 @@ window.ChatMode = {
         const messages = [];
 
         let systemContent = `You are ${char.name}.`;
+
+        const pid = chatProjectId(app);
+        if (pid && window.db) {
+            try {
+                const ctxEntries = await window.db.compendium
+                    .where('projectId').equals(pid)
+                    .filter(e => e.alwaysInContext === true)
+                    .toArray();
+                if (ctxEntries.length > 0) {
+                    systemContent += '\n\nRelevant World Information:';
+                    for (const e of ctxEntries) {
+                        systemContent += `\n\n-- ${e.title} --\n${e.body}`;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load alwaysInContext entries:', e);
+            }
+        }
 
         if (char.description) {
             systemContent += `\n\n${char.description}`;
@@ -306,7 +324,12 @@ window.ChatMode = {
 
         systemContent = systemContent
             .replace(/\{\{char(_name)?\}\}/gi, char.name || 'Character')
-            .replace(/\{\{user(_name)?\}\}/gi, personaName);
+            .replace(/\{\{user(_name)?\}\}/gi, personaName)
+            .replace(/\{\{[^}]*\}\}/g, '')
+            .replace(/\[(char|user):[^\]]*\]/gi, '')
+            .replace(/\/\*[\s\S]*?\*\//g, '')
+            .replace(/\n{3,}/g, '\n\n')
+            .replace(/[ \t]{2,}/g, ' ');
 
         messages.push({ role: 'system', content: systemContent });
 
@@ -334,7 +357,7 @@ window.ChatMode = {
     async _generateAssistantResponse(app, assistantIndex, mode) {
         app.chatCharacterIsGenerating = true;
         try {
-            const promptMessages = this.buildCharacterPrompt(app, mode);
+            const promptMessages = await this.buildCharacterPrompt(app, mode);
             let fullResponse = '';
             await window.Generation.streamGeneration(promptMessages, (token) => {
                 fullResponse += token;
@@ -563,27 +586,179 @@ window.ChatMode = {
 
     // ========== Persona Management ==========
 
-    loadPersona(app) {
+    async loadPersona(app) {
+        try {
+            const storedPersonas = await db.settings.get('personas');
+            if (storedPersonas && storedPersonas.value && storedPersonas.value.length > 0) {
+                app.userPersonas = storedPersonas.value;
+                app.activePersonaId = storedPersonas.activeId || app.userPersonas[0].id;
+                const active = app.userPersonas.find(p => p.id === app.activePersonaId);
+                if (active) {
+                    Object.assign(app.userPersona, active);
+                } else {
+                    app.activePersonaId = app.userPersonas[0].id;
+                    Object.assign(app.userPersona, app.userPersonas[0]);
+                }
+                return;
+            }
+        } catch (e) {
+            console.warn('Failed to load personas from IndexedDB:', e);
+        }
+
         try {
             const saved = localStorage.getItem('ww2_userPersona');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                app.userPersona = {
+                const migrated = {
+                    id: 'persona_1',
                     name: parsed.name || 'You',
                     description: parsed.description || '',
                     avatar: parsed.avatar || null
                 };
+                app.userPersonas = [migrated];
+                app.activePersonaId = 'persona_1';
+                Object.assign(app.userPersona, migrated);
+                localStorage.removeItem('ww2_userPersona');
+                await this.savePersonas(app);
+                return;
             }
         } catch (e) {
-            console.warn('Failed to load persona:', e);
+            console.warn('Failed to migrate legacy persona:', e);
+        }
+
+        const defaultPersona = {
+            id: 'persona_' + Date.now(),
+            name: 'You',
+            description: '',
+            avatar: null
+        };
+        app.userPersonas = [defaultPersona];
+        app.activePersonaId = defaultPersona.id;
+        Object.assign(app.userPersona, defaultPersona);
+    },
+
+    async savePersonas(app) {
+        try {
+            const stored = await db.settings.get('personas') || { key: 'personas', value: [] };
+            stored.value = app.userPersonas;
+            stored.activeId = app.activePersonaId;
+            await db.settings.put(stored);
+        } catch (e) {
+            console.warn('Failed to save personas:', e);
         }
     },
 
     savePersona(app) {
+        const active = app.userPersonas.find(p => p.id === app.activePersonaId);
+        if (active) {
+            active.name = app.userPersona.name;
+            active.description = app.userPersona.description;
+            active.avatar = app.userPersona.avatar;
+        }
+        if (this._personaSaveTimer) clearTimeout(this._personaSaveTimer);
+        this._personaSaveTimer = setTimeout(() => {
+            this.savePersonas(app);
+        }, 300);
+    },
+
+    async switchPersona(app, id) {
+        if (id === app.activePersonaId) return;
+        const current = app.userPersonas.find(p => p.id === app.activePersonaId);
+        if (current) {
+            current.name = app.userPersona.name;
+            current.description = app.userPersona.description;
+            current.avatar = app.userPersona.avatar;
+        }
+        const next = app.userPersonas.find(p => p.id === id);
+        if (next) {
+            app.activePersonaId = id;
+            Object.assign(app.userPersona, next);
+            await this.savePersonas(app);
+        }
+    },
+
+    async createPersona(app) {
+        const newPersona = {
+            id: 'persona_' + Date.now(),
+            name: 'New Persona',
+            description: '',
+            avatar: null
+        };
+        app.userPersonas.push(newPersona);
+        app.activePersonaId = newPersona.id;
+        Object.assign(app.userPersona, newPersona);
+        await this.savePersonas(app);
+    },
+
+    async deletePersona(app, id) {
+        if (app.userPersonas.length <= 1) return;
+        if (!confirm('Delete this persona?')) return;
+        const idx = app.userPersonas.findIndex(p => p.id === id);
+        if (idx === -1) return;
+        app.userPersonas.splice(idx, 1);
+        if (id === app.activePersonaId) {
+            const fallback = app.userPersonas[Math.min(idx, app.userPersonas.length - 1)];
+            app.activePersonaId = fallback.id;
+            Object.assign(app.userPersona, fallback);
+        }
+        await this.savePersonas(app);
+    },
+
+    // ========== Persona AI Generation ==========
+
+    async generatePersonaDescription(app) {
+        if (app.personaDescriptionGenerating || app.aiStatus !== 'ready') return;
+
+        app.personaDescriptionGenerating = true;
+        const originalContent = app.userPersona.description || '';
+
         try {
-            localStorage.setItem('ww2_userPersona', JSON.stringify(app.userPersona));
+            const existingText = app.userPersona.description || '';
+            let userPrompt;
+            if (existingText.trim()) {
+                userPrompt = `The user has already written the following description for themselves:\n\n${existingText}\n\nPlease continue and improve this description, keeping what works and expanding on it. Write approximately 100-200 words.`;
+            } else {
+                userPrompt = `Generate a detailed description for a user named "${app.userPersona.name || 'the user'}". Describe their appearance, personality, mannerisms, and any other relevant details that would help an AI understand who it's talking to. Write approximately 100-200 words.`;
+            }
+
+            const messages = [
+                {
+                    role: 'system',
+                    content: 'You are a creative writing assistant helping to develop user personas for roleplay and creative writing. Write vivid, specific descriptions that capture the essence of the person.'
+                },
+                {
+                    role: 'user',
+                    content: userPrompt
+                }
+            ];
+
+            let generatedText = '';
+            const abortController = new AbortController();
+            app.personaDescriptionAbortController = abortController;
+
+            await window.Generation.streamGeneration(messages, (token) => {
+                generatedText += token;
+                app.userPersona.description = generatedText;
+            }, app, abortController.signal);
+
+            app.personaDescriptionGenerating = false;
+            app.personaDescriptionAbortController = null;
         } catch (e) {
-            console.warn('Failed to save persona:', e);
+            if (e.name === 'AbortError') {
+                console.log('Persona description generation stopped by user');
+            } else {
+                console.error('Persona description generation error:', e);
+                app.userPersona.description = originalContent;
+            }
+            app.personaDescriptionGenerating = false;
+            app.personaDescriptionAbortController = null;
+        }
+    },
+
+    stopPersonaDescriptionGeneration(app) {
+        if (app.personaDescriptionAbortController) {
+            app.personaDescriptionAbortController.abort();
+            app.personaDescriptionAbortController = null;
         }
     },
 
