@@ -621,8 +621,11 @@ document.addEventListener('alpine:init', () => {
                 try { localStorage.setItem('ww2_writingMode', mode); } catch (e) { }
                 if (mode === 'chat') {
                     window.ChatMode.loadRecentCharacters(this);
-                    if (this.chatCharacter && !this.chatCharacterSessionId) {
-                        window.ChatMode.loadOrCreateCharacterSession(this);
+                    if (this.chatCharacter) {
+                        if (!this.chatCharacterSessionId) {
+                            window.ChatMode.loadOrCreateCharacterSession(this);
+                        }
+                        window.ChatMode.loadChatSessions(this);
                     }
                 }
             },

@@ -103,16 +103,16 @@
         let result = text;
         // Replace {{char}} and {{char_name}} with the character's actual name
         result = result.replace(/\{\{char(_name)?\}\}/gi, charName || '');
-        // Replace {{user}} and {{user_name}} with a generic reference
+        // Replace {{random_user}} and {{random_user_name}} with a generic reference
         result = result.replace(/\{\{random_user(_name)?\}\}/gi, 'someone');
-        result = result.replace(/\{\{user(_name)?\}\}/gi, 'the reader');
-        // Replace known field references with stripped version
+        // Preserve {{user}} and {{user_name}} for dynamic replacement in chat prompt
+        // Strip known field references
         result = result.replace(/\{\{description\}\}/gi, '');
         result = result.replace(/\{\{personality\}\}/gi, '');
         result = result.replace(/\{\{scenario\}\}/gi, '');
         result = result.replace(/\{\{system_prompt\}\}/gi, '');
-        // Strip any remaining {{...}} patterns
-        result = result.replace(/\{\{[^}]*\}\}/g, '');
+        // Strip any remaining {{...}} patterns (but preserve {{user}} and {{user_name}})
+        result = result.replace(/\{\{(?!user(_name)?\})[^}]*\}\}/g, '');
         // Strip [char: ...] and [user: ...] syntax
         result = result.replace(/\[(char|user):[^\]]*\]/gi, '');
         // Strip CSS-style /* ... */ comments

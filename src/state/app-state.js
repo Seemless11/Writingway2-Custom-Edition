@@ -65,11 +65,17 @@ function createAppState() {
         // ========== Writing Mode ==========
         writingMode: 'editor', // 'editor' | 'chat'
         chatResponseMode: 'character', // 'character' | 'narrative'
+        chatSettingsOpen: false, // Generation settings collapsible in sidebar
 
         // ========== Character Chat State ==========
         chatRoleplayFormatting: true,
         chatCharacterId: null,
         chatCharacter: null, // Cached character card data
+        chatSessions: [], // Sessions for current character
+        sessionDropdownOpen: false,
+        rightPanelOpen: true,
+        rightPanelMode: 'info', // 'info' | 'edit'
+        chatSessionsOpen: true,
         showCharacterRoster: false,
         characterRosterEntries: [],
         characterRosterImported: [],

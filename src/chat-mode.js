@@ -114,23 +114,31 @@ window.ChatMode = {
         );
     },
 
+    // ========== Character Card Deletion ==========
+
+    async deleteCharacterCard(app, id) {
+        if (!id) return;
+        const entry = app.characterRosterImported.find(e => e.id === id) || app.recentChatCharacters.find(e => e.id === id);
+        const name = entry?.title || 'this character';
+        if (!confirm(`Delete "${name}"? This will remove the character card from the compendium.`)) return;
+        try {
+            await window.Compendium.deleteEntry(id);
+        } catch (e) {
+            console.error('Failed to delete character card:', e);
+            return;
+        }
+        app.currentCompEntry = null;
+        if (app.showCharacterRoster) await this.loadCharacterRoster(app);
+        await this.loadRecentCharacters(app);
+        if (typeof app.loadCompendiumCounts === 'function') await app.loadCompendiumCounts();
+    },
+
     // ========== Character Selection ==========
 
     async selectCharacter(app, entry) {
         if (!entry) return;
         app.chatCharacterId = entry.id;
-        app.chatCharacter = {
-            id: entry.id,
-            name: entry.title || 'Unknown',
-            description: this.parseCardField(entry.body, 'Description'),
-            personality: this.parseCardField(entry.body, 'Personality'),
-            scenario: this.parseCardField(entry.body, 'Scenario'),
-            firstMessage: this.parseCardField(entry.body, 'First Message'),
-            examples: this.parseCardField(entry.body, 'Example Dialogue'),
-            systemPrompt: this.parseCardField(entry.body, 'System Prompt'),
-            avatar: entry.imageUrl || null,
-            rawBody: entry.body || ''
-        };
+        await this.loadCharacterCard(app, entry);
         app.characterRosterSearch = '';
         app.showCharacterRoster = false;
         app.writingMode = 'chat';
@@ -139,6 +147,7 @@ window.ChatMode = {
             localStorage.setItem('ww2_writingMode', 'chat');
         } catch (e) { }
 
+        await this.loadChatSessions(app);
         await this.loadOrCreateCharacterSession(app);
         if (app.chatCharacterMessages.length === 0 && app.chatCharacter.firstMessage) {
             const firstMsg = app.chatCharacter.firstMessage;
@@ -154,9 +163,34 @@ window.ChatMode = {
     },
 
     async startNewCharacterChat(app, entry) {
+        if (!entry && app.chatCharacter) {
+            const dbEntry = await db.compendium.get(app.chatCharacterId);
+            if (dbEntry) entry = dbEntry;
+        }
+        if (!entry) return;
+        app.chatCharacterId = entry.id || entry.title;
         app.chatCharacterSessionId = null;
         app.chatCharacterMessages = [];
-        await this.selectCharacter(app, entry);
+        await this.loadCharacterCard(app, entry);
+        await this.createCharacterSession(app);
+        app.writingMode = 'chat';
+        try { localStorage.setItem('ww2_writingMode', 'chat'); } catch (e) {}
+        await this.loadChatSessions(app);
+    },
+
+    async loadCharacterCard(app, entry) {
+        app.chatCharacter = {
+            id: entry.id,
+            name: entry.title || 'Unknown',
+            description: this.parseCardField(entry.body, 'Description'),
+            personality: this.parseCardField(entry.body, 'Personality'),
+            scenario: this.parseCardField(entry.body, 'Scenario'),
+            firstMessage: this.parseCardField(entry.body, 'First Message'),
+            examples: this.parseCardField(entry.body, 'Example Dialogue'),
+            systemPrompt: this.parseCardField(entry.body, 'System Prompt'),
+            avatar: entry.imageUrl || null,
+            rawBody: entry.body || ''
+        };
     },
 
     // ========== Session Management ==========
@@ -241,6 +275,34 @@ window.ChatMode = {
         app.chatCharacterMessages = [];
         app.chatCharacterId = null;
         app.chatCharacter = null;
+    },
+
+    async loadChatSessions(app) {
+        if (!app.chatCharacterId) return;
+        const pid = chatProjectId(app);
+        try {
+            const sessions = await db.workshopSessions
+                .where('projectId')
+                .equals(pid)
+                .toArray();
+            app.chatSessions = sessions
+                .filter(s => s.characterId === app.chatCharacterId)
+                .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+        } catch (e) {
+            console.warn('Failed to load chat sessions:', e);
+            app.chatSessions = [];
+        }
+    },
+
+    async switchChatSession(app, session) {
+        if (!session || session.id === app.chatCharacterSessionId) return;
+        await this.saveCharacterSession(app);
+        app.chatCharacterSessionId = session.id;
+        app.chatCharacterMessages = (session.messages || []).map(m => ({
+            ...m,
+            name: m.role === 'assistant' ? (app.chatCharacter?.name || 'Assistant') : (app.userPersona?.name || 'You')
+        }));
+        this.scrollMessagesToBottom(app);
     },
 
     // ========== Prompt Building ==========
@@ -334,18 +396,28 @@ window.ChatMode = {
         messages.push({ role: 'system', content: systemContent });
 
         const narrativeTag = `[${char.name}'s response narrative]`;
+        const resolveMsgContent = (text) => {
+            return text
+                .replace(/\{\{char(_name)?\}\}/gi, char.name || 'Character')
+                .replace(/\{\{user(_name)?\}\}/gi, personaName)
+                .replace(/\{\{[^}]*\}\}/g, '')
+                .replace(/\[(char|user):[^\]]*\]/gi, '')
+                .replace(/\/\*[\s\S]*?\*\//g, '')
+                .replace(/\n{3,}/g, '\n\n')
+                .replace(/[ \t]{2,}/g, ' ')
+                .trim();
+        };
         for (const msg of app.chatCharacterMessages) {
             if (!msg.content || !msg.content.trim()) continue;
+            const resolved = resolveMsgContent(msg.content);
+            if (!resolved) continue;
             if (responseMode === 'narrative' && msg.role === 'assistant') {
-                const content = msg.content.startsWith(narrativeTag)
-                    ? msg.content
-                    : `${narrativeTag}\n${msg.content}`;
-                messages.push({
-                    role: 'assistant',
-                    content
-                });
+                const content = resolved.startsWith(narrativeTag)
+                    ? resolved
+                    : `${narrativeTag}\n${resolved}`;
+                messages.push({ role: 'assistant', content });
             } else {
-                messages.push({ role: msg.role, content: msg.content });
+                messages.push({ role: msg.role, content: resolved });
             }
         }
 
@@ -655,10 +727,7 @@ window.ChatMode = {
             active.description = app.userPersona.description;
             active.avatar = app.userPersona.avatar;
         }
-        if (this._personaSaveTimer) clearTimeout(this._personaSaveTimer);
-        this._personaSaveTimer = setTimeout(() => {
-            this.savePersonas(app);
-        }, 300);
+        this.savePersonas(app);
     },
 
     async switchPersona(app, id) {
@@ -849,7 +918,6 @@ window.ChatMode = {
     },
 
     toggleChatRoleplayFormatting(app) {
-        app.chatRoleplayFormatting = !app.chatRoleplayFormatting;
         try {
             localStorage.setItem('ww2_chatRoleplayFormatting', JSON.stringify(app.chatRoleplayFormatting));
         } catch (e) { }
@@ -1254,9 +1322,12 @@ window.ChatMode = {
     },
 };
 
-window.renderChatMessage = function(el, msg, useRoleplay) {
+window.renderChatMessage = function(el, msg, useRoleplay, personaName) {
     if (!el || !msg) return;
-    const content = msg.content || '';
+    let content = msg.content || '';
+    if (personaName) {
+        content = content.replace(/\{\{user(_name)?\}\}/gi, personaName);
+    }
     try {
         const html = useRoleplay
             ? window.ChatMode.roleplayToHtml(content)
