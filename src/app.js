@@ -81,6 +81,22 @@ document.addEventListener('alpine:init', () => {
                 }
             },
 
+            // Accent color management
+            setAccentColor(color) {
+                this.accentColor = color;
+                localStorage.setItem('ww-accent-color', color);
+                const r = parseInt(color.slice(1, 3), 16);
+                const g = parseInt(color.slice(3, 5), 16);
+                const b = parseInt(color.slice(5, 7), 16);
+                const darken = (amount) =>
+                    `#${[r,g,b].map(c => Math.max(0, c - amount).toString(16).padStart(2, '0')).join('')}`;
+                const docEl = document.documentElement;
+                docEl.style.setProperty('--color-accent', color);
+                docEl.style.setProperty('--color-accent-hover', darken(35));
+                docEl.style.setProperty('--color-accent-muted', `rgba(${r},${g},${b},0.12)`);
+                docEl.style.setProperty('--color-accent-border', `rgba(${r},${g},${b},0.25)`);
+            },
+
             // Initialize
             async init() {
                 if (window.setupWatchers && typeof window.setupWatchers === 'function') {
@@ -151,6 +167,10 @@ document.addEventListener('alpine:init', () => {
 
                 // Load AI settings from localStorage
                 await this.loadAISettings();
+
+                // Apply saved accent color
+                const savedColor = localStorage.getItem('ww-accent-color');
+                if (savedColor && this.setAccentColor) this.setAccentColor(savedColor);
 
                 this.updateLoadingScreen(50, 'Initializing AI...', 'This may take 2-3 minutes on first run...');
 
@@ -263,6 +283,9 @@ document.addEventListener('alpine:init', () => {
                 this.charCreatorEditorSystemPrompt = window.CharacterCreator.getSystemPrompt();
 
                 window.addEventListener('beforeunload', (e) => {
+                    if (this.chatCharacterSessionId && this.chatCharacterMessages?.length) {
+                        window.ChatMode.saveCharacterSession(this);
+                    }
                     if (localStorage.getItem('ww_char_creator_draft')) {
                         e.preventDefault();
                         e.returnValue = '';

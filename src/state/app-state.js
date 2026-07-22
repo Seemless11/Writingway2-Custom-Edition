@@ -419,6 +419,7 @@ function createAppState() {
         filesystemSaveStatus: '',
         filesystemSaveTone: 'success',
         lastFilesystemSavePath: '',
+        accentColor: localStorage.getItem('ww-accent-color') || '#D97706',
 
         // ========== Generation Parameters ==========
         temperature: 0.8,

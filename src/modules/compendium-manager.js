@@ -613,6 +613,11 @@
                         }
                     }
 
+                    // Refresh the recent characters list shown in chat empty state
+                    if (window.ChatMode) {
+                        await window.ChatMode.loadRecentCharacters(app);
+                    }
+
                     const charName = importData.name || 'Character';
                     const imgInfo = importData.image_base64 ? ' + avatar' : '';
                     alert(`Imported "${charName}" into the Characters category.${imgInfo}`);

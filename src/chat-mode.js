@@ -160,6 +160,7 @@ window.ChatMode = {
             await this.saveCharacterSession(app);
         }
         this.scrollMessagesToBottom(app);
+        await this.loadRecentCharacters(app);
     },
 
     async startNewCharacterChat(app, entry) {
@@ -203,7 +204,9 @@ window.ChatMode = {
                 .where('projectId')
                 .equals(pid)
                 .toArray();
-            const existing = sessions.find(s => s.characterId === app.chatCharacterId);
+            const existing = sessions
+                .filter(s => s.characterId === app.chatCharacterId)
+                .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))[0];
             if (existing) {
                 app.chatCharacterSessionId = existing.id;
                 app.chatCharacterMessages = (existing.messages || []).map(m => ({
@@ -430,10 +433,11 @@ window.ChatMode = {
         app.chatCharacterIsGenerating = true;
         try {
             const promptMessages = await this.buildCharacterPrompt(app, mode);
+            const existingContent = mode === 'continue' ? (app.chatCharacterMessages[assistantIndex]?.content || '') : '';
             let fullResponse = '';
             await window.Generation.streamGeneration(promptMessages, (token) => {
                 fullResponse += token;
-                app.chatCharacterMessages[assistantIndex].content = fullResponse;
+                app.chatCharacterMessages[assistantIndex].content = existingContent + fullResponse;
                 app.chatCharacterMessages = [...app.chatCharacterMessages];
                 this.scrollMessagesToBottom(app);
             }, app);
@@ -443,6 +447,7 @@ window.ChatMode = {
             const wordCount = fullResponse.trim().split(/\s+/).filter(Boolean).length;
             if (wordCount < Math.round(targetWords * 0.6) && mode !== 'continue') {
                 await this._generateAssistantResponse(app, assistantIndex, 'continue');
+                await this.saveCharacterSession(app);
             }
         } catch (error) {
             console.error('Character chat error:', error);
@@ -471,6 +476,8 @@ window.ChatMode = {
         });
         app.chatCharacterInput = '';
         this.scrollMessagesToBottom(app);
+
+        await this.saveCharacterSession(app);
 
         const assistantIndex = app.chatCharacterMessages.length;
         app.chatCharacterMessages.push({

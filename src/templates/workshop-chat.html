@@ -36,9 +36,9 @@
                     <div @click="currentWorkshopSessionIndex = workshopSessions.indexOf(session); workshopSessionSearchQuery = ''; workshopSessionDropdownOpen = false"
                         :class="{ 'active': workshopSessions.indexOf(session) === currentWorkshopSessionIndex }"
                         style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;"
-                        :style="workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'background:rgba(74,158,255,0.15);' : ''"
-                        @mouseenter="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(74,158,255,0.2)' : 'rgba(255,255,255,0.05)'"
-                        @mouseleave="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(74,158,255,0.15)' : 'transparent'">
+                        :style="workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'background:rgba(217,119,6,0.15);' : ''"
+                        @mouseenter="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(217,119,6,0.2)' : 'rgba(255,255,255,0.05)'"
+                        @mouseleave="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(217,119,6,0.15)' : 'transparent'">
                         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="session.name"></span>
                         <span style="font-size:10px;color:var(--text-secondary);" x-text="session.messages ? session.messages.length + ' msgs' : '0 msgs'"></span>
                     </div>
@@ -111,7 +111,7 @@
                 <button class="btn btn-secondary" @click="useWorkshopContextPanel = true; showContextPanel = true"
                     :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
                     title="Open Context Panel (used in this chat)">
-                    📚
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg>
                 </button>
                 <button class="btn btn-secondary"
                     x-show="useWorkshopContextPanel"

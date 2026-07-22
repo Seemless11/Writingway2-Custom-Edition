@@ -6,6 +6,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Writingway 2.0</title>
     <!-- Note: This file should be named main.html and opened via start.bat -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- Phase 1 Refactoring: Database and test helpers extracted -->
@@ -63,10 +66,10 @@
 <body>
     <!-- Initial Loading Screen -->
     <div id="loadingScreen"
-        style="position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg, #1a1f2e 0%, #2d1b3d 100%);display:flex;align-items:center;justify-content:center;z-index:99999;transition:opacity 0.5s ease-out;">
+        style="position:fixed;top:0;left:0;width:100%;height:100%;background:linear-gradient(135deg, #1C1917 0%, #292524 100%);display:flex;align-items:center;justify-content:center;z-index:99999;transition:opacity 0.5s ease-out;">
         <div style="text-align:center;max-width:500px;padding:40px;">
-            <div style="font-size:48px;margin-bottom:24px;">✍️</div>
-            <h1 style="margin:0 0 16px 0;color:#4a9eff;font-size:32px;font-weight:700;">Writingway</h1>
+            <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="var(--color-accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:24px;"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg>
+            <h1 style="margin:0 0 16px 0;color:var(--color-accent);font-size:32px;font-weight:700;font-family:var(--font-heading);">Writingway</h1>
             <p id="loadingStatus" style="color:rgba(255,255,255,0.8);font-size:16px;margin:16px 0;min-height:24px;">
                 Starting up...</p>
 
@@ -74,7 +77,7 @@
             <div
                 style="width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;margin:24px 0;">
                 <div id="loadingBar"
-                    style="height:100%;background:linear-gradient(90deg, #4a9eff, #60a5fa);width:0%;transition:width 0.3s ease-out;">
+                    style="height:100%;background:linear-gradient(90deg, var(--color-accent), #F59E0B);width:0%;transition:width 0.3s ease-out;">
                 </div>
             </div>
 
@@ -181,7 +184,7 @@
         <div x-show="showLlamaSetupWizard" x-cloak
             style="position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:10050;padding:24px;">
             <div
-                style="width:min(760px, 100%);background:linear-gradient(180deg, #232323, #1a1a1a);border:1px solid rgba(74,158,255,0.25);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.55);padding:28px;">
+                style="width:min(760px, 100%);background:linear-gradient(180deg, #232323, #1a1a1a);border:1px solid rgba(217,119,6,0.25);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.55);padding:28px;">
                 <div x-show="!llamaInstallComplete">
                     <div style="font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:#66bb6a;margin-bottom:10px;">Local AI Setup</div>
                     <h2 style="margin:0 0 12px 0;font-size:28px;color:var(--text-primary);">A GGUF model was found in <code>models/</code></h2>
@@ -190,7 +193,7 @@
                         but llama.cpp is not installed yet. Install it now if you want to run that model through Writingway's built-in local backend.
                     </p>
                     <div
-                        style="background:rgba(74,158,255,0.08);border:1px solid rgba(74,158,255,0.18);border-radius:12px;padding:16px;margin-bottom:18px;">
+                        style="background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.15);border-radius:12px;padding:16px;margin-bottom:18px;">
                         <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px;">Install target</div>
                         <template x-for="choice in runtimeInfo.llamaInstallChoices" :key="choice.id">
                             <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;cursor:pointer;border-top:1px solid rgba(255,255,255,0.04);">
@@ -349,9 +352,9 @@
                                         <template x-for="(session, sidx) in chatSessions" :key="sidx">
                                             <div @click="window.ChatMode.switchChatSession($data, session); window.ChatMode.loadChatSessions($data)"
                                                 style="padding:5px 10px;border-radius:4px;cursor:pointer;font-size:11px;display:flex;align-items:center;gap:6px;transition:background 0.15s;"
-                                                :style="chatCharacterSessionId === session.id ? 'background:rgba(74,158,255,0.1);color:var(--accent);' : 'color:var(--text-secondary);'"
-                                                @mouseenter="$el.style.background= chatCharacterSessionId === session.id ? 'rgba(74,158,255,0.15)' : 'var(--bg-tertiary)'"
-                                                @mouseleave="$el.style.background= chatCharacterSessionId === session.id ? 'rgba(74,158,255,0.1)' : 'transparent'">
+                                                :style="chatCharacterSessionId === session.id ? 'background:rgba(217,119,6,0.1);color:var(--accent);' : 'color:var(--text-secondary);'"
+                                                @mouseenter="$el.style.background= chatCharacterSessionId === session.id ? 'rgba(217,119,6,0.15)' : 'var(--bg-tertiary)'"
+                                                @mouseleave="$el.style.background= chatCharacterSessionId === session.id ? 'rgba(217,119,6,0.1)' : 'transparent'">
                                                 <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                                 <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;" x-text="session.title || 'Chat ' + (sidx + 1)"></span>
                                                 <span x-show="chatCharacterSessionId === session.id" style="color:var(--accent);font-size:9px;">✓</span>
@@ -375,7 +378,9 @@
                                 <span x-show="!filesystemSaving">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
                                 </span>
-                                <span x-show="filesystemSaving" style="font-size:14px;">⋯</span>
+                                <span x-show="filesystemSaving">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+                                </span>
                             </button>
 
                             <div x-data="{ mainMenuOpen: false }">
@@ -397,17 +402,32 @@
                                     <button @click.stop="exportProject(); mainMenuOpen=false" :disabled="!currentProject" style="display:flex;align-items:center;gap:8px;">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Export Current Project</button>
                                     <div style="border-top:1px solid var(--border);margin:6px 0"></div>
+                                    <div style="padding:8px 12px;">
+                                        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">Accent</div>
+                                        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+                                            <template x-for="c in ['#D97706','#B45309','#92400E','#7C2D12','#6B21A8','#3730A3','#1E40AF','#0F766E','#065F46','#52525B','#881337','#991B1B']" :key="c">
+                                                <button @click="setAccentColor(c); mainMenuOpen=false"
+                                                    :style="'width:20px;height:20px;border-radius:50%;border:2px solid ' + (accentColor === c ? 'var(--text-primary)' : 'transparent') + ';background:' + c + ';cursor:pointer;flex-shrink:0;'"
+                                                    :title="c"></button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                    <div style="border-top:1px solid var(--border);margin:6px 0"></div>
                                     <button @click.stop="showWorkshopChat = true; mainMenuOpen=false" style="display:flex;align-items:center;gap:8px;">
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Workshop Chat</button>
-                                    <button @click.stop="showAISettings = true; mainMenuOpen=false">⚙️ AI Settings</button>
-                                    <button @click.stop="showPromptsPanel = true; mainMenuOpen=false">📝 Manage
-                                        Prompts</button>
-                                    <button @click.stop="openBackupSettings(); mainMenuOpen=false">☁️ Cloud Backup</button>
+                                    <button @click.stop="showAISettings = true; mainMenuOpen=false" style="display:flex;align-items:center;gap:8px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> AI Settings</button>
+                                    <button @click.stop="showPromptsPanel = true; mainMenuOpen=false" style="display:flex;align-items:center;gap:8px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Manage Prompts</button>
+                                    <button @click.stop="openBackupSettings(); mainMenuOpen=false" style="display:flex;align-items:center;gap:8px;">
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Cloud Backup</button>
                                     <div style="border-top:1px solid var(--border);margin:6px 0"></div>
                                     <button @click.stop="checkForUpdates(); mainMenuOpen=false"
                                         :disabled="checkingForUpdates">
-                                        <span x-show="!checkingForUpdates">🔄 Check for Updates</span>
-                                        <span x-show="checkingForUpdates">⏳ Checking...</span>
+                                        <span x-show="!checkingForUpdates" style="display:flex;align-items:center;gap:8px;">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> Check for Updates</span>
+                                        <span x-show="checkingForUpdates" style="display:flex;align-items:center;gap:8px;">
+                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Checking...</span>
                                     </button>
                                 </div>
                             </div>
@@ -423,7 +443,7 @@
                         <div class="ai-status-item"
                             style="cursor:pointer;padding:10px 16px;border-radius:8px;transition:background 0.2s;"
                             @click="showAISettings = !showAISettings"
-                            @mouseenter="$el.style.background='rgba(74,158,255,0.1)'"
+                            @mouseenter="$el.style.background='rgba(217,119,6,0.1)'"
                             @mouseleave="$el.style.background='transparent'" title="Click to toggle AI settings"
                             aria-label="Toggle AI settings" role="button">
                             <div class="status-dot" :class="aiStatus"></div>
@@ -436,24 +456,24 @@
                             style="cursor:pointer;padding:8px 16px;border-radius:8px;transition:background 0.2s;font-size:12px;"
                             @click="openBackupSettings()" @mouseenter="$el.style.background='rgba(76,175,80,0.1)'"
                             @mouseleave="$el.style.background='transparent'" title="Click for backup settings">
-                            <span>☁️</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                             <span x-text="backupStatus || ('Auto-backup: ' + backupProviderName())"></span>
                         </div>
 
                     </div>
 
-                    <div x-show="currentProject" class="project-info" x-data="{ openMenu:false }"
-                        style="position:relative;padding:16px 12px;border-bottom:2px solid rgba(74,158,255,0.3);">
+                    <div x-show="currentProject && writingMode !== 'chat'" class="project-info" x-data="{ openMenu:false }"
+                        style="position:relative;padding:16px 12px;border-bottom:2px solid rgba(217,119,6,0.3);">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
                             <h2 style="margin:0;padding-right:8px;">
                                 <button class="project-name-button" @click.stop="openCompendium()"
                                     title="Click to toggle Compendium" aria-controls="compendium-panel"
                                     :aria-expanded="showCodexPanel ? 'true' : 'false'"
-                                    style="background:none;border:none;padding:8px 12px 8px 0;font-size:18px;font-weight:700;color:#4a9eff;cursor:pointer;border-radius:6px;transition:all 0.2s;"
-                                    @mouseenter="$el.style.background='rgba(74,158,255,0.15)'"
+                                    style="background:none;border:none;padding:8px 12px 8px 0;font-size:18px;font-weight:700;color:var(--color-accent);cursor:pointer;border-radius:6px;transition:all 0.2s;"
+                                    @mouseenter="$el.style.background='rgba(217,119,6,0.12)'"
                                     @mouseleave="$el.style.background='transparent'">
                                     <span x-text="currentProject?.name"></span>
-                                    <span style="margin-left:8px;opacity:0.7;font-size:16px;">📚</span>
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-left:8px;opacity:0.7;flex-shrink:0;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg>
                                     <template x-if="currentProject?.genres?.length">
                                         <span style="margin-left:6px;font-size:11px;opacity:0.6;font-weight:400;">
                                             <template x-for="(gid, gi) in currentProject?.genres ?? []" :key="gid">
@@ -469,7 +489,9 @@
 
                             <div style="display:flex;align-items:center;gap:6px;">
                                 <button class="menu-button" @click.stop="openMenu = !openMenu"
-                                    title="Project menu">⋯</button>
+                                    title="Project menu">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                                </button>
                                 <div x-show="openMenu" x-cloak @click.away="openMenu = false" x-transition
                                     class="action-menu">
                                     <button
@@ -708,8 +730,8 @@
                                                 <template x-for="entry in recentChatCharacters.filter(e => e.tags?.includes('imported') && e.tags?.includes('sillytavern'))" :key="entry.id">
                                                     <div @click="window.ChatMode.selectCharacter($data, entry)"
                                                         style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;margin-bottom:4px;border:1px solid transparent;"
-                                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
-                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(74,158,255,0.3)'"
+                                                        :style="chatCharacterId === entry.id ? 'background:rgba(217,119,6,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(217,119,6,0.3)'"
                                                         @mouseleave="$el.style.background='var(--bg-primary)';$el.style.borderColor='transparent'">
                                                         <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:var(--accent);"
                                                             :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
@@ -737,8 +759,8 @@
                                                 <template x-for="entry in recentChatCharacters.filter(e => !e.tags?.includes('imported') || !e.tags?.includes('sillytavern'))" :key="entry.id">
                                                     <div @click="window.ChatMode.selectCharacter($data, entry)"
                                                         style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;margin-bottom:4px;border:1px solid transparent;"
-                                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
-                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(74,158,255,0.3)'"
+                                                        :style="chatCharacterId === entry.id ? 'background:rgba(217,119,6,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(217,119,6,0.3)'"
                                                         @mouseleave="$el.style.background='var(--bg-primary)';$el.style.borderColor='transparent'">
                                                         <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--accent);"
                                                             :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
@@ -800,9 +822,9 @@
                                                     <template x-for="(session, sidx) in chatSessions" :key="sidx">
                                                         <div @click="window.ChatMode.switchChatSession($data, session); open = false"
                                                             style="padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;"
-                                                            :style="chatCharacterSessionId === session.id ? 'background:rgba(74,158,255,0.1);color:var(--accent);' : 'color:var(--text-primary);'"
+                                                            :style="chatCharacterSessionId === session.id ? 'background:rgba(217,119,6,0.1);color:var(--accent);' : 'color:var(--text-primary);'"
                                                             @mouseenter="$el.style.background='var(--bg-tertiary)'"
-                                                            @mouseleave="$el.style.background= chatCharacterSessionId === session.id ? 'rgba(74,158,255,0.1)' : 'transparent'">
+                                                            @mouseleave="$el.style.background= chatCharacterSessionId === session.id ? 'rgba(217,119,6,0.1)' : 'transparent'">
                                                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                                                             <span style="flex:1;" x-text="session.title || 'Chat ' + (sidx + 1)"></span>
                                                             <span x-show="chatCharacterSessionId === session.id" style="color:var(--accent);font-size:10px;">✓</span>
@@ -1011,7 +1033,7 @@
                                     <div
                                         style="background:linear-gradient(135deg, rgba(255,193,7,0.15), rgba(255,152,0,0.1));border-bottom:2px solid rgba(255,193,7,0.4);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
                                         <div style="display:flex;align-items:center;gap:12px;flex:1;">
-                                            <span style="font-size:24px;">💾</span>
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
                                             <div>
                                                 <div
                                                     style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">
@@ -1072,7 +1094,7 @@
                                         <div class="scene-search-dropdown" x-show="showSceneSearch && !showMiniBeatInput" x-cloak
                                             style="position:absolute;bottom:0;left:30px;right:30px;z-index:5000;pointer-events:none;">
                                             <div
-                                                style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent-blue,#60a5fa);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
+                                                style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent-amber,var(--color-accent));border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
                                                 <template x-for="(scene,si) in sceneSearchMatches" :key="scene.id">
                                                     <div class="scene-search-item"
                                                         :class="{ 'active': si === sceneSearchSelectedIndex }"
@@ -1122,14 +1144,14 @@
                                                     </select>
 
                                                     <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
-                                                        title="Context Panel" style="font-size:12px;padding:3px 7px;">📚</button>
+                                                        title="Context Panel" style="font-size:12px;padding:3px 7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></button>
                                                     <button class="btn btn-secondary" @click="openCompendium()"
                                                         title="Compendium" style="font-size:12px;padding:3px 7px;">📖</button>
                                                     <button class="btn btn-secondary" @click="showEmbeddedWorkshop = !showEmbeddedWorkshop; if (showEmbeddedWorkshop && (!workshopSessions || workshopSessions.length === 0)) { workshopSessions = [window.workshopChat.createNewSession($data)]; saveWorkshopSessions(); }"
                                                         :style="showEmbeddedWorkshop ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5); font-size:12px; padding:3px 7px;' : 'font-size:12px; padding:3px 7px;'"
-                                                        title="Toggle Workshop Chat">💬</button>
+                                                        title="Toggle Workshop Chat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
                                                     <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
-                                                        title="Prompt History" style="font-size:12px;padding:3px 7px;">🕐</button>
+                                                        title="Prompt History" style="font-size:12px;padding:3px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
                                                     <button class="btn btn-secondary" @click="previewPrompt"
                                                         :disabled="!getCurrentBeat() || aiStatus !== 'ready'"
                                                         title="Preview Prompt" style="font-size:12px;padding:3px 7px;">👁️</button>
@@ -1155,7 +1177,7 @@
 
                                                     <button class="btn btn-secondary" @click="showSceneOptions = true"
                                                         title="Scene model settings" style="font-size:12px;padding:3px 7px;">
-                                                        ⚙️
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                                                     </button>
                                                     <button class="btn btn-secondary" @click="toggleBeatMode()"
                                                         title="Switch to legacy beat input panel" style="font-size:12px;padding:3px 7px;">
@@ -1188,7 +1210,7 @@
                                                     @keydown.meta.enter.prevent="if (beatInput && !isGenerating && aiStatus === 'ready') generateFromBeat()"
                                                     placeholder="Describe what happens next... Use @name for compendium, #scene for scenes."
                                                     spellcheck="true" rows="1"
-                                                    style="flex:1;padding:8px;background:rgba(58,58,58,0.6);border:1px solid rgba(74,158,255,0.2);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:inherit;resize:none;min-height:36px;"></textarea>
+                                                    style="flex:1;padding:8px;background:rgba(58,58,58,0.6);border:1px solid rgba(217,119,6,0.2);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:inherit;resize:none;min-height:36px;"></textarea>
                                                 <button class="btn btn-primary" @click="generateFromBeat"
                                                     x-show="!isGenerating"
                                                     :disabled="!beatInput || aiStatus !== 'ready'"
@@ -1223,11 +1245,11 @@
                                                     </template>
                                                 </select>
                                                 <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
-                                                    title="Context Panel" style="font-size:11px;padding:2px 6px;">📚</button>
+                                                    title="Context Panel" style="font-size:11px;padding:2px 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></button>
                                                 <button class="btn btn-secondary" @click="showSceneOptions = !showSceneOptions"
-                                                    title="Scene options" style="font-size:11px;padding:2px 6px;">⚙️</button>
+                                                    title="Scene options" style="font-size:11px;padding:2px 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
                                                 <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
-                                                    title="Prompt History" style="font-size:11px;padding:2px 6px;">🕐</button>
+                                                    title="Prompt History" style="font-size:11px;padding:2px 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
                                                 <button class="btn btn-secondary" @click="previewPrompt"
                                                     :disabled="!beatInput || aiStatus !== 'ready'"
                                                     title="Preview Prompt" style="font-size:11px;padding:2px 6px;">👁️</button>
@@ -1258,23 +1280,23 @@
                                                     <div style="text-align:center;">
                                                         <p style="color:var(--text-secondary);margin-bottom:16px;">No projects yet</p>
                                                         <button class="btn btn-primary" @click="showNewProjectModal = true">
-                                                            ➕ Create Your First Project
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Create Your First Project
                                                         </button>
                                                     </div>
                                                 </template>
                                                  <template x-if="projects.length > 0">
                                                       <div style="width:100%;max-width:500px;margin:0 auto;">
                                                           <div style="display:flex;gap:8px;margin-bottom:12px;">
-                                                             <button class="btn btn-primary" @click="showNewProjectModal = true" style="flex:1;">➕ New Project</button>
-                                                             <button class="btn btn-secondary" @click="showW1ImportModal = true" title="Import from Writingway 1">📥 Import</button>
+                                                              <button class="btn btn-primary" @click="showNewProjectModal = true" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New Project</button>
+                                                              <button class="btn btn-secondary" @click="showW1ImportModal = true" title="Import from Writingway 1" style="display:flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
                                                          </div>
                                                       <div class="project-list">
                                                       <template x-for="project in projects" :key="project.id">
                                                               <div class="project-picker-card" @click="openProject(project.id)"
                                                                   style="display:flex;align-items:center;gap:16px;padding:16px 20px;margin-bottom:8px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.2s;"
-                                                                  @mouseenter="$el.style.borderColor='rgba(74,158,255,0.5)';$el.style.background='rgba(74,158,255,0.08)'"
+                                                                  @mouseenter="$el.style.borderColor='rgba(74,158,255,0.5)';$el.style.background='rgba(217,119,6,0.08)'"
                                                                   @mouseleave="$el.style.borderColor='var(--border)';$el.style.background='var(--bg-secondary)'">
-                                                                  <div style="font-size:32px;flex-shrink:0;">📖</div>
+                                                                   <div style="font-size:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:40px;height:40px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></div>
                                                                   <div style="flex:1;min-width:0;text-align:left;">
                                                                       <div style="font-weight:600;font-size:16px;color:var(--text-primary);" x-text="project.name"></div>
                                                                       <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;" x-text="'Last modified: ' + new Date(project.modified).toLocaleDateString()"></div>
@@ -1290,12 +1312,12 @@
                                                                             showRenameProjectModal = true" title="Edit project"
                                                                            style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-secondary);padding:4px 6px;border-radius:6px;flex-shrink:0;"
                                                                            @mouseenter="$el.style.color='var(--accent)'"
-                                                                           @mouseleave="$el.style.color='var(--text-secondary)'">✏️</button>
-                                                                   <button @click.stop="deleteProject(project.id)" title="Delete project"
-                                                                           style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-secondary);padding:4px 8px;border-radius:6px;flex-shrink:0;"
-                                                                           @mouseenter="$el.style.color='var(--danger,#ef4444)'"
-                                                                           @mouseleave="$el.style.color='var(--text-secondary)'">🗑️</button>
-                                                                   <div style="font-size:18px;color:var(--text-secondary);">→</div>
+                                                                            @mouseleave="$el.style.color='var(--text-secondary)'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                                                                    <button @click.stop="deleteProject(project.id)" title="Delete project"
+                                                                            style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-secondary);padding:4px 8px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;"
+                                                                            @mouseenter="$el.style.color='var(--danger,#ef4444)'"
+                                                                            @mouseleave="$el.style.color='var(--text-secondary)'"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                                                                    <div style="font-size:18px;color:var(--text-secondary);display:flex;align-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
                                                               </div>
                                                            </template>
                                                       </div>
@@ -1448,7 +1470,7 @@
                                         @click="useWorkshopContextPanel = true; showContextPanel = true"
                                         :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
                                         title="Open Context Panel (used in this chat)">
-                                        📚
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg>
                                     </button>
                                     <button class="btn btn-secondary btn-sm"
                                         x-show="useWorkshopContextPanel"
@@ -1717,7 +1739,7 @@
                     <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
                         <label
                             style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
-                            :style="exportFormat === 'zip' ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);' : ''"
+                            :style="exportFormat === 'zip' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
                             @click="exportFormat = 'zip'">
                             <input type="radio" name="exportFormat" value="zip" x-model="exportFormat"
                                 style="margin-top:2px;">
@@ -1730,12 +1752,12 @@
 
                         <label
                             style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
-                            :style="exportFormat === 'epub' ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);' : ''"
+                            :style="exportFormat === 'epub' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
                             @click="exportFormat = 'epub'">
                             <input type="radio" name="exportFormat" value="epub" x-model="exportFormat"
                                 style="margin-top:2px;">
                             <div style="flex:1;">
-                                <div style="font-weight:600;margin-bottom:4px;">📚 EPUB</div>
+                                <div style="font-weight:600;margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> EPUB</div>
                                 <div style="font-size:13px;color:var(--text-secondary);">E-book format compatible with
                                     most e-readers and reading apps.</div>
                             </div>
@@ -1743,7 +1765,7 @@
 
                         <label
                             style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
-                            :style="exportFormat === 'html' ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);' : ''"
+                            :style="exportFormat === 'html' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
                             @click="exportFormat = 'html'">
                             <input type="radio" name="exportFormat" value="html" x-model="exportFormat"
                                 style="margin-top:2px;">
@@ -1756,7 +1778,7 @@
 
                         <label
                             style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
-                            :style="exportFormat === 'txt' ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);' : ''"
+                            :style="exportFormat === 'txt' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
                             @click="exportFormat = 'txt'">
                             <input type="radio" name="exportFormat" value="txt" x-model="exportFormat"
                                 style="margin-top:2px;">
@@ -1918,7 +1940,7 @@
 
         <!-- AI Settings Panel -->
         <div class="slide-panel-right ai-settings-panel" :class="{ 'open': showAISettings }" x-cloak
-            style="width:600px;border-left:1px solid rgba(74,158,255,0.08);">
+            style="width:600px;border-left:1px solid rgba(217,119,6,0.08);">
             <div class="slide-panel-header">
                 <h3 style="margin:0;">AI Configuration</h3>
                 <button class="btn btn-secondary" @click="showAISettings = false">Close</button>
@@ -1932,7 +1954,7 @@
                         <button class="btn" :class="aiMode === 'api' ? 'btn-primary' : 'btn-secondary'"
                             @click="aiMode = 'api'; if (aiProvider === 'openrouter' && !aiModel) aiModel = 'google/gemini-2.5-flash';"
                             :style="hasLocalAIAvailable() ? 'flex:1;display:flex;flex-direction:column;align-items:center;padding:12px;' : 'width:100%;display:flex;flex-direction:column;align-items:center;padding:12px;'">
-                            <div style="font-size:20px;margin-bottom:4px;">☁️</div>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:4px;"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                             <div style="font-weight:600;text-align:center;">API / Local API</div>
                             <div style="font-size:10px;opacity:0.7;text-align:center;">(LM Studio, Ollama, etc.)</div>
                         </button>
@@ -1956,7 +1978,7 @@
                     </div>
 
                     <!-- Helper text for API mode -->
-                    <div x-show="aiMode === 'api'" style="margin-top:12px;padding:10px;background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.2);border-radius:6px;">
+                    <div x-show="aiMode === 'api'" style="margin-top:12px;padding:10px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.2);border-radius:6px;">
                         <p style="font-size:11px;color:var(--text-secondary);margin:0;line-height:1.5;">
                             Use this when connecting to LM Studio, Ollama, Groq, or any OpenAI-compatible server endpoint.<br>
                             Works for both remote and local APIs via HTTP.
@@ -2018,7 +2040,7 @@
                     </div>
 
                     <!-- LM Studio info box -->
-                    <div x-show="aiProvider === 'lmstudio'" style="margin-bottom:16px;background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.3);border-radius:8px;padding:12px;">
+                    <div x-show="aiProvider === 'lmstudio'" style="margin-bottom:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:12px;">
                         <p style="margin:0;font-size:13px;color:var(--text-primary);">
                             <strong>🖥️ LM Studio Setup</strong>
                         </p>
@@ -2038,8 +2060,8 @@
                                 x-show="aiProvider !== 'nanogpt' && aiProvider !== 'custom'"
                                 :disabled="(aiProvider !== 'lmstudio' && !aiApiKey) || fetchingModels" style="font-size:11px;padding:4px 8px;"
                                 title="Refresh available models from provider">
-                                <span x-show="!fetchingModels">🔄 Refresh</span>
-                                <span x-show="fetchingModels">⏳ Loading...</span>
+                                <span x-show="!fetchingModels" style="display:flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> Refresh</span>
+                                <span x-show="fetchingModels" style="display:flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Loading...</span>
                             </button>
                         </div>
                         <!-- Model dropdown for providers with auto-discovery -->
@@ -2116,7 +2138,7 @@
                     </div>
 
                     <!-- NanoGPT info box and endpoint -->
-                    <div x-show="aiProvider === 'nanogpt'" style="margin-bottom:16px;background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.3);border-radius:8px;padding:12px;">
+                    <div x-show="aiProvider === 'nanogpt'" style="margin-bottom:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:12px;">
                         <p style="margin:0;font-size:13px;color:var(--text-primary);">
                             <strong>🌐 NanoGPT Setup</strong>
                         </p>
@@ -2145,15 +2167,15 @@
                     <h4 style="margin:0 0 12px 0;">Local GGUF Model Settings</h4>
 
                     <div
-                        style="background:rgba(74,158,255,0.05);border:1px solid rgba(74,158,255,0.2);border-radius:6px;padding:12px;margin-bottom:16px;">
+                        style="background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.2);border-radius:6px;padding:12px;margin-bottom:16px;">
                         <p style="font-size:12px;color:var(--text-secondary);margin:0;">📁 Place your GGUF model
                             files in the <code
                                 style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">/models</code>
                             folder, then click "Scan for Models" below.</p>
                     </div>
 
-                    <button class="btn btn-secondary" @click="scanLocalModels()" style="margin-bottom:16px;">🔍 Scan for
-                        Models</button>
+                    <button class="btn btn-secondary" @click="scanLocalModels()" style="margin-bottom:16px;display:flex;align-items:center;gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Scan for Models</button>
 
                     <div style="margin-bottom:16px;">
                         <label
@@ -2191,7 +2213,7 @@
 
                 <!-- Save Button -->
                 <div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);">
-                    <button class="btn btn-primary" @click="saveAISettings()">💾 Save & Test Connection</button>
+                    <button class="btn btn-primary" @click="saveAISettings()" style="display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg> Save & Test Connection</button>
                     <button class="btn btn-secondary" @click="showAISettings = false">Cancel</button>
                 </div>
 
@@ -2236,7 +2258,7 @@
         <!-- Backup Settings Panel -->
         <div class="slide-panel-right" :class="{ 'open': showBackupSettings }" x-cloak>
             <div class="slide-panel-header">
-                <h3 style="margin:0;">☁️ Backups</h3>
+                <h3 style="margin:0;display:flex;align-items:center;gap:8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg> Backups</h3>
                 <button class="btn btn-secondary" @click="closeBackupSettings()">Close</button>
             </div>
             <div class="slide-panel-body" style="padding:20px;">
@@ -2255,11 +2277,11 @@
                 </div>
 
                 <div x-show="backupProvider === 'github'"
-                    style="background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.3);border-radius:8px;padding:16px;margin-bottom:24px;">
+                    style="background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:16px;margin-bottom:24px;">
                     <h4 style="margin:0 0 12px 0;color:var(--text-primary);">GitHub Gist Setup</h4>
                     <ol style="margin:0;padding-left:20px;line-height:1.8;font-size:14px;">
                         <li>Go to <a href="https://github.com/settings/tokens" target="_blank"
-                                style="color:#4a9eff;">GitHub Settings → Developer settings → Personal access tokens</a></li>
+                                style="color:var(--color-accent);">GitHub Settings → Developer settings → Personal access tokens</a></li>
                         <li>Click "Generate new token (classic)"</li>
                         <li>Give it a name such as "Writingway Backup"</li>
                         <li>Select the <strong>gist</strong> permission only</li>
@@ -2312,7 +2334,7 @@
                 </div>
 
                 <div x-show="backupStatus"
-                    style="padding:12px;background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.3);border-radius:6px;margin-bottom:20px;">
+                    style="padding:12px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:6px;margin-bottom:20px;">
                     <p style="margin:0;font-size:14px;" x-text="backupStatus"></p>
                     <p x-show="lastBackupTime" style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);">
                         Last backup: <span
@@ -2337,7 +2359,7 @@
                 </div>
 
                 <div x-show="backupProvider === 'local'"
-                    style="margin-top:20px;padding:16px;background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.3);border-radius:8px;">
+                    style="margin-top:20px;padding:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;">
                     <p style="margin:0;font-size:13px;line-height:1.6;">
                         <strong>Note:</strong> Local backups are stored as timestamped JSON snapshots under
                         <code>project-backups/</code>. They stay on this machine unless you sync that folder yourself.
@@ -2549,14 +2571,14 @@
             x-cloak :aria-hidden="!showCodexPanel">
             <div class="slide-panel-header">
                 <h3 style="margin:0;">Compendium</h3>
-                <div style="display:flex;align-items:center;gap:12px;">
-                    <span x-show="compendiumDirty" x-cloak style="font-size:12px;color:var(--warning);">Unsaved changes</span>
-                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openCharacterCreator()" title="Create a new character with AI assistance">🎭 Create</button>
-                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="importCharacterCard()" title="Import a SillyTavern character card (JSON or PNG)">📥 Import</button>
-                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openPasteImport()" title="Paste wiki article or text to extract a character">📋 Paste Import</button>
-                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects">📦 Vault</button>
-                            <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="openLorebookPanel()" title="View imported lorebooks">📚 Lorebooks</button>
-                    <button class="btn btn-secondary" @click="closeCompendium()">Close</button>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+                    <span x-show="compendiumDirty" x-cloak style="font-size:12px;color:var(--warning);flex-shrink:0;">Unsaved changes</span>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openCharacterCreator()" title="Create a new character with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Create</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="importCharacterCard()" title="Import a SillyTavern character card (JSON or PNG)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openPasteImport()" title="Paste wiki article or text to extract a character"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Paste Import</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Vault</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openLorebookPanel()" title="View imported lorebooks"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Lorebooks</button>
+                    <button class="btn btn-secondary" @click="closeCompendium()" style="flex-shrink:0;padding:4px 8px;display:flex;align-items:center;" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 </div>
             </div>
             <div class="slide-panel-body">
@@ -2707,7 +2729,7 @@
 
                                     <!-- Always in Context checkbox -->
                                     <div
-                                        style="margin-top:12px;padding:12px;background:rgba(74,158,255,0.05);border:1px solid rgba(74,158,255,0.2);border-radius:6px;">
+                                        style="margin-top:12px;padding:12px;background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.2);border-radius:6px;">
                                         <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                                             <input type="checkbox" x-model="currentCompEntry.alwaysInContext"
                                                 @change="updateCompendiumDirtyFlag()"
@@ -2765,14 +2787,14 @@
                             <button class="btn btn-secondary" @click="editCharacterInCreator(currentCompEntry)"
                                 x-show="currentCompEntry && currentCompEntry._charData"
                                 title="Re-open this character in the creator to edit traits"
-                                style="font-size:12px;padding:4px 10px;">🎭 Edit in Creator</button>
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Edit in Creator</button>
                             <button class="btn btn-secondary" @click="generateCompendiumEntry"
                                 x-show="currentCompEntry && !compendiumGenerating && !showCompGenActions"
                                 :disabled="!currentCompEntry || aiStatus !== 'ready'"
-                                style="font-size:12px;padding:4px 10px;" title="Generate entry content with AI">✨ Generate</button>
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;" title="Generate entry content with AI"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
                             <template x-if="compendiumGenerating">
                                 <button class="btn btn-danger" @click="stopCompendiumGeneration"
-                                    style="font-size:12px;padding:4px 10px;">⏹ Stop</button>
+                                    style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="10" height="10" x="7" y="7" rx="2"/></svg> Stop</button>
                             </template>
                             <template x-if="showCompGenActions">
                                 <div style="display:inline-flex;gap:4px;">
@@ -2800,7 +2822,7 @@
         <!-- Lorebook Slide Panel -->
         <div id="lorebook-panel" class="slide-panel-right lorebook-panel" :class="{ 'open': showLorebookPanel }" x-cloak :aria-hidden="!showLorebookPanel">
             <div class="slide-panel-header">
-                <h3 style="margin:0;">📚 Lorebook Imports</h3>
+                <h3 style="margin:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Lorebook Imports</h3>
                 <div style="display:flex;align-items:center;gap:12px;">
                     <span x-show="lorebookDirty" x-cloak style="font-size:12px;color:var(--warning);">Unsaved changes</span>
                     <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="importLorebook()" title="Import a SillyTavern lorebook JSON">📥 Import</button>
@@ -2873,7 +2895,7 @@
                                         <input class="tag-input" x-model="newLorebookTag" placeholder="Add tag and press Enter" @keydown.enter.prevent="addLorebookTag()">
                                     </div>
                                 </div>
-                                <div style="flex:0 0 auto;margin-top:8px;padding:8px;background:rgba(74,158,255,0.05);border:1px solid rgba(74,158,255,0.2);border-radius:6px;">
+                                <div style="flex:0 0 auto;margin-top:8px;padding:8px;background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.2);border-radius:6px;">
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
                                         <input type="checkbox" x-model="currentLorebookEntry.alwaysInContext"
                                             @change="updateLorebookDirtyFlag()"
@@ -3028,7 +3050,7 @@
                         </button>
                         <button class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;"
                             @click="openSceneSummary(sceneActionsTarget.id); showSceneActionsModal = false">
-                            📝 Summary
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Summary
                         </button>
                     </div>
 
@@ -3102,7 +3124,7 @@
                     <!-- Summary Button (full width) -->
                     <button class="btn btn-secondary" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:16px;"
                         @click="openChapterSummary(chapterActionsTarget.id); showChapterActionsModal = false">
-                        📝 Summary
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Summary
                     </button>
 
                     <!-- Delete Button (separate, styled as danger) -->
@@ -3191,7 +3213,7 @@
                     </div>
                     <div class="modal-body">
                         <div
-                            style="background:linear-gradient(135deg,rgba(74,158,255,0.1),rgba(74,158,255,0.05));border:1px solid rgba(74,158,255,0.3);border-radius:8px;padding:16px;margin-bottom:16px;">
+                            style="background:linear-gradient(135deg,rgba(217,119,6,0.1),rgba(217,119,6,0.06));border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:16px;margin-bottom:16px;">
                             <div style="font-size:18px;font-weight:600;margin-bottom:8px;color:var(--accent);">
                                 New update available!
                             </div>
@@ -3278,8 +3300,8 @@
 
                         <!-- Downloading indicator -->
                         <template x-if="updateAvailable.downloading">
-                            <button class="btn btn-primary" disabled style="opacity:0.7;">
-                                ⏳ Downloading...
+                            <button class="btn btn-primary" disabled style="opacity:0.7;display:flex;align-items:center;gap:6px;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Downloading...
                             </button>
                         </template>
 
@@ -3427,8 +3449,8 @@
 
                         <!-- Quick link to full AI Settings -->
                         <button class="btn btn-secondary" @click="showSceneOptions = false; showAISettings = true"
-                            style="width:100%;font-size:11px;">
-                            ⚙️ Advanced AI Settings
+                            style="width:100%;font-size:11px;display:flex;align-items:center;gap:6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Advanced AI Settings
                         </button>
                     </div>
                 </div>
@@ -3442,7 +3464,7 @@
                     x-init="allCompendiumEntries = await getAllCompendiumEntries();"
                     style="max-width:1100px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
                     <div class="modal-header">
-                        <h3 style="margin:0;">📚 Context Panel</h3>
+                        <h3 style="margin:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Context Panel</h3>
                         <button class="btn btn-secondary" @click="showContextPanel = false">Close</button>
                     </div>
                     <div class="modal-body" style="overflow-y:auto;flex:1;">
@@ -3461,7 +3483,7 @@
                                     style="background:var(--bg-secondary);padding:16px;border-radius:8px;border:1px solid var(--border);">
                                     <div
                                         style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-                                        <span>📚</span>
+                                        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></span>
                                         <span>Compendium Entries</span>
                                     </div>
                                     <div style="max-height:500px;overflow-y:auto;">
@@ -3536,7 +3558,7 @@
                                                             :style="contextPanel.chapters[chapter.id] === 'summary' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
                                                             class="context-chapter-btn"
                                                             title="Include summaries of all scenes (click again to deselect)">
-                                                            📝 Summary
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Summary
                                                         </button>
                                                     </div>
                                                 </div>
@@ -3565,7 +3587,7 @@
                                                                     :style="contextPanel.scenes[scene.id] === 'summary' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
                                                                     class="context-scene-btn" title="Include summary"
                                                                     :disabled="!scene.summary">
-                                                                    📝 Summary
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Summary
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -3609,7 +3631,7 @@
                                     style="background:var(--bg-secondary);padding:16px;border-radius:8px;border:1px solid var(--border);">
                                     <div
                                         style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
-                                        <span>📚</span>
+                                        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></span>
                                         <span>Compendium Tags</span>
                                     </div>
                                     <template x-if="compTagsModal.length === 0">
@@ -3678,9 +3700,9 @@
                     <div @click="currentWorkshopSessionIndex = workshopSessions.indexOf(session); workshopSessionSearchQuery = ''; workshopSessionDropdownOpen = false"
                         :class="{ 'active': workshopSessions.indexOf(session) === currentWorkshopSessionIndex }"
                         style="padding:8px 12px;cursor:pointer;font-size:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;"
-                        :style="workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'background:rgba(74,158,255,0.15);' : ''"
-                        @mouseenter="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(74,158,255,0.2)' : 'rgba(255,255,255,0.05)'"
-                        @mouseleave="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(74,158,255,0.15)' : 'transparent'">
+                        :style="workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'background:rgba(217,119,6,0.15);' : ''"
+                        @mouseenter="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(217,119,6,0.2)' : 'rgba(255,255,255,0.05)'"
+                        @mouseleave="$el.style.background = workshopSessions.indexOf(session) === currentWorkshopSessionIndex ? 'rgba(217,119,6,0.15)' : 'transparent'">
                         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="session.name"></span>
                         <span style="font-size:10px;color:var(--text-secondary);" x-text="session.messages ? session.messages.length + ' msgs' : '0 msgs'"></span>
                     </div>
@@ -3753,7 +3775,7 @@
                 <button class="btn btn-secondary" @click="useWorkshopContextPanel = true; showContextPanel = true"
                     :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
                     title="Open Context Panel (used in this chat)">
-                    📚
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg>
                 </button>
                 <button class="btn btn-secondary"
                     x-show="useWorkshopContextPanel"
@@ -3925,8 +3947,8 @@
                     </div>
                     <button class="btn btn-secondary" @click="closeCharacterCreator()">Close</button>
                 </div>
-                <div x-show="charCreatorDraftAlert" x-cloak style="padding:10px 20px;background:rgba(74,158,255,0.12);border-bottom:1px solid rgba(74,158,255,0.3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
-                    <span style="font-size:14px;">📝 Unsaved character draft found from <span x-text="charCreatorDraftAlert?.savedAt ? new Date(charCreatorDraftAlert.savedAt).toLocaleString() : ''"></span></span>
+                <div x-show="charCreatorDraftAlert" x-cloak style="padding:10px 20px;background:rgba(217,119,6,0.12);border-bottom:1px solid rgba(217,119,6,0.3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span style="font-size:14px;">Unsaved character draft found from <span x-text="charCreatorDraftAlert?.savedAt ? new Date(charCreatorDraftAlert.savedAt).toLocaleString() : ''"></span></span>
                     <button class="btn btn-primary" style="font-size:12px;padding:4px 14px;" @click="restoreCharCreatorDraft(charCreatorDraftAlert)">Restore</button>
                     <button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;" @click="discardCharCreatorDraft()">Discard</button>
                 </div>
@@ -3991,7 +4013,7 @@
                                     style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none;">
                                     <span style="font-weight:700;font-size:14px;color:var(--text-primary);" x-text="cat.label"></span>
                                     <span style="display:flex;align-items:center;gap:8px;">
-                                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;background:rgba(74,158,255,0.1);padding:2px 10px;border-radius:999px;"
+                                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;background:rgba(217,119,6,0.1);padding:2px 10px;border-radius:999px;"
                                             x-text="'(' + ((charCreatorSelectedTraits[cat.id] || []).length) + ')'"></span>
                                         <span style="font-size:10px;color:var(--text-secondary);" x-text="openCharCreatorCategories.includes(cat.id) ? '▾' : '▸'"></span>
                                     </span>
@@ -4009,7 +4031,7 @@
                                                         :style="(charCreatorSelectedTraits[cat.id] || []).includes(trait.id)
                                                             ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;'
                                                             : trait.id.startsWith('custom_')
-                                                                ? 'background:var(--bg-primary);color:var(--text-primary);border-color:rgba(74,158,255,0.35);border-style:dashed;opacity:0.85;'
+                                                                ? 'background:var(--bg-primary);color:var(--text-primary);border-color:rgba(217,119,6,0.3);border-style:dashed;opacity:0.85;'
                                                                 : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);opacity:0.85;'">
                                                         <span x-show="(charCreatorSelectedTraits[cat.id] || []).includes(trait.id)">✓</span>
                                                         <span x-text="trait.label"></span>
@@ -4046,7 +4068,7 @@
                         </template>
 
                         <div x-show="Object.keys(charCreatorSelectedTraits).some(k => charCreatorSelectedTraits[k].length > 0)"
-                            style="padding:12px 16px;background:rgba(74,158,255,0.08);border:1px solid rgba(74,158,255,0.2);border-radius:8px;">
+                            style="padding:12px 16px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.2);border-radius:8px;">
                             <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Selected Traits</div>
                             <div style="display:flex;flex-wrap:wrap;gap:4px;">
                                 <template x-for="(ids, catId) in charCreatorSelectedTraits" :key="catId">
@@ -4067,7 +4089,7 @@
                             </div>
                             <template x-for="(msg, idx) in charCreatorChatHistory" :key="idx">
                                 <div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;max-width:85%;"
-                                    :style="msg.role === 'user' ? 'background:rgba(74,158,255,0.12);margin-left:auto;border:1px solid rgba(74,158,255,0.25);' : 'background:var(--bg-primary);border:1px solid var(--border);'">
+                                    :style="msg.role === 'user' ? 'background:rgba(217,119,6,0.12);margin-left:auto;border:1px solid rgba(217,119,6,0.25);' : 'background:var(--bg-primary);border:1px solid var(--border);'">
                                     <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
                                         <span x-text="msg.role === 'user' ? 'You' : 'Assistant'"></span>
                                         <button x-show="msg.role === 'assistant' && msg.content && charCreatorEditingIdx !== idx"
@@ -4108,7 +4130,7 @@
                             </template>
                             <button class="btn btn-secondary" style="font-size:13px;padding:4px 8px;margin-left:auto;flex-shrink:0;"
                                 @click="openInstructionEditor()" title="Edit instruction templates">
-                                ⚙️
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                             </button>
                         </div>
                         <div style="padding:10px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;">
@@ -4135,7 +4157,7 @@
                                 <button class="btn btn-primary" style="font-size:13px;padding:8px 20px;"
                                     @click="adoptCharCreatorEntry()"
                                     :disabled="!charCreatorName">
-                                    📚 Adopt into Compendium
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt into Compendium
                                 </button>
                             </div>
                         </div>
@@ -4162,7 +4184,7 @@
                     <button class="btn btn-secondary" @click="showCharCreatorPreview = false">← Back to Editor</button>
                     <button class="btn btn-primary"
                         @click="showCharCreatorPreview = false; adoptCharCreatorEntry()"
-                        :disabled="!charCreatorName">📚 Adopt into Compendium</button>
+                        :disabled="!charCreatorName"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt into Compendium</button>
                 </div>
             </div>
         </div>
@@ -4173,7 +4195,7 @@
             <div style="width:min(800px,96%);height:min(700px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
                     <div style="display:flex;align-items:center;gap:10px;">
-                        <span style="font-size:20px;">⚙️</span>
+                        <span style="display:flex;align-items:center;gap:8px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                         <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Manage Instructions</h3>
                     </div>
                     <button class="btn btn-secondary" @click="closeInstructionEditor()">Done</button>
@@ -4202,7 +4224,7 @@
                                                 <template x-for="cat in window.CharacterCreator.TRAIT_CATEGORIES" :key="cat.id">
                                                     <span @click="toggleTemplateCategory(idx, cat.id)"
                                                         style="font-size:11px;display:inline-flex;align-items:center;gap:3px;cursor:pointer;padding:3px 8px;border-radius:4px;background:var(--bg-secondary);border:1px solid var(--border);user-select:none;"
-                                                        :style="charCreatorInstructionTemplates[idx].relevantCategories.includes(cat.id) ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);' : ''">
+                                                        :style="charCreatorInstructionTemplates[idx].relevantCategories.includes(cat.id) ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''">
                                                         <span x-text="charCreatorInstructionTemplates[idx].relevantCategories.includes(cat.id) ? '☑' : '☐'" style="font-size:12px;"></span>
                                                         <span x-text="cat.label"></span>
                                                     </span>
@@ -4267,7 +4289,7 @@
                                                 <template x-for="trait in group.traits" :key="trait.traitId">
                                                     <span @click="toggleCharCreatorTraitPickerTrait(trait.traitId)"
                                                         style="font-size:12px;display:inline-flex;align-items:center;gap:4px;cursor:pointer;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--bg-primary);user-select:none;"
-                                                        :style="charCreatorTraitPickerSelections[trait.traitId] ? 'border-color:var(--accent);background:rgba(74,158,255,0.1);font-weight:600;' : 'opacity:0.7;'">
+                                                        :style="charCreatorTraitPickerSelections[trait.traitId] ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);font-weight:600;' : 'opacity:0.7;'">
                                                         <span x-text="charCreatorTraitPickerSelections[trait.traitId] ? '☑' : '☐'" style="font-size:12px;"></span>
                                                         <span x-text="trait.traitLabel"></span>
                                                     </span>
@@ -4392,12 +4414,12 @@
                 <div style="display:flex;gap:10px;align-items:center;justify-content:flex-end;padding:12px 24px;border-top:1px solid var(--border);flex-shrink:0;">
                     <button class="btn btn-primary" @click="runPasteImport()"
                         :disabled="pasteImportLoading || !pasteImportText.trim()">
-                        <span x-show="!pasteImportLoading">🔍 Extract</span>
+                        <span x-show="!pasteImportLoading"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Extract</span>
                         <span x-show="pasteImportLoading">...</span>
                     </button>
                     <button class="btn btn-primary" @click="adoptPasteImport()"
                         :disabled="!pasteImportResult">
-                        📚 Adopt
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt
                     </button>
                 </div>
             </div>
@@ -4409,7 +4431,7 @@
         <div class="modal-overlay" @click.self="closeLorebookImport()" style="z-index:9800;">
             <div style="width:min(500px,90%);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);">
-                    <h3 style="margin:0;font-size:18px;">📚 Import Lorebook</h3>
+                    <h3 style="margin:0;font-size:18px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Import Lorebook</h3>
                     <button class="btn btn-secondary" @click="closeLorebookImport()">Cancel</button>
                 </div>
                 <div style="padding:24px;">
@@ -4510,9 +4532,9 @@
                                 <template x-for="entry in window.ChatMode.getFilteredImportedEntries($data)" :key="entry.id">
                                     <div @click="window.ChatMode.selectCharacter($data, entry)"
                                         style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:all 0.2s;border:1px solid transparent;margin-bottom:4px;"
-                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
-                                        @mouseenter="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.15)' : 'var(--bg-tertiary)'"
-                                        @mouseleave="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.1)' : 'var(--bg-primary)'">
+                                        :style="chatCharacterId === entry.id ? 'background:rgba(217,119,6,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                        @mouseenter="$el.style.background= chatCharacterId === entry.id ? 'rgba(217,119,6,0.15)' : 'var(--bg-tertiary)'"
+                                        @mouseleave="$el.style.background= chatCharacterId === entry.id ? 'rgba(217,119,6,0.1)' : 'var(--bg-primary)'">
                                         <div style="width:64px;height:64px;border-radius:8px;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:600;color:var(--accent);"
                                             :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
                                             <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
@@ -4547,9 +4569,9 @@
                                 <template x-for="entry in window.ChatMode.getFilteredCompendiumEntries($data)" :key="entry.id">
                                     <div @click="window.ChatMode.selectCharacter($data, entry)"
                                         style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;transition:all 0.2s;border:1px solid transparent;margin-bottom:4px;"
-                                        :style="chatCharacterId === entry.id ? 'background:rgba(74,158,255,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
-                                        @mouseenter="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.15)' : 'var(--bg-tertiary)'"
-                                        @mouseleave="$el.style.background= chatCharacterId === entry.id ? 'rgba(74,158,255,0.1)' : 'var(--bg-primary)'">
+                                        :style="chatCharacterId === entry.id ? 'background:rgba(217,119,6,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                        @mouseenter="$el.style.background= chatCharacterId === entry.id ? 'rgba(217,119,6,0.15)' : 'var(--bg-tertiary)'"
+                                        @mouseleave="$el.style.background= chatCharacterId === entry.id ? 'rgba(217,119,6,0.1)' : 'var(--bg-primary)'">
                                         <div style="width:48px;height:48px;border-radius:50%;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:600;color:var(--accent);"
                                             :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
                                             <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
