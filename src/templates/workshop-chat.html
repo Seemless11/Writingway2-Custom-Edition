@@ -228,10 +228,10 @@
                 </div>
 
                 <button class="btn btn-primary" @click="window.workshopChat.sendMessage($data, workshopInput)"
-                    :disabled="!workshopInput.trim() || workshopIsGenerating"
+                    :disabled="false"
                     style="align-self:flex-end;margin-top:8px;">
                     <span x-show="!workshopIsGenerating">Send</span>
-                    <span x-show="workshopIsGenerating">Sending...</span>
+                    <span x-show="workshopIsGenerating">Stop</span>
                 </button>
             </div>
             <div style="font-size:12px;color:var(--text-secondary);margin-top:6px;">

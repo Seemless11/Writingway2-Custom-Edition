@@ -21,15 +21,7 @@ window.ChatMode = {
                 .where('category')
                 .equals('characters')
                 .toArray();
-            const projectMap = {};
-            try {
-                const allProjects = await db.projects.toArray();
-                for (const p of allProjects) projectMap[p.id] = p.name;
-            } catch (e) { }
-            const enrich = e => ({
-                ...e,
-                projectName: projectMap[e.projectId] || (e.projectId === CHAT_GLOBAL_PROJECT_ID ? 'No Project' : 'Unknown')
-            });
+            const enrich = e => ({ ...e });
             const imported = [];
             const compendium = [];
             for (const e of allEntries) {
@@ -91,8 +83,7 @@ window.ChatMode = {
         const q = (app.characterRosterSearch || '').toLowerCase();
         if (!q) return app.characterRosterEntries;
         return app.characterRosterEntries.filter(e =>
-            (e.title || '').toLowerCase().includes(q) ||
-            (e.projectName || '').toLowerCase().includes(q)
+            (e.title || '').toLowerCase().includes(q)
         );
     },
 
@@ -100,8 +91,7 @@ window.ChatMode = {
         const q = (app.characterRosterSearch || '').toLowerCase();
         if (!q) return app.characterRosterImported;
         return app.characterRosterImported.filter(e =>
-            (e.title || '').toLowerCase().includes(q) ||
-            (e.projectName || '').toLowerCase().includes(q)
+            (e.title || '').toLowerCase().includes(q)
         );
     },
 
@@ -109,8 +99,7 @@ window.ChatMode = {
         const q = (app.characterRosterSearch || '').toLowerCase();
         if (!q) return app.characterRosterCompendium;
         return app.characterRosterCompendium.filter(e =>
-            (e.title || '').toLowerCase().includes(q) ||
-            (e.projectName || '').toLowerCase().includes(q)
+            (e.title || '').toLowerCase().includes(q)
         );
     },
 
@@ -174,6 +163,15 @@ window.ChatMode = {
         app.chatCharacterMessages = [];
         await this.loadCharacterCard(app, entry);
         await this.createCharacterSession(app);
+        if (app.chatCharacter.firstMessage) {
+            app.chatCharacterMessages.push({
+                role: 'assistant',
+                content: app.chatCharacter.firstMessage,
+                timestamp: new Date().toISOString(),
+                name: app.chatCharacter.name
+            });
+            await this.saveCharacterSession(app);
+        }
         app.writingMode = 'chat';
         try { localStorage.setItem('ww2_writingMode', 'chat'); } catch (e) {}
         await this.loadChatSessions(app);
@@ -182,7 +180,7 @@ window.ChatMode = {
     async loadCharacterCard(app, entry) {
         app.chatCharacter = {
             id: entry.id,
-            name: entry.title || 'Unknown',
+            name: entry.title || entry.name || 'Unknown',
             description: this.parseCardField(entry.body, 'Description'),
             personality: this.parseCardField(entry.body, 'Personality'),
             scenario: this.parseCardField(entry.body, 'Scenario'),
@@ -276,8 +274,10 @@ window.ChatMode = {
         }
         app.chatCharacterSessionId = null;
         app.chatCharacterMessages = [];
-        app.chatCharacterId = null;
-        app.chatCharacter = null;
+        await this.loadChatSessions(app);
+        if (app.chatSessions.length > 0) {
+            await this.switchChatSession(app, app.chatSessions[0]);
+        }
     },
 
     async loadChatSessions(app) {
@@ -431,6 +431,7 @@ window.ChatMode = {
 
     async _generateAssistantResponse(app, assistantIndex, mode) {
         app.chatCharacterIsGenerating = true;
+        app.chatCharacterAbortController = new AbortController();
         try {
             const promptMessages = await this.buildCharacterPrompt(app, mode);
             const existingContent = mode === 'continue' ? (app.chatCharacterMessages[assistantIndex]?.content || '') : '';
@@ -439,8 +440,8 @@ window.ChatMode = {
                 fullResponse += token;
                 app.chatCharacterMessages[assistantIndex].content = existingContent + fullResponse;
                 app.chatCharacterMessages = [...app.chatCharacterMessages];
-                this.scrollMessagesToBottom(app);
-            }, app);
+                this.scrollMessagesToBottom(app, true);
+            }, app, app.chatCharacterAbortController.signal);
             await this.saveCharacterSession(app);
 
             const targetWords = app.maxTokens || 300;
@@ -450,16 +451,31 @@ window.ChatMode = {
                 await this.saveCharacterSession(app);
             }
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Character chat generation aborted by user');
+                return;
+            }
             console.error('Character chat error:', error);
             app.chatCharacterMessages[assistantIndex].content = `Error: ${error.message}`;
             app.chatCharacterMessages[assistantIndex].isError = true;
             app.chatCharacterMessages = [...app.chatCharacterMessages];
         } finally {
             app.chatCharacterIsGenerating = false;
+            app.chatCharacterAbortController = null;
+        }
+    },
+
+    stopChatGeneration(app) {
+        if (app.chatCharacterAbortController) {
+            app.chatCharacterAbortController.abort();
         }
     },
 
     async sendMessage(app, text) {
+        if (app.chatCharacterIsGenerating) {
+            this.stopChatGeneration(app);
+            return;
+        }
         if (!app.chatCharacter) return;
         if (!text || !text.trim()) {
             await this.continueGeneration(app);
@@ -645,10 +661,15 @@ window.ChatMode = {
 
     // ========== Scrolling ==========
 
-    scrollMessagesToBottom(app) {
+    scrollMessagesToBottom(app, auto = false) {
         requestAnimationFrame(() => {
             const el = app.$refs?.chatMessages;
-            if (el) {
+            if (!el) return;
+            if (auto) {
+                const threshold = 80;
+                const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+                if (atBottom) el.scrollTop = el.scrollHeight;
+            } else {
                 el.scrollTop = el.scrollHeight;
             }
         });

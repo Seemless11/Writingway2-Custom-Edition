@@ -1269,6 +1269,15 @@ document.addEventListener('alpine:init', () => {
                 await window.W1Importer.importProject(this, event.target.files);
             },
 
+            // Import project from Novelcrafter
+            async importFromNovelcrafter(event) {
+                if (!window.NovelcrafterImporter) {
+                    alert('Novelcrafter Importer module not loaded');
+                    return;
+                }
+                await window.NovelcrafterImporter.importProject(this, event.target.files);
+            },
+
             // Load persisted prose prompt selection for the current project (localStorage key per project)
             async loadSelectedProsePrompt() {
                 await window.ProjectManager.loadSelectedProsePrompt(this);

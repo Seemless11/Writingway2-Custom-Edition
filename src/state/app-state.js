@@ -62,10 +62,13 @@ function createAppState() {
         showW1ImportModal: false,
         w1ImportInProgress: false,
 
+        // ========== Novelcrafter Import ==========
+        showNovelcrafterImportModal: false,
+        novelcrafterImportInProgress: false,
+
         // ========== Writing Mode ==========
         writingMode: 'editor', // 'editor' | 'chat'
         chatResponseMode: 'character', // 'character' | 'narrative'
-        chatSettingsOpen: false, // Generation settings collapsible in sidebar
 
         // ========== Character Chat State ==========
         chatRoleplayFormatting: true,
@@ -73,7 +76,6 @@ function createAppState() {
         chatCharacter: null, // Cached character card data
         chatSessions: [], // Sessions for current character
         sessionDropdownOpen: false,
-        rightPanelOpen: true,
         rightPanelMode: 'info', // 'info' | 'edit'
         chatSessionsOpen: true,
         showCharacterRoster: false,
@@ -84,6 +86,7 @@ function createAppState() {
         characterRosterLoading: false,
         chatCharacterInput: '',
         chatCharacterIsGenerating: false,
+        chatCharacterAbortController: null,
         chatCharacterMessages: [],
         chatCharacterSessionId: null,
         showCharacterInfo: false,
@@ -114,6 +117,7 @@ function createAppState() {
         currentWorkshopSessionIndex: 0,
         workshopInput: '',
         workshopIsGenerating: false,
+        workshopAbortController: null,
         selectedWorkshopPromptId: null,
         workshopFidelityMode: 'balanced',
         showWorkshopContext: false,

@@ -233,6 +233,13 @@ window.workshopChat = {
      * @param {string} message - The message to send
      */
     async sendMessage(app, message) {
+        if (app.workshopIsGenerating) {
+            if (app.workshopAbortController) {
+                app.workshopAbortController.abort();
+            }
+            return;
+        }
+
         if (!message || !message.trim()) return;
 
         const currentSession = app.workshopSessions[app.currentWorkshopSessionIndex];
@@ -256,6 +263,7 @@ window.workshopChat = {
 
         // Set loading state
         app.workshopIsGenerating = true;
+        app.workshopAbortController = new AbortController();
 
         // Add placeholder for assistant response
         const assistantMessageIndex = currentSession.messages.length;
@@ -291,14 +299,16 @@ window.workshopChat = {
                 // Force Alpine to detect the change
                 currentSession.messages = [...currentSession.messages];
 
-                // Scroll to bottom of chat (use requestAnimationFrame for better timing)
+                // Scroll to bottom of chat only if user is near the bottom
                 requestAnimationFrame(() => {
                     const chatMessages = document.querySelector('.workshop-messages');
                     if (chatMessages) {
-                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                        const threshold = 80;
+                        const atBottom = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < threshold;
+                        if (atBottom) chatMessages.scrollTop = chatMessages.scrollHeight;
                     }
                 });
-            }, app);
+            }, app, app.workshopAbortController.signal);
 
             // Notify user if response was truncated
             if (result?.finishReason === 'length' || result?.finishReason === 'MAX_TOKENS') {
@@ -343,6 +353,10 @@ window.workshopChat = {
             });
 
         } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Workshop chat generation aborted by user');
+                return;
+            }
             console.error('Workshop chat error:', error);
             console.error('Error stack:', error.stack);
             currentSession.messages[assistantMessageIndex].content = `Error: ${error.message}`;
@@ -350,6 +364,7 @@ window.workshopChat = {
             currentSession.messages = [...currentSession.messages];
         } finally {
             app.workshopIsGenerating = false;
+            app.workshopAbortController = null;
         }
     },
 
