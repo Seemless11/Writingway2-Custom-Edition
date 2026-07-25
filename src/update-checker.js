@@ -5,11 +5,11 @@
     const UpdateChecker = {
         // Build timestamp - update this when you push a new version
         // This represents when this version was created
-        buildDate: new Date('2026-05-16T15:46:00Z').getTime(), // Update before each push
+        buildDate: new Date('2026-07-25T06:21:35Z').getTime(), // Update before each push
 
         // GitHub repository info
-        repoOwner: 'aomukai',
-        repoName: 'Writingway2',
+        repoOwner: 'Seemless11',
+        repoName: 'Writingway2-Custom-Edition',
         branch: 'main',
 
         // Updater service endpoint
