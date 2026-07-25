@@ -2,44 +2,62 @@
   <img src="logo.png" width="420" alt="Writingway logo"/>
 </p>
 
-# Writingway 2
-AI-assisted creative writing, scene planning, and worldbuilding in a local-first app.
+# Writingway 2 Custom Edition
+AI-assisted creative writing with character chat, scene planning, worldbuilding, roleplay formatting, and multi-format import — all local-first.
 
-Writingway 2 is a browser-based writing tool built for drafting fiction, organizing scenes, keeping worldbuilding notes close at hand, and working with either cloud AI providers or a local GGUF model.
+Writingway 2 is a browser-based writing tool for drafting fiction, organizing scenes, roleplaying with AI characters, keeping worldbuilding notes close at hand, and working with cloud AI providers or a local GGUF model.
 
-Discord:
-https://discord.gg/HyRmNKe5QA
+This is the **Custom Edition** — a feature fork with character chat, character creator, lorebook import, Novelcrafter import, and expanded UI.
+
+Discord: https://discord.gg/HyRmNKe5QA
 
 ## What Writingway does
 
 Writingway is organized around projects, chapters, scenes, and compendium entries.
 It gives you:
 
-- A scene-first editor for drafting and revising
-- Chapter and scene organization with reordering
-- A compendium for characters, locations, lore, items, and other story notes
-- AI-assisted drafting, rewriting, brainstorming, and workshop chat
-- Writingway 1 project import
-- Local project save/export tools
-- Optional backup flows
-- Optional local GGUF inference through llama.cpp
+- **Scene-first editor** — draft and revise with inline rewrite, expand, and continue
+- **Chapter and scene organization** — reorderable, with drag-and-drop
+- **Beat panel** — outline scenes with bullet points before writing
+- **Compendium** — worldbuilding for characters, places, items, lore, and notes with `@[entry]` references
+- **POV system** — set POV character, tense, and language per scene, chapter, or project
+- **Scene summaries** — AI-generated synopses per scene
+- **Context panel** — persistent generation context with compendium entries, chapters, scenes, and tags
+- **Character Chat** — SillyTavern-style roleplay chat with character cards, session management, and persona support
+- **Character Creator** — AI-assisted character card creation with genre-adaptive templates, trait picker, and paste import
+- **Workshop Chat** — AI brainstorming with session history and context controls
+- **Lorebook panel** — browse and manage imported lorebook entries with character_book embedding
+- **Multi-format import** — Writingway 1, Novelcrafter (.md/.zip), Character Cards (JSON/PNG), Lorebook JSON
+- **Multi-format export** — EPUB, HTML, TXT, ZIP
+- **Multi-tab sync** — work on the same project across browser tabs via BroadcastChannel
+- **Local and cloud backups** — GitHub Gist auto-backup and local versioned snapshots
+- **Auto-update** — staged update detection and installation
 
 ## Highlights
 
-- Local-first writing workflow
+- **Local-first writing workflow**
   Your projects live in IndexedDB while you work, and can also be saved to disk as project files.
 
-- Flexible AI setup
-  Use OpenRouter, Anthropic, OpenAI, Google, NanoGPT, LM Studio, custom OpenAI-compatible endpoints, or a local GGUF model via llama.cpp.
+- **Character Chat mode**
+  Full roleplay chat with imported character cards. Session management, multi-session sidebar, right-panel character info, persona switching, lorebook context, RP formatting tools, and per-chat temperature/output controls.
 
-- Built-in local GGUF setup flow
+- **AI-assisted Character Creator**
+  Genre-adaptive character templates (Fantasy, Sci-Fi, Romance, Horror, etc.) with per-category trait pickers, AI-generated fields, paste import from wiki articles, auto-save drafts, and image import with AI description.
+
+- **Flexible AI setup**
+  Use OpenRouter, Anthropic, OpenAI, Google AI, NanoGPT, LM Studio, custom OpenAI-compatible endpoints, or a local GGUF model via llama.cpp.
+
+- **Built-in local GGUF setup flow**
   If Writingway detects a `.gguf` file in `models/` but no llama.cpp server, it can offer an in-app setup wizard to install llama.cpp for you.
 
-- Backups
-  GitHub Gist backup is supported, and local versioned backups are supported through the app server. OneDrive and Google Drive are listed in the UI but are not implemented yet.
+- **Multi-format import**
+  Import projects from Writingway 1, Novelcrafter (Markdown or ZIP with character compendium), SillyTavern character cards (JSON or PNG), and lorebook JSON exports with character_book embedding.
 
-- In-app update staging
-  Writingway can detect newer builds, download an update, stage it locally, and apply it the next time you restart from the launcher.
+- **Backups**
+  GitHub Gist backup with 5-minute auto-backup timer, or local versioned backups through the app server. OneDrive and Google Drive are listed in the UI but are not implemented yet.
+
+- **In-app update staging**
+  Writingway can detect newer builds on GitHub, download an update, stage it locally, and apply it the next time you restart from the launcher.
 
 ## Requirements
 
@@ -141,6 +159,7 @@ This gives you local restore points without needing a cloud account.
 ### GitHub Gist backup
 
 Writingway can back up a project to a private GitHub Gist if you provide a GitHub token with `gist` scope.
+Backups run automatically every 5 minutes when enabled.
 
 ### Not implemented yet
 
@@ -161,22 +180,43 @@ If a newer build is available:
 
 On Windows and Linux/macOS, the staged update is applied by `start.bat` or `start.sh` on the next launch.
 
-## Writingway 1 import
+## Import
 
-Writingway includes a Writingway 1 importer for older projects.
-It can bring over project structure and content so you can continue working in Writingway 2.
+Writingway supports importing from several formats:
+
+- **Writingway 1** — imports project structure and content from older Writingway projects
+- **Novelcrafter** — imports `.md` (Markdown export) or `.zip` (full export with characters into Compendium). Chapter/scene detection via headings and dividers.
+- **Character Cards** — imports SillyTavern-compatible character cards from `.json` or `.png` files
+- **Lorebook** — imports SillyTavern lorebook `.json` with character_book embedding support, macro stripping ({{char}}/{{user}})
 
 ## Project structure
 
-A few important folders:
+A few important folders and files:
 
 ```text
-models/           Optional GGUF model files
-llama/            Optional llama.cpp server files
-projects/         Manual project saves written by the app server
-project-backups/  Local versioned backups
-tools/            Local Python services
-src/              App source
+models/                    Optional GGUF model files
+llama/                     Optional llama.cpp server files
+projects/                  Manual project saves written by the app server
+project-backups/           Local versioned backups
+tools/                     Local Python services
+  writingway-server.py     App server (port 8000)
+  updater-server.py        Update server (port 8001)
+src/                       App source
+  app.js                   Main Alpine.js app object
+  chat-mode.js             Character chat mode
+  character-creator.js     AI-assisted character card creation
+  character-card-importer.js  SillyTavern card import
+  lorebook-importer.js     Lorebook JSON import
+  novelcrafter-importer.js Novelcrafter project import
+  workshop.js              Workshop brainstorming chat
+  generation.js            AI generation engine
+  ai.js                    AI provider integration
+  styles.css               Warm Ink design system
+  state/                   Reactive state definitions
+  modules/                 Feature modules (project, scene, compendium, etc.)
+  templates/               HTML template partials
+  vendor/                  Vendored Alpine.js
+tests/                     Test suite (Playwright smoke/unit/UI)
 ```
 
 ## Development notes
@@ -196,15 +236,30 @@ npm test
 What is working now:
 
 - Writing and scene management
-- Compendium/worldbuilding
-- AI provider configuration
-- LM Studio integration
+- Beat panel with @ and # mention resolution
+- Scene model settings (per-model generation presets)
+- POV character system (per scene, chapter, project)
+- Scene summaries with AI generation
+- Compendium/worldbuilding with genre-specific categories
+- Compendium Vault (cross-project entry import)
+- Compendium token count display
+- Character Chat with session management, persona system, lorebook panel
+- Character Creator with genre-adaptive templates, trait picker, paste import, image import
+- AI provider configuration (OpenRouter, Anthropic, OpenAI, Google, NanoGPT, LM Studio, custom endpoints)
 - Local GGUF mode through llama.cpp
 - In-app llama.cpp setup flow on supported platforms
+- Multi-tab synchronization
+- Writingway 1 project import
+- Novelcrafter project import (.md and .zip)
+- Character card import (SillyTavern JSON/PNG)
+- Lorebook import with character_book embedding
 - Manual project save to disk
 - Local versioned backups
-- GitHub Gist backup
+- GitHub Gist backup (5-minute auto-backup)
+- Export to EPUB, HTML, TXT, ZIP
 - Update detection and staged update download
+- Warm Ink design system (dark/light theme, amber accents, SVG icons)
+- Generation abort/cancel for chat and workshop
 
 What is intentionally incomplete:
 
@@ -237,3 +292,12 @@ The staged update is applied by the launcher on startup.
 
 Only GitHub Gist and Local Versioning are currently implemented.
 OneDrive and Google Drive are placeholders in the UI for future work.
+
+### Character chat is not working
+
+Check that:
+
+- You have imported or created a character card with a description
+- An AI provider is configured and working in editor mode first
+- The character has a first message defined (auto-shown on new chat)
+- The console (F12) shows no CORS or network errors for the AI provider
