@@ -98,6 +98,13 @@
         }
     }
 
+    function extractAlternateGreetings(data, charName) {
+        if (!Array.isArray(data.alternate_greetings)) return [];
+        return data.alternate_greetings
+            .map(g => sanitizeCardText((g || '').trim(), charName))
+            .filter(g => g.length > 0);
+    }
+
     function sanitizeCardText(text, charName) {
         if (!text) return '';
         let result = text;
@@ -143,11 +150,28 @@
             lines.push('');
             lines.push(sanitizeCardText(importData.scenario, charName));
         }
-        if (importData.first_message) {
+        const hasAlternates = importData.alternate_greetings && importData.alternate_greetings.length > 0;
+        const primaryGreeting = importData.first_message || (hasAlternates ? importData.alternate_greetings[0] : '');
+        if (primaryGreeting) {
             lines.push('');
             lines.push('## First Message');
             lines.push('');
-            lines.push(sanitizeCardText(importData.first_message, charName));
+            lines.push(primaryGreeting);
+        }
+        if (hasAlternates) {
+            const altStartIdx = importData.first_message ? 0 : 1;
+            const remaining = importData.alternate_greetings.slice(altStartIdx);
+            if (remaining.length > 0) {
+                lines.push('');
+                lines.push('## Alternate Greetings');
+                lines.push('');
+                remaining.forEach((g, i) => {
+                    if (i > 0) lines.push('');
+                    lines.push('### Greeting ' + (i + 1));
+                    lines.push('');
+                    lines.push(g);
+                });
+            }
         }
         if (importData.examples) {
             lines.push('');
@@ -199,12 +223,15 @@
                             return;
                         }
 
+                        const alternate_greetings = extractAlternateGreetings(data, name);
+
                         resolve({
                             name: name,
                             description: (data.description || '').trim(),
                             personality: (data.personality || '').trim(),
                             scenario: (data.scenario || '').trim(),
                             first_message: (data.first_mes || '').trim(),
+                            alternate_greetings: alternate_greetings,
                             examples: (data.mes_example || '').trim(),
                             system_prompt: (data.system_prompt || '').trim(),
                             creator_notes: (data.creator_notes || '').trim(),
@@ -232,6 +259,7 @@
                         }
 
                         const imageBase64 = extractImageFromPNG(arrayBuffer);
+                        const alternate_greetings = extractAlternateGreetings(data, name);
 
                         resolve({
                             name: name,
@@ -239,6 +267,7 @@
                             personality: (data.personality || '').trim(),
                             scenario: (data.scenario || '').trim(),
                             first_message: (data.first_mes || '').trim(),
+                            alternate_greetings: alternate_greetings,
                             examples: (data.mes_example || '').trim(),
                             system_prompt: (data.system_prompt || '').trim(),
                             creator_notes: (data.creator_notes || '').trim(),

@@ -90,6 +90,8 @@ function createAppState() {
         chatCharacterMessages: [],
         chatCharacterSessionId: null,
         showCharacterInfo: false,
+        showGreetingPicker: false,
+        selectedGreetingIndex: 0,
         characterInfoDraft: {},
         recentChatCharacters: [],
         editingMessageIndex: null,

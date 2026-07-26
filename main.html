@@ -801,19 +801,38 @@
                                     <!-- Chat Messages -->
                                     <div class="character-chat-messages" x-ref="chatMessages">
                                         <template x-if="chatCharacterMessages.length === 0">
-                                            <div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-tertiary);padding:40px;">
-                                                <div>
-                                                    <div style="margin-bottom:12px;opacity:0.3;">
-                                                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                                    </div>
-                                                    <p style="max-width:400px;line-height:1.6;">
-                                                        Start a conversation with <strong x-text="chatCharacter.name"></strong>.
-                                                        <template x-if="chatCharacter.firstMessage">
-                                                            <span>The character has a first message that will appear when you send your first message.</span>
+                                            <template x-if="showGreetingPicker && chatCharacter?.alternateGreetings?.length > 0">
+                                                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
+                                                    <div style="margin-bottom:16px;font-size:14px;font-weight:600;color:var(--text-primary);">Choose a greeting to start the conversation</div>
+                                                    <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:480px;">
+                                                        <template x-for="(greeting, gIdx) in ([chatCharacter.firstMessage].concat(chatCharacter.alternateGreetings || [])).filter(g => g)" :key="gIdx">
+                                                            <div @click="window.ChatMode.selectGreeting($data, gIdx)"
+                                                                style="cursor:pointer;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:12px 16px;text-align:left;transition:all 0.15s;"
+                                                                @mouseenter="$el.style.borderColor='var(--accent)';$el.style.background='var(--bg-tertiary)'"
+                                                                @mouseleave="$el.style.borderColor='';$el.style.background='var(--bg-primary)'">
+                                                                <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px;" x-text="'Greeting ' + (gIdx + 1)"></div>
+                                                                <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;" x-text="greeting.length > 200 ? greeting.substring(0,200) + '...' : greeting"></div>
+                                                            </div>
                                                         </template>
-                                                    </p>
+                                                    </div>
+                                                    <button class="btn btn-secondary" @click="window.ChatMode.cancelGreetingSelection($data)" style="margin-top:16px;font-size:12px;padding:6px 16px;">Start without greeting</button>
                                                 </div>
-                                            </div>
+                                            </template>
+                                            <template x-if="!showGreetingPicker">
+                                                <div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-tertiary);padding:40px;">
+                                                    <div>
+                                                        <div style="margin-bottom:12px;opacity:0.3;">
+                                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                        </div>
+                                                        <p style="max-width:400px;line-height:1.6;">
+                                                            Start a conversation with <strong x-text="chatCharacter.name"></strong>.
+                                                            <template x-if="chatCharacter.firstMessage">
+                                                                <span>The character has a first message that will appear when you send your first message.</span>
+                                                            </template>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </template>
                                         </template>
                                         <template x-for="(msg, idx) in chatCharacterMessages" :key="idx">
                                             <div class="chat-message"
@@ -4620,8 +4639,23 @@
                             </div>
                         </div>
                         <div class="character-info-field full-width">
-                            <label>First Message</label>
-                            <textarea x-model="characterInfoDraft.firstMessage" rows="3" placeholder="The character's first message in a new conversation"></textarea>
+                            <label>Greetings</label>
+                            <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+                                <button @click="window.ChatMode.selectGreetingTab($data, 0)"
+                                    :style="`padding:4px 10px;font-size:11px;border-radius:4px;border:1px solid var(--border);cursor:pointer;${characterInfoDraft._activeGreetingIndex === 0 ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-primary);color:var(--text-secondary);'}`">
+                                    Primary
+                                </button>
+                                <template x-for="(g, i) in (characterInfoDraft.alternateGreetings || [])" :key="i">
+                                    <button @click="window.ChatMode.selectGreetingTab($data, i + 1)"
+                                        :style="`padding:4px 10px;font-size:11px;border-radius:4px;border:1px solid var(--border);cursor:pointer;display:inline-flex;align-items:center;gap:4px;${characterInfoDraft._activeGreetingIndex === i + 1 ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-primary);color:var(--text-secondary);'}`">
+                                        Alt {{i + 1}}
+                                        <span @click.stop="window.ChatMode.removeGreetingTab($data, i)" style="margin-left:2px;opacity:0.6;cursor:pointer;font-size:14px;line-height:1;" title="Remove this greeting">&times;</span>
+                                    </button>
+                                </template>
+                                <button @click="window.ChatMode.addGreetingTab($data)"
+                                    style="padding:4px 8px;font-size:11px;border-radius:4px;border:1px dashed var(--border);cursor:pointer;background:transparent;color:var(--text-tertiary);display:inline-flex;align-items:center;gap:2px;" title="Add alternate greeting">+ Add</button>
+                            </div>
+                            <textarea x-model="characterInfoDraft._activeGreetingBuffer" rows="3" placeholder="The character's first message in a new conversation"></textarea>
                             <div style="display:flex;justify-content:flex-end;margin-top:6px;">
                                 <button class="btn btn-secondary" 
                                     x-show="!characterFirstMessageGenerating"

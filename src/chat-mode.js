@@ -138,11 +138,37 @@ window.ChatMode = {
 
         await this.loadChatSessions(app);
         await this.loadOrCreateCharacterSession(app);
-        if (app.chatCharacterMessages.length === 0 && app.chatCharacter.firstMessage) {
-            const firstMsg = app.chatCharacter.firstMessage;
+        if (app.chatCharacterMessages.length === 0) {
+            if (app.chatCharacter.alternateGreetings && app.chatCharacter.alternateGreetings.length > 0) {
+                app.showGreetingPicker = true;
+                app.selectedGreetingIndex = 0;
+                return;
+            }
+            if (app.chatCharacter.firstMessage) {
+                const firstMsg = app.chatCharacter.firstMessage;
+                app.chatCharacterMessages.push({
+                    role: 'assistant',
+                    content: firstMsg,
+                    timestamp: new Date().toISOString(),
+                    name: app.chatCharacter.name
+                });
+                await this.saveCharacterSession(app);
+            }
+        }
+        this.scrollMessagesToBottom(app);
+        await this.loadRecentCharacters(app);
+    },
+
+    async selectGreeting(app, index) {
+        app.showGreetingPicker = false;
+        app.selectedGreetingIndex = index;
+        const greeting = index === 0
+            ? app.chatCharacter.firstMessage
+            : (app.chatCharacter.alternateGreetings || [])[index - 1];
+        if (greeting) {
             app.chatCharacterMessages.push({
                 role: 'assistant',
-                content: firstMsg,
+                content: greeting,
                 timestamp: new Date().toISOString(),
                 name: app.chatCharacter.name
             });
@@ -152,7 +178,11 @@ window.ChatMode = {
         await this.loadRecentCharacters(app);
     },
 
-    async startNewCharacterChat(app, entry) {
+    cancelGreetingSelection(app) {
+        app.showGreetingPicker = false;
+    },
+
+    async startNewCharacterChat(app, entry, greetingIndex) {
         if (!entry && app.chatCharacter) {
             const dbEntry = await db.compendium.get(app.chatCharacterId);
             if (dbEntry) entry = dbEntry;
@@ -163,10 +193,21 @@ window.ChatMode = {
         app.chatCharacterMessages = [];
         await this.loadCharacterCard(app, entry);
         await this.createCharacterSession(app);
-        if (app.chatCharacter.firstMessage) {
+        if (greetingIndex === undefined && app.chatCharacter.alternateGreetings?.length > 0) {
+            app.showGreetingPicker = true;
+            app.selectedGreetingIndex = 0;
+            app.writingMode = 'chat';
+            try { localStorage.setItem('ww2_writingMode', 'chat'); } catch (e) {}
+            await this.loadChatSessions(app);
+            return;
+        }
+        const greeting = greetingIndex > 0 && app.chatCharacter.alternateGreetings
+            ? app.chatCharacter.alternateGreetings[greetingIndex - 1]
+            : app.chatCharacter.firstMessage;
+        if (greeting) {
             app.chatCharacterMessages.push({
                 role: 'assistant',
-                content: app.chatCharacter.firstMessage,
+                content: greeting,
                 timestamp: new Date().toISOString(),
                 name: app.chatCharacter.name
             });
@@ -185,6 +226,7 @@ window.ChatMode = {
             personality: this.parseCardField(entry.body, 'Personality'),
             scenario: this.parseCardField(entry.body, 'Scenario'),
             firstMessage: this.parseCardField(entry.body, 'First Message'),
+            alternateGreetings: this.parseAlternateGreetings(entry.body),
             examples: this.parseCardField(entry.body, 'Example Dialogue'),
             systemPrompt: this.parseCardField(entry.body, 'System Prompt'),
             avatar: entry.imageUrl || null,
@@ -599,17 +641,70 @@ window.ChatMode = {
             personality: char.personality || '',
             scenario: char.scenario || '',
             firstMessage: char.firstMessage || '',
+            alternateGreetings: (char.alternateGreetings || []).slice(),
             examples: char.examples || '',
-            systemPrompt: char.systemPrompt || ''
+            systemPrompt: char.systemPrompt || '',
+            _activeGreetingIndex: 0,
+            _activeGreetingBuffer: char.firstMessage || ''
         };
         app.showCharacterInfo = true;
+    },
+
+    selectGreetingTab(app, index) {
+        const draft = app.characterInfoDraft;
+        if (index === draft._activeGreetingIndex) return;
+        this._flushGreetingBuffer(app);
+        draft._activeGreetingIndex = index;
+        draft._activeGreetingBuffer = index === 0
+            ? draft.firstMessage
+            : (draft.alternateGreetings || [])[index - 1] || '';
+    },
+
+    addGreetingTab(app) {
+        this._flushGreetingBuffer(app);
+        const draft = app.characterInfoDraft;
+        if (!draft.alternateGreetings) draft.alternateGreetings = [];
+        draft.alternateGreetings.push('');
+        draft._activeGreetingIndex = draft.alternateGreetings.length;
+        draft._activeGreetingBuffer = '';
+    },
+
+    removeGreetingTab(app, index) {
+        this._flushGreetingBuffer(app);
+        const draft = app.characterInfoDraft;
+        if (!draft.alternateGreetings || index < 0 || index >= draft.alternateGreetings.length) return;
+        const wasActive = draft._activeGreetingIndex === index + 1;
+        draft.alternateGreetings.splice(index, 1);
+        if (draft._activeGreetingIndex > index + 1) {
+            draft._activeGreetingIndex--;
+        } else if (wasActive) {
+            draft._activeGreetingIndex = Math.min(draft._activeGreetingIndex, draft.alternateGreetings.length);
+        }
+        draft._activeGreetingBuffer = draft._activeGreetingIndex === 0
+            ? draft.firstMessage
+            : (draft.alternateGreetings[draft._activeGreetingIndex - 1] || '');
+    },
+
+    _flushGreetingBuffer(app) {
+        const draft = app.characterInfoDraft;
+        if (draft._activeGreetingIndex === 0) {
+            draft.firstMessage = draft._activeGreetingBuffer;
+        } else {
+            const idx = draft._activeGreetingIndex - 1;
+            if (draft.alternateGreetings && idx >= 0 && idx < draft.alternateGreetings.length) {
+                draft.alternateGreetings[idx] = draft._activeGreetingBuffer;
+            }
+        }
     },
 
     async saveCharacterInfo(app) {
         const draft = app.characterInfoDraft;
         if (!draft.name || !app.chatCharacter) return;
 
-        // Build updated fields
+        this._flushGreetingBuffer(app);
+
+        const altGreetings = draft.alternateGreetings || [];
+
         const bodyLines = [];
         if (draft.description) {
             bodyLines.push('## Description', '', draft.description);
@@ -622,6 +717,15 @@ window.ChatMode = {
         }
         if (draft.firstMessage) {
             bodyLines.push('', '## First Message', '', draft.firstMessage);
+        }
+        if (altGreetings.length > 0) {
+            bodyLines.push('', '## Alternate Greetings', '');
+            altGreetings.forEach((g, i) => {
+                if (i > 0) bodyLines.push('');
+                bodyLines.push('### Greeting ' + (i + 1));
+                bodyLines.push('');
+                bodyLines.push(g);
+            });
         }
         if (draft.examples) {
             bodyLines.push('', '## Example Dialogue', '', draft.examples);
@@ -651,6 +755,7 @@ window.ChatMode = {
             personality: draft.personality,
             scenario: draft.scenario,
             firstMessage: draft.firstMessage,
+            alternateGreetings: altGreetings.slice(),
             examples: draft.examples,
             systemPrompt: draft.systemPrompt,
             rawBody: body
@@ -682,6 +787,20 @@ window.ChatMode = {
         const regex = new RegExp(`##\\s*${fieldName}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, 'i');
         const match = body.match(regex);
         return match ? match[1].trim() : '';
+    },
+
+    parseAlternateGreetings(body) {
+        if (!body) return [];
+        const altSection = body.match(/## Alternate Greetings\n([\s\S]*?)(?=\n## |$)/);
+        if (!altSection) return [];
+        const greetings = [];
+        const greetingRegex = /### Greeting \d+\n([\s\S]*?)(?=\n### Greeting \d+|$)/g;
+        let match;
+        while ((match = greetingRegex.exec(altSection[1])) !== null) {
+            const text = match[1].trim();
+            if (text) greetings.push(text);
+        }
+        return greetings;
     },
 
     // ========== Persona Management ==========
@@ -1162,10 +1281,9 @@ window.ChatMode = {
         if (!app.characterInfoDraft || app.characterFirstMessageGenerating || app.aiStatus !== 'ready') return;
 
         app.characterFirstMessageGenerating = true;
-        const originalContent = app.characterInfoDraft.firstMessage || '';
+        const originalContent = app.characterInfoDraft._activeGreetingBuffer || '';
 
         try {
-            // Build context from other character fields
             const context = [];
             if (app.characterInfoDraft.name) context.push(`Character Name: ${app.characterInfoDraft.name}`);
             if (app.characterInfoDraft.description) context.push(`Description: ${app.characterInfoDraft.description}`);
@@ -1191,7 +1309,7 @@ window.ChatMode = {
 
             await window.Generation.streamGeneration(messages, (token) => {
                 generatedText += token;
-                app.characterInfoDraft.firstMessage = generatedText;
+                app.characterInfoDraft._activeGreetingBuffer = generatedText;
             }, app, abortController.signal);
 
             app.characterFirstMessageGenerating = false;
@@ -1201,7 +1319,7 @@ window.ChatMode = {
                 console.log('Character first message generation stopped by user');
             } else {
                 console.error('Character first message generation error:', e);
-                app.characterInfoDraft.firstMessage = originalContent;
+                app.characterInfoDraft._activeGreetingBuffer = originalContent;
             }
             app.characterFirstMessageGenerating = false;
             app.characterFirstMessageAbortController = null;
