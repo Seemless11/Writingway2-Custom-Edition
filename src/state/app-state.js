@@ -140,8 +140,12 @@ function createAppState() {
 
         // ========== Update Checker State ==========
         showUpdateDialog: false,
+        showNoUpdateDialog: false,
         updateAvailable: null,
         checkingForUpdates: false,
+        dontRemindUpdate: false,
+        dismissedUpdateVersion: null,
+        currentVersionDismissed: false,
 
         // ========== Export Reminder State ==========
         showExportReminder: false,

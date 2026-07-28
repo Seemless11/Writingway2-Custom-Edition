@@ -3171,14 +3171,14 @@
 
         <!-- Update Available Dialog -->
         <template x-if="showUpdateDialog && updateAvailable">
-            <div class="modal-overlay" @click.self="showUpdateDialog = false" style="z-index:10000;">
+            <div class="modal-overlay" @click.self="dontRemindUpdate && window.UpdateChecker.dismissUpdate(updateAvailable.version); showUpdateDialog = false" style="z-index:10000;">
                 <div class="modal" style="max-width:600px;">
                     <div class="modal-header">
                         <h3 style="margin:0;display:flex;align-items:center;gap:8px;">
                             <span style="font-size:24px;">🎉</span>
                             Update Available!
                         </h3>
-                        <button class="btn-icon" @click="showUpdateDialog = false">×</button>
+                        <button class="btn-icon" @click="dontRemindUpdate && window.UpdateChecker.dismissUpdate(updateAvailable.version); showUpdateDialog = false">×</button>
                     </div>
                     <div class="modal-body">
                         <div
@@ -3256,9 +3256,23 @@
                                 </div>
                             </div>
                         </template>
+
+                        <!-- Don't Remind Me Checkbox -->
+                        <template x-if="!currentVersionDismissed">
+                            <div style="margin-bottom:16px;display:flex;align-items:center;gap:8px;font-size:13px;">
+                                <input type="checkbox" id="dontRemindUpdate" x-model="dontRemindUpdate">
+                                <label for="dontRemindUpdate" style="color:var(--text-secondary);cursor:pointer;">Don't remind me again for this version</label>
+                            </div>
+                        </template>
+                        <template x-if="currentVersionDismissed">
+                            <div style="margin-bottom:16px;padding:8px 12px;background:var(--bg-tertiary);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;">
+                                <span style="color:var(--text-secondary);">Reminder dismissed for this version</span>
+                                <button class="btn btn-sm" @click="window.UpdateChecker.resetDismissedUpdate(); currentVersionDismissed = false">Undo</button>
+                            </div>
+                        </template>
                     </div>
                     <div class="modal-footer">
-                        <button class="btn btn-secondary" @click="showUpdateDialog = false">Maybe Later</button>
+                        <button class="btn btn-secondary" @click="dontRemindUpdate && window.UpdateChecker.dismissUpdate(updateAvailable.version); showUpdateDialog = false">Maybe Later</button>
 
                         <!-- Download Button (when updater available and not yet staged/downloading) -->
                         <template x-if="updateAvailable.updaterAvailable && !updateAvailable.updateStaged && !updateAvailable.downloading && !updateAvailable.downloadSuccess">
@@ -3279,6 +3293,41 @@
                             @click="window.open(updateAvailable.url, '_blank');">
                             View on GitHub
                         </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- No Update Available Dialog -->
+        <template x-if="showNoUpdateDialog">
+            <div class="modal-overlay" @click.self="showNoUpdateDialog = false" style="z-index:10000;">
+                <div class="modal" style="max-width:500px;">
+                    <div class="modal-header">
+                        <h3 style="margin:0;display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:24px;">✓</span>
+                            Up to Date
+                        </h3>
+                        <button class="btn-icon" @click="showNoUpdateDialog = false">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div style="background:rgba(40,167,69,0.1);border:1px solid rgba(40,167,69,0.3);border-radius:8px;padding:16px;margin-bottom:16px;">
+                            <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#28a745;">
+                                You are running the latest version of Writingway!
+                            </div>
+                        </div>
+                        <template x-if="dismissedUpdateVersion">
+                            <div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;">
+                                <span style="color:var(--text-secondary);">
+                                    Update reminder dismissed for version <strong x-text="dismissedUpdateVersion"></strong>
+                                </span>
+                                <button class="btn btn-sm" @click="window.UpdateChecker.resetDismissedUpdate(); dismissedUpdateVersion = null">
+                                    Reset Reminder
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" @click="showNoUpdateDialog = false">OK</button>
                     </div>
                 </div>
             </div>

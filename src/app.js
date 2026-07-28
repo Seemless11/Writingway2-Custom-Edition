@@ -600,7 +600,7 @@ document.addEventListener('alpine:init', () => {
             // Update Checker
             async checkForUpdates() {
                 if (window.UpdateChecker) {
-                    await window.UpdateChecker.checkAndNotify(this, false);
+                    await window.UpdateChecker.checkAndNotify(this, false, true);
                 }
             },
 

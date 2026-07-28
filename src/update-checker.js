@@ -152,6 +152,33 @@
                 downloadSuccess: false
             };
             app.showUpdateDialog = true;
+            app.dontRemindUpdate = false;
+            app.currentVersionDismissed = (this.getDismissedVersion() === updateInfo.version);
+        },
+
+        /**
+         * Dismiss an update version (don't show automatic reminders)
+         * @param {string} version - Version string to dismiss
+         */
+        dismissUpdate(version) {
+            if (version) {
+                localStorage.setItem('writingway:dismissedUpdate', version);
+            }
+        },
+
+        /**
+         * Reset dismissed update reminder
+         */
+        resetDismissedUpdate() {
+            localStorage.removeItem('writingway:dismissedUpdate');
+        },
+
+        /**
+         * Get currently dismissed version
+         * @returns {string|null}
+         */
+        getDismissedVersion() {
+            return localStorage.getItem('writingway:dismissedUpdate');
         },
 
         /**
@@ -181,16 +208,23 @@
          * Check for updates and notify user if available
          * @param {Object} app - Alpine app instance
          * @param {boolean} silent - If true, don't show "no updates" message
+         * @param {boolean} force - If true, bypass dismissed version check
          */
-        async checkAndNotify(app, silent = true) {
+        async checkAndNotify(app, silent = true, force = false) {
             try {
                 app.checkingForUpdates = true;
                 const updateInfo = await this.checkForUpdates();
 
                 if (updateInfo) {
+                    const dismissedVersion = this.getDismissedVersion();
+                    if (!force && dismissedVersion === updateInfo.version) {
+                        // Dismissed by user - silently skip automatic reminder
+                        return;
+                    }
                     await this.showUpdateDialog(app, updateInfo);
                 } else if (!silent) {
-                    alert('✓ You are running the latest version of Writingway!');
+                    app.dismissedUpdateVersion = this.getDismissedVersion();
+                    app.showNoUpdateDialog = true;
                 }
             } catch (error) {
                 if (!silent) {
