@@ -11,34 +11,141 @@ function chatProjectId(app) {
 }
 
 window.ChatMode = {
+    // Raw data caches (off reactive state for performance)
+    _rosterImported: [],
+    _rosterCompendium: [],
+    _rosterSearchTimer: null,
+    _lastUsedMap: {},
+
     // ========== Character Data Loading ==========
 
     async loadCharacterRoster(app) {
         app.characterRosterLoading = true;
         app.showCharacterRoster = true;
+        app.rosterActiveTab = 'All';
+        app.rosterSearchDebounced = '';
+        app.characterRosterSearch = '';
         try {
             const allEntries = await db.compendium
                 .where('category')
                 .equals('characters')
                 .toArray();
-            const enrich = e => ({ ...e });
             const imported = [];
             const compendium = [];
             for (const e of allEntries) {
                 const isImported = e.tags?.includes('imported') && e.tags?.includes('sillytavern');
-                (isImported ? imported : compendium).push(enrich(e));
+                (isImported ? imported : compendium).push({ ...e });
             }
-            app.characterRosterImported = imported.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-            app.characterRosterCompendium = compendium.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
-            app.characterRosterEntries = [...app.characterRosterImported, ...app.characterRosterCompendium];
+            this._rosterImported = imported;
+            this._rosterCompendium = compendium;
+
+            const sessions = await db.workshopSessions
+                .filter(s => s.characterId)
+                .toArray();
+            this._lastUsedMap = {};
+            for (const s of sessions) {
+                const cid = s.characterId;
+                const t = new Date(s.updatedAt || 0).getTime();
+                if (!this._lastUsedMap[cid] || t > this._lastUsedMap[cid]) {
+                    this._lastUsedMap[cid] = t;
+                }
+            }
         } catch (e) {
             console.error('Failed to load character roster:', e);
-            app.characterRosterEntries = [];
-            app.characterRosterImported = [];
-            app.characterRosterCompendium = [];
+            this._rosterImported = [];
+            this._rosterCompendium = [];
+            this._lastUsedMap = {};
         } finally {
             app.characterRosterLoading = false;
+            this.recomputeRosterFilter(app);
         }
+    },
+
+    setRosterTab(app, tab) {
+        app.rosterActiveTab = tab;
+        this.recomputeRosterFilter(app);
+    },
+
+    setRosterSort(app, sort) {
+        app.rosterSortOrder = sort;
+        this.recomputeRosterFilter(app);
+    },
+
+    _sortEntries(entries, order) {
+        const sorted = [...entries];
+        sorted.sort((a, b) => {
+            if (order === 'name-asc') return (a.title || '').localeCompare(b.title || '');
+            if (order === 'name-desc') return (b.title || '').localeCompare(a.title || '');
+            if (order === 'created-desc') return new Date(b.created || 0) - new Date(a.created || 0);
+            if (order === 'modified-desc') return new Date(b.modified || 0) - new Date(a.modified || 0);
+            if (order === 'used-desc') {
+                const aUsed = this._lastUsedMap[a.id] || 0;
+                const bUsed = this._lastUsedMap[b.id] || 0;
+                return bUsed - aUsed;
+            }
+            return 0;
+        });
+        return sorted;
+    },
+
+    recomputeRosterFilter(app) {
+        const q = (app.rosterSearchDebounced || '').toLowerCase();
+        const tab = app.rosterActiveTab || 'All';
+        let source = [];
+        if (tab === 'Imported') {
+            source = this._rosterImported;
+        } else if (tab === 'Compendium') {
+            source = this._rosterCompendium;
+        } else {
+            source = [...this._rosterImported, ...this._rosterCompendium];
+        }
+        let filtered = source;
+        if (q) {
+            filtered = source.filter(e =>
+                (e.title || '').toLowerCase().includes(q)
+            );
+        }
+        app.rosterFilteredList = this._sortEntries(filtered, app.rosterSortOrder || 'name-asc');
+        app.rosterVirtualStart = 0;
+        const end = Math.min(15, app.rosterFilteredList.length);
+        app.rosterVirtualEnd = end;
+        requestAnimationFrame(() => {
+            const el = document.querySelector('.roster-virtual-list');
+            if (el) el.scrollTop = 0;
+        });
+    },
+
+    onRosterSearchInput(app, e) {
+        app.characterRosterSearch = e.target.value;
+        if (this._rosterSearchTimer) clearTimeout(this._rosterSearchTimer);
+        this._rosterSearchTimer = setTimeout(() => {
+            app.rosterSearchDebounced = app.characterRosterSearch;
+            this.recomputeRosterFilter(app);
+        }, 200);
+    },
+
+    onRosterScroll(app, scrollEl) {
+        if (!scrollEl || !app.rosterFilteredList.length) return;
+        const itemHeight = 88;
+        const buffer = 4;
+        const total = app.rosterFilteredList.length;
+        const scrollTop = scrollEl.scrollTop;
+        const clientHeight = scrollEl.clientHeight;
+        if (scrollEl.scrollHeight <= clientHeight) return;
+        const start = Math.max(0, Math.floor(scrollTop / itemHeight) - buffer);
+        const end = Math.min(total, Math.ceil((scrollTop + clientHeight) / itemHeight) + buffer);
+        app.rosterVirtualStart = start;
+        app.rosterVirtualEnd = end;
+    },
+
+    rosterItemOffset(index) {
+        return index * 88;
+    },
+
+    clearRosterSearch(app) {
+        app.characterRosterSearch = '';
+        app.rosterSearchDebounced = '';
+        this.recomputeRosterFilter(app);
     },
 
     async loadRecentCharacters(app) {
@@ -79,35 +186,11 @@ window.ChatMode = {
         }
     },
 
-    getFilteredRosterEntries(app) {
-        const q = (app.characterRosterSearch || '').toLowerCase();
-        if (!q) return app.characterRosterEntries;
-        return app.characterRosterEntries.filter(e =>
-            (e.title || '').toLowerCase().includes(q)
-        );
-    },
-
-    getFilteredImportedEntries(app) {
-        const q = (app.characterRosterSearch || '').toLowerCase();
-        if (!q) return app.characterRosterImported;
-        return app.characterRosterImported.filter(e =>
-            (e.title || '').toLowerCase().includes(q)
-        );
-    },
-
-    getFilteredCompendiumEntries(app) {
-        const q = (app.characterRosterSearch || '').toLowerCase();
-        if (!q) return app.characterRosterCompendium;
-        return app.characterRosterCompendium.filter(e =>
-            (e.title || '').toLowerCase().includes(q)
-        );
-    },
-
     // ========== Character Card Deletion ==========
 
     async deleteCharacterCard(app, id) {
         if (!id) return;
-        const entry = app.characterRosterImported.find(e => e.id === id) || app.recentChatCharacters.find(e => e.id === id);
+        const entry = this._rosterImported.find(e => e.id === id) || app.recentChatCharacters.find(e => e.id === id);
         const name = entry?.title || 'this character';
         if (!confirm(`Delete "${name}"? This will remove the character card from the compendium.`)) return;
         try {
@@ -129,6 +212,8 @@ window.ChatMode = {
         app.chatCharacterId = entry.id;
         await this.loadCharacterCard(app, entry);
         app.characterRosterSearch = '';
+        app.rosterSearchDebounced = '';
+        app.rosterFilteredList = [];
         app.showCharacterRoster = false;
         app.writingMode = 'chat';
 

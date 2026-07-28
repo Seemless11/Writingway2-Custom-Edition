@@ -4460,7 +4460,7 @@
 
     <!-- Character Roster Modal -->
     <template x-if="showCharacterRoster">
-        <div class="character-roster-overlay" @click.self="showCharacterRoster = false">
+        <div class="character-roster-overlay" @click.self="showCharacterRoster = false" @keydown.escape="showCharacterRoster = false">
             <div class="character-roster-panel">
                 <!-- Header -->
                 <div class="character-roster-header">
@@ -4475,90 +4475,120 @@
                         <button class="btn btn-secondary" @click="showCharacterRoster = false">Close</button>
                     </div>
                 </div>
+                <!-- Tabs -->
+                <div class="roster-tabs">
+                    <template x-for="tab in ['All', 'Imported', 'Compendium']" :key="tab">
+                        <button class="roster-tab" :class="rosterActiveTab === tab ? 'roster-tab--active' : ''"
+                            @click="window.ChatMode.setRosterTab($data, tab)">
+                            <span x-text="tab"></span>
+                        </button>
+                    </template>
+                </div>
+                <!-- Search -->
+                <div class="character-roster-search-wrap">
+                    <svg class="character-roster-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                    <input type="text" class="character-roster-search-input"
+                        x-model="characterRosterSearch"
+                        @input="window.ChatMode.onRosterSearchInput($data, $event)"
+                        placeholder="Search characters...">
+                    <button x-show="characterRosterSearch.length > 0"
+                        @click="window.ChatMode.clearRosterSearch($data)"
+                        class="character-roster-search-clear">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                    </button>
+                </div>
+                <!-- Sort Row -->
+                <div class="roster-sort-row">
+                    <span class="roster-sort-label">Sort:</span>
+                    <select class="roster-sort-select"
+                        x-model="rosterSortOrder"
+                        @change="window.ChatMode.setRosterSort($data, rosterSortOrder)">
+                        <option value="name-asc">Name (A–Z)</option>
+                        <option value="name-desc">Name (Z–A)</option>
+                        <option value="created-desc">Recently Added</option>
+                        <option value="modified-desc">Recently Modified</option>
+                        <option value="used-desc">Recently Used</option>
+                    </select>
+                </div>
                 <!-- Body -->
                 <div class="character-roster-body">
-                    <!-- Search -->
-                    <div class="character-roster-search-wrap">
-                        <svg class="character-roster-search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                        <input type="text" class="character-roster-search-input" x-model="characterRosterSearch" placeholder="Search characters...">
-                        <button x-show="characterRosterSearch.length > 0" @click="characterRosterSearch = ''" class="character-roster-search-clear" style="display:flex;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-                        </button>
-                    </div>
-                    <!-- Scroll Area -->
-                    <div class="character-roster-scroll">
-                        <!-- Loading -->
-                        <div x-show="characterRosterLoading" class="character-roster-loading">
-                            <div class="character-roster-loading-spinner"></div>
-                            <span>Loading characters...</span>
+                    <!-- Skeleton Loading -->
+                    <template x-if="characterRosterLoading">
+                        <div class="roster-virtual-list">
+                            <template x-for="i in 5" :key="i">
+                                <div class="roster-skeleton">
+                                    <div class="roster-skeleton-avatar"></div>
+                                    <div class="roster-skeleton-lines">
+                                        <div class="roster-skeleton-line roster-skeleton-line--short"></div>
+                                        <div class="roster-skeleton-line roster-skeleton-line--long"></div>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
-                        <!-- Empty State -->
-                        <template x-if="!characterRosterLoading && window.ChatMode.getFilteredRosterEntries($data).length === 0">
-                            <div class="character-roster-empty">
-                                <svg class="character-roster-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                <p>No characters found. Import a SillyTavern character card or create one using the Character Creator.</p>
-                                <div class="character-roster-empty-actions">
-                                    <button class="btn btn-primary" @click="importCharacterCard()">
-                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import Card
-                                    </button>
-                                </div>
+                    </template>
+                    <!-- Empty State -->
+                    <template x-if="!characterRosterLoading && rosterFilteredList.length === 0">
+                        <div class="character-roster-empty">
+                            <svg class="character-roster-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            <template x-if="rosterActiveTab === 'Imported'">
+                                <p>No imported character cards found. Import a SillyTavern character card to get started.</p>
+                            </template>
+                            <template x-if="rosterActiveTab === 'Compendium'">
+                                <p>No compendium characters found. Add characters to your compendium or import a card.</p>
+                            </template>
+                            <template x-if="rosterActiveTab === 'All'">
+                                <p>No characters found. Import a SillyTavern character card or add characters to your compendium.</p>
+                            </template>
+                            <div class="character-roster-empty-actions">
+                                <button class="btn btn-primary" @click="importCharacterCard()">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import Card
+                                </button>
                             </div>
-                        </template>
-                        <!-- Imported Cards Section -->
-                        <template x-if="!characterRosterLoading && window.ChatMode.getFilteredImportedEntries($data).length > 0">
-                            <div class="character-roster-section">
-                                <div class="character-roster-section-header">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-                                    <span>Imported Cards</span>
-                                    <span class="character-roster-section-count" x-text="window.ChatMode.getFilteredImportedEntries($data).length"></span>
-                                </div>
-                                <template x-for="entry in window.ChatMode.getFilteredImportedEntries($data)" :key="entry.id">
-                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
-                                        class="character-card character-card--imported"
-                                        :class="chatCharacterId === entry.id ? 'character-card--selected' : ''">
-                                        <div class="character-card-avatar"
-                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}')` : ''">
-                                            <span x-show="!entry.imageUrl" class="character-card-avatar-letter" x-text="(entry.title || '?')[0]"></span>
+                        </div>
+                    </template>
+                    <!-- Virtual Scroll List -->
+                    <template x-if="!characterRosterLoading && rosterFilteredList.length > 0">
+                        <div class="roster-virtual-list" @scroll="window.ChatMode.onRosterScroll($data, $el)">
+                            <!-- Top spacer -->
+                            <div :style="{ height: (rosterVirtualStart * 88) + 'px' }"></div>
+                            <!-- Visible cards -->
+                            <template x-for="(entry, idx) in rosterFilteredList.slice(rosterVirtualStart, rosterVirtualEnd)" :key="entry.id">
+                                <div @click="window.ChatMode.selectCharacter($data, entry)"
+                                    @keydown.enter="window.ChatMode.selectCharacter($data, entry)"
+                                    class="character-card"
+                                    :class="{ 'character-card--imported': entry.tags?.includes('imported') && entry.tags?.includes('sillytavern'), 'character-card--selected': chatCharacterId === entry.id }"
+                                    tabindex="0">
+                                    <div class="character-card-avatar"
+                                        :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}')` : ''">
+                                        <span x-show="!entry.imageUrl" class="character-card-avatar-letter" x-text="(entry.title || '?')[0]"></span>
+                                    </div>
+                                    <div class="character-card-info">
+                                        <div class="character-card-name">
+                                            <span x-text="entry.title"></span>
+                                            <span x-show="entry.tags?.includes('imported') && entry.tags?.includes('sillytavern')" class="character-card-imported-badge">
+                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Imported
+                                            </span>
                                         </div>
-                                        <div class="character-card-info">
-                                            <div class="character-card-name" x-text="entry.title"></div>
-                                        </div>
-                                        <div class="character-card-actions">
+                                        <div class="character-card-meta" x-text="(entry.body || '').replace(/#{1,6}\s?/g, '').replace(/\*{1,2}/g, '').replace(/\n/g, ' ').trim().slice(0, 80)"></div>
+                                    </div>
+                                    <div class="character-card-actions">
+                                        <template x-if="entry.tags?.includes('imported') && entry.tags?.includes('sillytavern')">
                                             <button @click.stop="window.ChatMode.deleteCharacterCard($data, entry.id)"
                                                 class="character-card-action-btn character-card-action-btn--delete"
                                                 title="Delete character card">
                                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                                             </button>
-                                        </div>
+                                        </template>
+                                        <template x-if="!entry.tags?.includes('imported') || !entry.tags?.includes('sillytavern')">
+                                            <svg class="character-card-select-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                                        </template>
                                     </div>
-                                </template>
-                            </div>
-                        </template>
-                        <!-- Compendium Characters Section -->
-                        <template x-if="!characterRosterLoading && window.ChatMode.getFilteredCompendiumEntries($data).length > 0">
-                            <div class="character-roster-section">
-                                <div class="character-roster-section-header">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                                    <span>Compendium Characters</span>
-                                    <span class="character-roster-section-count character-roster-section-count--muted" x-text="window.ChatMode.getFilteredCompendiumEntries($data).length"></span>
                                 </div>
-                                <template x-for="entry in window.ChatMode.getFilteredCompendiumEntries($data)" :key="entry.id">
-                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
-                                        class="character-card"
-                                        :class="chatCharacterId === entry.id ? 'character-card--selected' : ''">
-                                        <div class="character-card-avatar"
-                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}')` : ''">
-                                            <span x-show="!entry.imageUrl" class="character-card-avatar-letter" x-text="(entry.title || '?')[0]"></span>
-                                        </div>
-                                        <div class="character-card-info">
-                                            <div class="character-card-name" x-text="entry.title"></div>
-                                        </div>
-                                        <svg class="character-card-select-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-                                    </div>
-                                </template>
-                            </div>
-                        </template>
-                    </div>
+                            </template>
+                            <!-- Bottom spacer -->
+                            <div :style="{ height: Math.max(0, (rosterFilteredList.length - rosterVirtualEnd) * 88) + 'px' }"></div>
+                        </div>
+                    </template>
                 </div>
             </div>
         </div>
