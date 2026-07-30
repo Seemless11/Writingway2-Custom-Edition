@@ -213,7 +213,7 @@
                 // Notify user if response was truncated
                 if (result?.finishReason === 'length' || result?.finishReason === 'MAX_TOKENS') {
                     console.warn('⚠️ Rewrite hit token limit');
-                    alert('⚠️ The generation reached the token limit and may be incomplete.\n\nTip: Increase "Target Length" in AI Settings for longer responses.');
+                    alert('⚠️ The generation reached the token limit and may be incomplete.\n\nTip: Increase the target length in the toolbar above for longer responses.');
                 }
             } catch (e) {
                 console.error('performRewrite error', e);

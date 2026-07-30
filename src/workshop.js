@@ -313,7 +313,7 @@ window.workshopChat = {
             // Notify user if response was truncated
             if (result?.finishReason === 'length' || result?.finishReason === 'MAX_TOKENS') {
                 console.warn('⚠️ Workshop chat hit token limit');
-                alert('⚠️ The response reached the token limit and may be incomplete.\n\nTip: Increase "Target Length" in AI Settings for longer responses.');
+                alert('⚠️ The response reached the token limit and may be incomplete.\n\nTip: Increase the target length in the workshop toolbar for longer responses.');
             }
 
             // Save sessions to database first

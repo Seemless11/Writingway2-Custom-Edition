@@ -1340,6 +1340,9 @@
                                         <option value="balanced">Fidelity: Balanced</option>
                                         <option value="compressed">Fidelity: Compressed</option>
                                     </select>
+                                    <input type="number" x-model.number="maxTokens" min="1" max="20000" step="50"
+                                        style="width:60px;font-size:11px;padding:3px 5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;"
+                                        title="Target length in words">
                                 </div>
                                 <button class="btn btn-secondary btn-sm" @click="createWorkshopSession"
                                     title="New Chat">+</button>
@@ -3809,6 +3812,9 @@
                     <option value="balanced">Balanced</option>
                     <option value="compressed">Compressed</option>
                 </select>
+                <input type="number" x-model.number="maxTokens" min="1" max="20000" step="50"
+                    style="width:60px;font-size:11px;padding:3px 5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;"
+                    title="Target length in words">
                 <button class="btn btn-secondary" @click="useWorkshopContextPanel = true; showContextPanel = true"
                     :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
                     title="Open Context Panel (used in this chat)">
