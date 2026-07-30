@@ -74,6 +74,10 @@ function createAppState() {
         chatRoleplayFormatting: true,
         chatCharacterId: null,
         chatCharacter: null, // Cached character card data
+        activeWorldId: null,
+        activeWorldEntry: null,
+        activeScenarioId: null,
+        activeScenarioEntry: null,
         chatSessions: [], // Sessions for current character
         sessionDropdownOpen: false,
         rightPanelMode: 'info', // 'info' | 'edit'
@@ -263,6 +267,70 @@ function createAppState() {
         selectedProsePromptId: '', // Selected prose prompt for generation (empty string = fallback)
         promptsPanelWidth: 700, // Default width in pixels, resizable
 
+        // ========== Shared Creator State ==========
+        creatorTokenBudget: 1000,
+
+        // ========== World Creator State ==========
+        showWorldCreator: false,
+        worldCreatorGenres: ['fantasy'],
+        worldCreatorName: '',
+        worldCreatorNotes: '',
+        worldCreatorInput: '',
+        worldCreatorGenerating: false,
+        openWorldCreatorCategories: [],
+        worldCreatorSelectedTraits: {},
+        worldCreatorChatHistory: [],
+        showWorldCreatorPreview: false,
+        worldCreatorPreviewHtml: '',
+        worldCreatorAddTraitForm: null,
+        worldCreatorAddTraitName: '',
+        worldCreatorAddTraitHint: '',
+        worldCreatorTraitVersion: 0,
+        worldCreatorEditingEntryId: null,
+        worldCreatorEditingIdx: null,
+        worldCreatorEditingBuffer: '',
+        worldCreatorInstructionTemplates: [],
+        worldCreatorShowInstructionEditor: false,
+        worldCreatorEditorSystemPrompt: '',
+        worldCreatorDraftAlert: null,
+        worldCreatorImageData: null,
+        worldCreatorImageFileName: '',
+        worldCreatorImageDescrLoading: false,
+        worldCreatorImageDescription: '',
+        worldCreatorImageError: '',
+        worldCreatorTraitPickerVisible: false,
+        worldCreatorTraitPickerTemplate: null,
+        worldCreatorTraitPickerSelections: {},
+        worldCreatorAbortController: null,
+
+        // ========== Scenario Creator State ==========
+        showScenarioCreator: false,
+        scenarioCreatorGenres: ['fantasy'],
+        scenarioCreatorName: '',
+        scenarioCreatorNotes: '',
+        scenarioCreatorInput: '',
+        scenarioCreatorGenerating: false,
+        openScenarioCreatorCategories: [],
+        scenarioCreatorSelectedTraits: {},
+        scenarioCreatorChatHistory: [],
+        showScenarioCreatorPreview: false,
+        scenarioCreatorPreviewHtml: '',
+        scenarioCreatorAddTraitForm: null,
+        scenarioCreatorAddTraitName: '',
+        scenarioCreatorAddTraitHint: '',
+        scenarioCreatorTraitVersion: 0,
+        scenarioCreatorEditingEntryId: null,
+        scenarioCreatorEditingIdx: null,
+        scenarioCreatorEditingBuffer: '',
+        scenarioCreatorInstructionTemplates: [],
+        scenarioCreatorShowInstructionEditor: false,
+        scenarioCreatorEditorSystemPrompt: '',
+        scenarioCreatorDraftAlert: null,
+        scenarioCreatorTraitPickerVisible: false,
+        scenarioCreatorTraitPickerTemplate: null,
+        scenarioCreatorTraitPickerSelections: {},
+        scenarioCreatorAbortController: null,
+
         // ========== Character Creator State ==========
         showCharacterCreator: false,
         charCreatorGenres: ['fantasy'],
@@ -298,7 +366,7 @@ function createAppState() {
 
         // ========== Compendium State ==========
         get compendiumCategories() {
-            const base = ['characters', 'places', 'items', 'lore', 'notes'];
+            const base = ['worlds', 'scenarios', 'characters', 'places', 'items', 'lore', 'notes'];
             if (this.currentProject?.genres?.length && window.GenreDefs) {
                 const extra = window.GenreDefs.getExtraCompendiumCategories(this.currentProject.genres);
                 return [...base, ...extra.filter(c => !base.includes(c))];

@@ -46,6 +46,8 @@
     <script defer src="src/novelcrafter-importer.js"></script>
     <script defer src="src/character-card-importer.js"></script>
     <script defer src="src/character-creator.js"></script>
+    <script defer src="src/world-creator.js"></script>
+    <script defer src="src/scenario-creator.js"></script>
     <script defer src="src/app.js"></script>
     <script defer src="src/compendium.js"></script>
     <script defer src="src/image-describer.js"></script>
@@ -2476,7 +2478,7 @@
                         </template>
                     </div>
 
-                    <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+                    <div style="flex:1;display:flex;flex-direction:column;overflow:auto;">
                         <div style="flex:0 0 auto;margin-bottom:6px;">
                             <div x-show="!currentPrompt" style="color:var(--text-secondary);">Select a prompt or create
                                 a new one.</div>
@@ -2542,11 +2544,20 @@
                 <h3 style="margin:0;">Compendium</h3>
                 <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
                     <span x-show="compendiumDirty" x-cloak style="font-size:12px;color:var(--warning);flex-shrink:0;">Unsaved changes</span>
-                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openCharacterCreator()" title="Create a new character with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Create</button>
-                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="importCharacterCard()" title="Import a SillyTavern character card (JSON or PNG)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
-                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openPasteImport()" title="Paste wiki article or text to extract a character"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Paste Import</button>
-                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Vault</button>
-                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openLorebookPanel()" title="View imported lorebooks"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Lorebooks</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openCharacterCreator()" title="Create a new character with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Character</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openWorldCreator()" title="Create a new world with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> World</button>
+                    <div x-data="{ moreOpen: false }" @click.outside="moreOpen = false" style="position:relative;flex-shrink:0;">
+                        <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;" @click="moreOpen = !moreOpen" title="More actions">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg> More
+                        </button>
+                        <div x-show="moreOpen" x-cloak @click="moreOpen = false" style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:100;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openScenarioCreator()" title="Create a new scenario with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Scenario</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="importCharacterCard()" title="Import a SillyTavern character card"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openPasteImport()" title="Paste wiki article or text to extract a character"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Paste Import</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Vault</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openLorebookPanel()" title="View imported lorebooks"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Lorebooks</button>
+                        </div>
+                    </div>
                     <button class="btn btn-secondary" @click="closeCompendium()" style="flex-shrink:0;padding:4px 8px;display:flex;align-items:center;" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
                 </div>
             </div>
@@ -2757,6 +2768,14 @@
                                 x-show="currentCompEntry && currentCompEntry._charData"
                                 title="Re-open this character in the creator to edit traits"
                                 style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Edit in Creator</button>
+                            <button class="btn btn-secondary" @click="editWorldInCreator(currentCompEntry)"
+                                x-show="currentCompEntry && currentCompEntry._worldData"
+                                title="Re-open this world in the creator to edit traits"
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Edit in Creator</button>
+                            <button class="btn btn-secondary" @click="editScenarioInCreator(currentCompEntry)"
+                                x-show="currentCompEntry && currentCompEntry._scenarioData"
+                                title="Re-open this scenario in the creator to edit traits"
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg> Edit in Creator</button>
                             <button class="btn btn-secondary" @click="generateCompendiumEntry"
                                 x-show="currentCompEntry && !compendiumGenerating && !showCompGenActions"
                                 :disabled="!currentCompEntry || aiStatus !== 'ready'"
@@ -4025,7 +4044,7 @@
                             <button class="btn btn-secondary" @click="clearCharCreatorTraits()" title="Clear all traits" style="font-size:12px;padding:6px 12px;">✕</button>
                         </div>
 
-                        <template x-for="cat in getFilteredCharCreatorCategories()" :key="cat.id">
+                        <template x-for="cat in (charCreatorTraitVersion, getFilteredCharCreatorCategories())" :key="cat.id">
                             <div>
                                 <div @click="toggleCharCreatorCategory(cat.id)"
                                     style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none;">
@@ -4172,6 +4191,11 @@
                                     @click="previewCharCreatorEntry()" :disabled="!charCreatorName && Object.keys(charCreatorSelectedTraits).every(k => charCreatorSelectedTraits[k].length === 0) && charCreatorChatHistory.length === 0">
                                     👁️ Preview
                                 </button>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span style="font-size:11px;color:var(--text-secondary);flex-shrink:0;">Max:</span>
+                                    <input type="number" x-model="creatorTokenBudget" min="100" max="4000" step="100"
+                                        style="width:70px;padding:4px 6px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;text-align:center;">
+                                </div>
                                 <button class="btn btn-primary" style="font-size:13px;padding:8px 20px;"
                                     @click="adoptCharCreatorEntry()"
                                     :disabled="!charCreatorName">
@@ -4203,6 +4227,549 @@
                     <button class="btn btn-primary"
                         @click="showCharCreatorPreview = false; adoptCharCreatorEntry()"
                         :disabled="!charCreatorName"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt into Compendium</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ========== World Creator Modal ========== -->
+    <template x-if="showWorldCreator">
+        <div class="modal-overlay" @click.self="closeWorldCreator()" style="z-index:9500;">
+            <div style="width:min(1200px,96%);height:min(800px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        <h3 style="margin:0;font-size:18px;">World Creator</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="closeWorldCreator()">Close</button>
+                </div>
+                <div x-show="worldCreatorDraftAlert" x-cloak style="padding:10px 20px;background:rgba(217,119,6,0.12);border-bottom:1px solid rgba(217,119,6,0.3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span style="font-size:14px;">Unsaved draft found from <span x-text="worldCreatorDraftAlert?.savedAt ? new Date(worldCreatorDraftAlert.savedAt).toLocaleString() : ''"></span></span>
+                    <button class="btn btn-primary" style="font-size:12px;padding:4px 14px;" @click="restoreWorldCreatorDraft(worldCreatorDraftAlert)">Restore</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;" @click="discardWorldCreatorDraft()">Discard</button>
+                </div>
+                <div style="flex:1;display:flex;overflow:hidden;">
+                    <div style="width:45%;overflow:auto;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:12px;">
+                        <input type="text" x-model="worldCreatorName" @input.debounce.500ms="saveWorldCreatorDraft()" placeholder="World name"
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:15px;font-weight:600;">
+
+                        <textarea x-model="worldCreatorNotes" @input.debounce.500ms="saveWorldCreatorDraft()" placeholder="World notes, ideas, or initial concepts..."
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;min-height:72px;resize:vertical;"></textarea>
+
+                        <input type="file" id="worldCreatorImageInput" accept="image/png,image/jpeg,image/webp,image/gif" @change="onWorldCreatorImageSelected" style="display:none;">
+
+                        <div x-show="!worldCreatorImageData" style="flex-shrink:0;">
+                            <button class="btn btn-secondary" @click="triggerWorldCreatorImageUpload" style="font-size:12px;padding:6px 12px;">
+                                📷 Add Reference Image
+                            </button>
+                        </div>
+
+                        <div x-show="worldCreatorImageData" style="flex-shrink:0;display:flex;align-items:start;gap:8px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;">
+                            <img :src="worldCreatorImageData" style="width:60px;height:60px;object-fit:cover;border-radius:4px;flex-shrink:0;">
+                            <div style="flex:1;min-width:0;">
+                                <div style="font-size:12px;color:var(--text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" x-text="worldCreatorImageFileName"></div>
+                                <div style="display:flex;gap:6px;margin-top:4px;">
+                                    <button class="btn btn-primary" style="font-size:11px;padding:4px 8px;" @click="describeWorldCreatorImage" :disabled="worldCreatorImageDescrLoading">
+                                        <span x-show="!worldCreatorImageDescrLoading">🖼️ Describe</span>
+                                        <span x-show="worldCreatorImageDescrLoading">...</span>
+                                    </button>
+                                    <button class="btn btn-secondary" style="font-size:11px;padding:4px 8px;" @click="removeWorldCreatorImage">✕</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div x-show="worldCreatorImageDescription" style="flex-shrink:0;border:1px solid var(--border);border-radius:8px;">
+                            <label style="font-size:12px;font-weight:600;padding:6px 10px 0;display:block;color:var(--text-primary);">Image Reference</label>
+                            <textarea x-model="worldCreatorImageDescription" style="width:100%;padding:8px 10px;background:transparent;border:none;font-size:12px;resize:vertical;min-height:60px;font-family:inherit;color:var(--text-primary);box-sizing:border-box;"></textarea>
+                        </div>
+
+                        <div x-show="worldCreatorImageError" x-cloak style="flex-shrink:0;font-size:12px;color:#e74c3c;padding:4px 0;" x-text="worldCreatorImageError"></div>
+
+                        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+                            <template x-for="genre in window.WorldCreator.GENRES" :key="genre.id">
+                                <span @click="toggleWorldCreatorGenre(genre.id)"
+                                    style="padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid;line-height:1.4;display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none;"
+                                    :style="worldCreatorGenres.includes(genre.id)
+                                        ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;'
+                                        : 'background:var(--bg-primary);color:var(--text-secondary);border-color:var(--border);opacity:0.7;'"
+                                    :title="'Show ' + genre.label + ' traits'">
+                                    <span x-text="genre.icon"></span>
+                                    <span x-text="genre.label"></span>
+                                </span>
+                            </template>
+                            <button class="btn btn-secondary" @click="randomizeWorldCreator()" title="Randomize all traits" style="font-size:12px;padding:6px 12px;margin-left:auto;">🎲</button>
+                            <button class="btn btn-secondary" @click="clearWorldCreatorTraits()" title="Clear all traits" style="font-size:12px;padding:6px 12px;">✕</button>
+                        </div>
+
+                        <template x-for="cat in (worldCreatorTraitVersion, getFilteredWorldCreatorCategories())" :key="cat.id">
+                            <div>
+                                <div @click="toggleWorldCreatorCategory(cat.id)"
+                                    style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none;">
+                                    <span style="font-weight:700;font-size:14px;color:var(--text-primary);" x-text="cat.label"></span>
+                                    <span style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;background:rgba(217,119,6,0.1);padding:2px 10px;border-radius:999px;"
+                                            x-text="'(' + ((worldCreatorSelectedTraits[cat.id] || []).length) + ')'"></span>
+                                        <span style="font-size:10px;color:var(--text-secondary);" x-text="openWorldCreatorCategories.includes(cat.id) ? '▾' : '▸'"></span>
+                                    </span>
+                                </div>
+                                <div x-show="openWorldCreatorCategories.includes(cat.id) && cat.groups" x-cloak style="margin-top:8px;padding-left:6px;">
+                                    <template x-for="group in cat.groups" :key="group.label">
+                                        <div style="margin-bottom:10px;">
+                                            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;padding-left:8px;border-left:3px solid var(--accent);text-transform:uppercase;letter-spacing:0.05em;" x-text="group.label"></div>
+                                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                                <template x-for="trait in group.traits" :key="trait.id">
+                                                    <span @click="toggleWorldCreatorTrait(cat.id, trait.id)"
+                                                        :title="trait.hint || ''"
+                                                        class="cc-trait-pill"
+                                                        style="padding:5px 14px;border-radius:999px;font-size:13px;border:1px solid;line-height:1.4;display:inline-flex;align-items:center;gap:4px;"
+                                                        :style="(worldCreatorSelectedTraits[cat.id] || []).includes(trait.id)
+                                                            ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;'
+                                                            : trait.id.startsWith('custom_')
+                                                                ? 'background:var(--bg-primary);color:var(--text-primary);border-color:rgba(217,119,6,0.3);border-style:dashed;opacity:0.85;'
+                                                                : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);opacity:0.85;'">
+                                                        <span x-show="(worldCreatorSelectedTraits[cat.id] || []).includes(trait.id)">✓</span>
+                                                        <span x-text="trait.label"></span>
+                                                        <span x-show="trait.id.startsWith('custom_')"
+                                                            @click.stop="removeWorldCreatorCustomTrait(cat.id, group.label, trait.id)"
+                                                            style="margin-left:2px;font-size:14px;line-height:1;cursor:pointer;opacity:0.5;display:inline-block;"
+                                                            @mouseenter="$el.style.opacity='1'"
+                                                            @mouseleave="$el.style.opacity='0.5'">×</span>
+                                                    </span>
+                                                </template>
+                                                <span @click="openWorldCreatorAddTraitForm(cat.id, group.label)"
+                                                    x-show="!worldCreatorAddTraitForm || worldCreatorAddTraitForm.catId !== cat.id || worldCreatorAddTraitForm.groupLabel !== group.label"
+                                                    style="padding:4px 12px;border-radius:999px;font-size:12px;border:1px dashed var(--border);line-height:1.4;display:inline-flex;align-items:center;cursor:pointer;color:var(--text-secondary);background:transparent;">
+                                                    + Add
+                                                </span>
+                                                <div x-show="worldCreatorAddTraitForm && worldCreatorAddTraitForm.catId === cat.id && worldCreatorAddTraitForm.groupLabel === group.label"
+                                                    style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:2px;">
+                                                    <input type="text" x-model="worldCreatorAddTraitName" placeholder="Trait name" @keydown.enter="submitWorldCreatorAddTraitForm"
+                                                        style="padding:4px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);width:100%;box-sizing:border-box;" />
+                                                    <input type="text" x-model="worldCreatorAddTraitHint" placeholder="Optional hint" @keydown.enter="submitWorldCreatorAddTraitForm"
+                                                        style="padding:4px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);width:100%;box-sizing:border-box;" />
+                                                    <div style="display:flex;gap:4px;">
+                                                        <button @click="submitWorldCreatorAddTraitForm"
+                                                            style="padding:3px 14px;font-size:12px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;">Save</button>
+                                                        <button @click="closeWorldCreatorAddTraitForm"
+                                                            style="padding:3px 14px;font-size:12px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;cursor:pointer;">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="Object.keys(worldCreatorSelectedTraits).some(k => worldCreatorSelectedTraits[k].length > 0)"
+                            style="padding:12px 16px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.2);border-radius:8px;">
+                            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Selected Traits</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                <template x-for="(ids, catId) in worldCreatorSelectedTraits" :key="catId">
+                                    <template x-for="traitId in ids" :key="traitId">
+                                        <span style="display:inline-block;font-size:12px;color:var(--text-secondary);background:var(--bg-primary);padding:2px 8px;border-radius:4px;border:1px solid var(--border);"
+                                            x-text="window.WorldCreator.getTraitLabel(catId, traitId)"></span>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                        <div style="flex:1;overflow:auto;padding:16px 20px;" id="worldCreatorChat">
+                            <div x-show="worldCreatorChatHistory.length === 0"
+                                style="text-align:center;color:var(--text-secondary);font-size:13px;padding:40px 20px;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:0.3;"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                <p>Select traits on the left, then use the chat below to flesh out your world with AI assistance.</p>
+                            </div>
+                            <template x-for="(msg, idx) in worldCreatorChatHistory" :key="idx">
+                                <div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;max-width:85%;"
+                                    :style="msg.role === 'user' ? 'background:rgba(217,119,6,0.12);margin-left:auto;border:1px solid rgba(217,119,6,0.25);' : 'background:var(--bg-primary);border:1px solid var(--border);'">
+                                    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+                                        <span x-text="msg.role === 'user' ? 'You' : 'Assistant'"></span>
+                                        <button x-show="msg.role === 'assistant' && msg.content && worldCreatorEditingIdx !== idx"
+                                            @click="worldCreatorEditingIdx = idx; worldCreatorEditingBuffer = msg.content"
+                                            style="cursor:pointer;background:none;border:none;padding:0;font-size:12px;opacity:0.4;transition:opacity 0.15s;"
+                                            @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0.4'"
+                                            title="Edit response">✏️</button>
+                                        <button @click="deleteWorldCreatorMessage(idx)"
+                                            style="cursor:pointer;background:rgba(200,60,60,0.12);border:none;padding:2px 7px;border-radius:4px;font-size:14px;opacity:0.75;transition:opacity 0.15s;margin-left:auto;line-height:1.4;"
+                                            @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0.75'"
+                                            title="Delete this message">✕</button>
+                                    </div>
+                                    <template x-if="worldCreatorEditingIdx !== idx">
+                                        <div style="font-size:13px;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;"
+                                            x-text="msg.content || (msg.role === 'assistant' ? 'Thinking...' : '')"></div>
+                                    </template>
+                                    <template x-if="worldCreatorEditingIdx === idx">
+                                        <div>
+                                            <textarea x-model="worldCreatorEditingBuffer"
+                                                style="width:100%;min-height:80px;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                                            <div style="display:flex;gap:6px;margin-top:6px;">
+                                                <button class="btn btn-primary" style="font-size:11px;padding:4px 12px;"
+                                                    @click="worldCreatorChatHistory[worldCreatorEditingIdx].content = worldCreatorEditingBuffer; worldCreatorChatHistory = worldCreatorChatHistory.slice(); worldCreatorEditingIdx = null">Save</button>
+                                                <button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;"
+                                                    @click="worldCreatorEditingIdx = null">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <div style="padding:8px 20px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0;align-items:center;">
+                            <template x-for="tpl in worldCreatorInstructionTemplates" :key="tpl.id">
+                                <button class="btn btn-secondary"
+                                    style="font-size:11px;padding:4px 10px;"
+                                    @click="sendWorldCreatorInstruction(tpl)"
+                                    x-text="tpl.label"></button>
+                            </template>
+                            <button class="btn btn-secondary" style="font-size:13px;padding:4px 8px;margin-left:auto;flex-shrink:0;"
+                                @click="openWorldCreatorInstructionEditor()" title="Edit instruction templates">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            </button>
+                        </div>
+                        <div style="padding:10px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;">
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" x-model="worldCreatorInput" placeholder="Type a message or custom instruction..."
+                                    style="flex:1;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;"
+                                    @keydown.enter.prevent="sendWorldCreatorMessage()">
+                                <button class="btn btn-primary" @click="sendWorldCreatorMessage()"
+                                    x-show="!worldCreatorGenerating"
+                                    :disabled="!worldCreatorInput.trim()">
+                                    Send
+                                </button>
+                                <button class="btn btn-danger" @click="stopWorldCreatorGeneration()"
+                                    x-show="worldCreatorGenerating"
+                                    style="font-size:13px;padding:8px 14px;">
+                                    ⏹ Stop
+                                </button>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                                <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;"
+                                    @click="previewWorldCreatorEntry()" :disabled="!worldCreatorName && Object.keys(worldCreatorSelectedTraits).every(k => worldCreatorSelectedTraits[k].length === 0) && worldCreatorChatHistory.length === 0">
+                                    👁️ Preview
+                                </button>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span style="font-size:11px;color:var(--text-secondary);flex-shrink:0;">Max:</span>
+                                    <input type="number" x-model="creatorTokenBudget" min="100" max="4000" step="100"
+                                        style="width:70px;padding:4px 6px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;text-align:center;">
+                                </div>
+                                <button class="btn btn-primary" style="font-size:13px;padding:8px 20px;"
+                                    @click="adoptWorldCreatorEntry()"
+                                    :disabled="!worldCreatorName">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt into Compendium
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="showWorldCreatorPreview">
+        <div class="modal-overlay" @click.self="showWorldCreatorPreview = false" style="z-index:9600;">
+            <div style="width:min(900px,96%);height:min(700px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">World Preview</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="showWorldCreatorPreview = false">Close</button>
+                </div>
+                <div style="flex:1;overflow:auto;padding:20px 24px;" class="cc-preview-body">
+                    <div x-html="worldCreatorPreviewHtml" class="compendium-rendered"></div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+                    <button class="btn btn-secondary" @click="showWorldCreatorPreview = false">← Back to Editor</button>
+                    <button class="btn btn-primary"
+                        @click="showWorldCreatorPreview = false; adoptWorldCreatorEntry()"
+                        :disabled="!worldCreatorName"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt into Compendium</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="worldCreatorShowInstructionEditor">
+        <div class="modal-overlay" @click.self="closeWorldCreatorInstructionEditor()" style="z-index:9700;">
+            <div style="width:min(640px,96%);max-height:min(600px,85vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Instruction Templates</h3>
+                    <button class="btn btn-secondary" @click="closeWorldCreatorInstructionEditor()">Done</button>
+                </div>
+                <div style="padding:16px 24px;border-bottom:1px solid var(--border);">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;color:var(--text-primary);">System Prompt</label>
+                    <textarea x-model="worldCreatorEditorSystemPrompt" rows="6" style="width:100%;padding:10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                    <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;margin-top:6px;" @click="resetWorldCreatorSystemPrompt()">Reset to Default</button>
+                </div>
+                <div style="flex:1;overflow:auto;padding:16px 24px;">
+                    <template x-for="(tpl, idx) in worldCreatorInstructionTemplates" :key="tpl.id">
+                        <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <input type="text" x-model="tpl.label" style="font-weight:600;font-size:13px;padding:4px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-primary);flex:1;">
+                                <button x-show="tpl.id.startsWith('custom_')" @click="deleteWorldCreatorInstructionTemplate(tpl.id)" style="cursor:pointer;background:rgba(200,60,60,0.12);border:none;padding:2px 8px;border-radius:4px;font-size:14px;color:#e74c3c;margin-left:8px;">✕</button>
+                            </div>
+                            <textarea x-model="tpl.message" rows="2" style="width:100%;padding:6px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                        </div>
+                    </template>
+                    <button class="btn btn-secondary" @click="addWorldCreatorInstructionTemplate()" style="font-size:12px;padding:6px 14px;">+ Add Template</button>
+                    <button class="btn btn-secondary" @click="resetWorldCreatorInstructionTemplates()" style="font-size:12px;padding:6px 14px;margin-left:6px;">Reset to Default</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- ========== Scenario Creator Modal ========== -->
+    <template x-if="showScenarioCreator">
+        <div class="modal-overlay" @click.self="closeScenarioCreator()" style="z-index:9500;">
+            <div style="width:min(1200px,96%);height:min(800px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        <h3 style="margin:0;font-size:18px;">Scenario Creator</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="closeScenarioCreator()">Close</button>
+                </div>
+                <div x-show="scenarioCreatorDraftAlert" x-cloak style="padding:10px 20px;background:rgba(217,119,6,0.12);border-bottom:1px solid rgba(217,119,6,0.3);display:flex;align-items:center;gap:12px;flex-shrink:0;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> <span style="font-size:14px;">Unsaved draft found from <span x-text="scenarioCreatorDraftAlert?.savedAt ? new Date(scenarioCreatorDraftAlert.savedAt).toLocaleString() : ''"></span></span>
+                    <button class="btn btn-primary" style="font-size:12px;padding:4px 14px;" @click="restoreScenarioCreatorDraft(scenarioCreatorDraftAlert)">Restore</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 14px;" @click="discardScenarioCreatorDraft()">Discard</button>
+                </div>
+                <div style="flex:1;display:flex;overflow:hidden;">
+                    <div style="width:45%;overflow:auto;padding:16px 20px;border-right:1px solid var(--border);display:flex;flex-direction:column;gap:12px;">
+                        <input type="text" x-model="scenarioCreatorName" @input.debounce.500ms="saveScenarioCreatorDraft()" placeholder="Scenario name"
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:15px;font-weight:600;">
+
+                        <textarea x-model="scenarioCreatorNotes" @input.debounce.500ms="saveScenarioCreatorDraft()" placeholder="Scenario notes or initial idea..."
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;min-height:72px;resize:vertical;"></textarea>
+
+                        <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;">
+                            <template x-for="genre in window.ScenarioCreator.GENRES" :key="genre.id">
+                                <span @click="toggleScenarioCreatorGenre(genre.id)"
+                                    style="padding:4px 10px;border-radius:999px;font-size:12px;border:1px solid;line-height:1.4;display:inline-flex;align-items:center;gap:4px;cursor:pointer;user-select:none;"
+                                    :style="scenarioCreatorGenres.includes(genre.id)
+                                        ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;'
+                                        : 'background:var(--bg-primary);color:var(--text-secondary);border-color:var(--border);opacity:0.7;'"
+                                    :title="'Show ' + genre.label + ' traits'">
+                                    <span x-text="genre.icon"></span>
+                                    <span x-text="genre.label"></span>
+                                </span>
+                            </template>
+                            <button class="btn btn-secondary" @click="randomizeScenarioCreator()" title="Randomize all traits" style="font-size:12px;padding:6px 12px;margin-left:auto;">🎲</button>
+                            <button class="btn btn-secondary" @click="clearScenarioCreatorTraits()" title="Clear all traits" style="font-size:12px;padding:6px 12px;">✕</button>
+                        </div>
+
+                        <template x-for="cat in (scenarioCreatorTraitVersion, getFilteredScenarioCreatorCategories())" :key="cat.id">
+                            <div>
+                                <div @click="toggleScenarioCreatorCategory(cat.id)"
+                                    style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;cursor:pointer;user-select:none;">
+                                    <span style="font-weight:700;font-size:14px;color:var(--text-primary);" x-text="cat.label"></span>
+                                    <span style="display:flex;align-items:center;gap:8px;">
+                                        <span style="font-size:11px;color:var(--text-secondary);font-weight:600;background:rgba(217,119,6,0.1);padding:2px 10px;border-radius:999px;"
+                                            x-text="'(' + ((scenarioCreatorSelectedTraits[cat.id] || []).length) + ')'"></span>
+                                        <span style="font-size:10px;color:var(--text-secondary);" x-text="openScenarioCreatorCategories.includes(cat.id) ? '▾' : '▸'"></span>
+                                    </span>
+                                </div>
+                                <div x-show="openScenarioCreatorCategories.includes(cat.id) && cat.groups" x-cloak style="margin-top:8px;padding-left:6px;">
+                                    <template x-for="group in cat.groups" :key="group.label">
+                                        <div style="margin-bottom:10px;">
+                                            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;padding-left:8px;border-left:3px solid var(--accent);text-transform:uppercase;letter-spacing:0.05em;" x-text="group.label"></div>
+                                            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                                                <template x-for="trait in group.traits" :key="trait.id">
+                                                    <span @click="toggleScenarioCreatorTrait(cat.id, trait.id)"
+                                                        :title="trait.hint || ''"
+                                                        class="cc-trait-pill"
+                                                        style="padding:5px 14px;border-radius:999px;font-size:13px;border:1px solid;line-height:1.4;display:inline-flex;align-items:center;gap:4px;"
+                                                        :style="(scenarioCreatorSelectedTraits[cat.id] || []).includes(trait.id)
+                                                            ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;'
+                                                            : trait.id.startsWith('custom_')
+                                                                ? 'background:var(--bg-primary);color:var(--text-primary);border-color:rgba(217,119,6,0.3);border-style:dashed;opacity:0.85;'
+                                                                : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);opacity:0.85;'">
+                                                        <span x-show="(scenarioCreatorSelectedTraits[cat.id] || []).includes(trait.id)">✓</span>
+                                                        <span x-text="trait.label"></span>
+                                                        <span x-show="trait.id.startsWith('custom_')"
+                                                            @click.stop="removeScenarioCreatorCustomTrait(cat.id, group.label, trait.id)"
+                                                            style="margin-left:2px;font-size:14px;line-height:1;cursor:pointer;opacity:0.5;display:inline-block;"
+                                                            @mouseenter="$el.style.opacity='1'"
+                                                            @mouseleave="$el.style.opacity='0.5'">×</span>
+                                                    </span>
+                                                </template>
+                                                <span @click="openScenarioCreatorAddTraitForm(cat.id, group.label)"
+                                                    x-show="!scenarioCreatorAddTraitForm || scenarioCreatorAddTraitForm.catId !== cat.id || scenarioCreatorAddTraitForm.groupLabel !== group.label"
+                                                    style="padding:4px 12px;border-radius:999px;font-size:12px;border:1px dashed var(--border);line-height:1.4;display:inline-flex;align-items:center;cursor:pointer;color:var(--text-secondary);background:transparent;">
+                                                    + Add
+                                                </span>
+                                                <div x-show="scenarioCreatorAddTraitForm && scenarioCreatorAddTraitForm.catId === cat.id && scenarioCreatorAddTraitForm.groupLabel === group.label"
+                                                    style="display:flex;flex-direction:column;gap:4px;width:100%;margin-top:2px;">
+                                                    <input type="text" x-model="scenarioCreatorAddTraitName" placeholder="Trait name" @keydown.enter="submitScenarioCreatorAddTraitForm"
+                                                        style="padding:4px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);width:100%;box-sizing:border-box;" />
+                                                    <input type="text" x-model="scenarioCreatorAddTraitHint" placeholder="Optional hint" @keydown.enter="submitScenarioCreatorAddTraitForm"
+                                                        style="padding:4px 10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);color:var(--text-primary);width:100%;box-sizing:border-box;" />
+                                                    <div style="display:flex;gap:4px;">
+                                                        <button @click="submitScenarioCreatorAddTraitForm"
+                                                            style="padding:3px 14px;font-size:12px;background:var(--accent);color:white;border:none;border-radius:8px;cursor:pointer;">Save</button>
+                                                        <button @click="closeScenarioCreatorAddTraitForm"
+                                                            style="padding:3px 14px;font-size:12px;background:transparent;color:var(--text-secondary);border:1px solid var(--border);border-radius:8px;cursor:pointer;">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div x-show="Object.keys(scenarioCreatorSelectedTraits).some(k => scenarioCreatorSelectedTraits[k].length > 0)"
+                            style="padding:12px 16px;background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.2);border-radius:8px;">
+                            <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px;">Selected Traits</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                                <template x-for="(ids, catId) in scenarioCreatorSelectedTraits" :key="catId">
+                                    <template x-for="traitId in ids" :key="traitId">
+                                        <span style="display:inline-block;font-size:12px;color:var(--text-secondary);background:var(--bg-primary);padding:2px 8px;border-radius:4px;border:1px solid var(--border);"
+                                            x-text="window.ScenarioCreator.getTraitLabel(catId, traitId)"></span>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+                        <div style="flex:1;overflow:auto;padding:16px 20px;" id="scenarioCreatorChat">
+                            <div x-show="scenarioCreatorChatHistory.length === 0"
+                                style="text-align:center;color:var(--text-secondary);font-size:13px;padding:40px 20px;">
+                                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:12px;opacity:0.3;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                                <p>Select traits on the left, then use the chat below to flesh out your scenario with AI assistance.</p>
+                            </div>
+                            <template x-for="(msg, idx) in scenarioCreatorChatHistory" :key="idx">
+                                <div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;max-width:85%;"
+                                    :style="msg.role === 'user' ? 'background:rgba(217,119,6,0.12);margin-left:auto;border:1px solid rgba(217,119,6,0.25);' : 'background:var(--bg-primary);border:1px solid var(--border);'">
+                                    <div style="font-size:11px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;text-transform:uppercase;display:flex;align-items:center;gap:6px;">
+                                        <span x-text="msg.role === 'user' ? 'You' : 'Assistant'"></span>
+                                        <button x-show="msg.role === 'assistant' && msg.content && scenarioCreatorEditingIdx !== idx"
+                                            @click="scenarioCreatorEditingIdx = idx; scenarioCreatorEditingBuffer = msg.content"
+                                            style="cursor:pointer;background:none;border:none;padding:0;font-size:12px;opacity:0.4;transition:opacity 0.15s;"
+                                            @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0.4'"
+                                            title="Edit response">✏️</button>
+                                        <button @click="deleteScenarioCreatorMessage(idx)"
+                                            style="cursor:pointer;background:rgba(200,60,60,0.12);border:none;padding:2px 7px;border-radius:4px;font-size:14px;opacity:0.75;transition:opacity 0.15s;margin-left:auto;line-height:1.4;"
+                                            @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0.75'"
+                                            title="Delete this message">✕</button>
+                                    </div>
+                                    <template x-if="scenarioCreatorEditingIdx !== idx">
+                                        <div style="font-size:13px;color:var(--text-primary);line-height:1.6;white-space:pre-wrap;"
+                                            x-text="msg.content || (msg.role === 'assistant' ? 'Thinking...' : '')"></div>
+                                    </template>
+                                    <template x-if="scenarioCreatorEditingIdx === idx">
+                                        <div>
+                                            <textarea x-model="scenarioCreatorEditingBuffer"
+                                                style="width:100%;min-height:80px;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                                            <div style="display:flex;gap:6px;margin-top:6px;">
+                                                <button class="btn btn-primary" style="font-size:11px;padding:4px 12px;"
+                                                    @click="scenarioCreatorChatHistory[scenarioCreatorEditingIdx].content = scenarioCreatorEditingBuffer; scenarioCreatorChatHistory = scenarioCreatorChatHistory.slice(); scenarioCreatorEditingIdx = null">Save</button>
+                                                <button class="btn btn-secondary" style="font-size:11px;padding:4px 12px;"
+                                                    @click="scenarioCreatorEditingIdx = null">Cancel</button>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                        <div style="padding:8px 20px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:4px;flex-shrink:0;align-items:center;">
+                            <template x-for="tpl in scenarioCreatorInstructionTemplates" :key="tpl.id">
+                                <button class="btn btn-secondary"
+                                    style="font-size:11px;padding:4px 10px;"
+                                    @click="sendScenarioCreatorInstruction(tpl)"
+                                    x-text="tpl.label"></button>
+                            </template>
+                            <button class="btn btn-secondary" style="font-size:13px;padding:4px 8px;margin-left:auto;flex-shrink:0;"
+                                @click="openScenarioCreatorInstructionEditor()" title="Edit instruction templates">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            </button>
+                        </div>
+                        <div style="padding:10px 20px 14px;border-top:1px solid var(--border);flex-shrink:0;">
+                            <div style="display:flex;gap:8px;">
+                                <input type="text" x-model="scenarioCreatorInput" placeholder="Type a message or custom instruction..."
+                                    style="flex:1;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;"
+                                    @keydown.enter.prevent="sendScenarioCreatorMessage()">
+                                <button class="btn btn-primary" @click="sendScenarioCreatorMessage()"
+                                    x-show="!scenarioCreatorGenerating"
+                                    :disabled="!scenarioCreatorInput.trim()">
+                                    Send
+                                </button>
+                                <button class="btn btn-danger" @click="stopScenarioCreatorGeneration()"
+                                    x-show="scenarioCreatorGenerating"
+                                    style="font-size:13px;padding:8px 14px;">
+                                    ⏹ Stop
+                                </button>
+                            </div>
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                                <button class="btn btn-secondary" style="font-size:12px;padding:6px 14px;"
+                                    @click="previewScenarioCreatorEntry()" :disabled="!scenarioCreatorName && Object.keys(scenarioCreatorSelectedTraits).every(k => scenarioCreatorSelectedTraits[k].length === 0) && scenarioCreatorChatHistory.length === 0">
+                                    👁️ Preview
+                                </button>
+                                <div style="display:flex;align-items:center;gap:6px;">
+                                    <span style="font-size:11px;color:var(--text-secondary);flex-shrink:0;">Max:</span>
+                                    <input type="number" x-model="creatorTokenBudget" min="100" max="4000" step="100"
+                                        style="width:70px;padding:4px 6px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;text-align:center;">
+                                </div>
+                                <button class="btn btn-primary" style="font-size:13px;padding:8px 20px;"
+                                    @click="adoptScenarioCreatorEntry()"
+                                    :disabled="!scenarioCreatorName">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt into Compendium
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="showScenarioCreatorPreview">
+        <div class="modal-overlay" @click.self="showScenarioCreatorPreview = false" style="z-index:9600;">
+            <div style="width:min(900px,96%);height:min(700px,90vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Scenario Preview</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="showScenarioCreatorPreview = false">Close</button>
+                </div>
+                <div style="flex:1;overflow:auto;padding:20px 24px;" class="cc-preview-body">
+                    <div x-html="scenarioCreatorPreviewHtml" class="compendium-rendered"></div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:10px;padding:14px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+                    <button class="btn btn-secondary" @click="showScenarioCreatorPreview = false">← Back to Editor</button>
+                    <button class="btn btn-primary"
+                        @click="showScenarioCreatorPreview = false; adoptScenarioCreatorEntry()"
+                        :disabled="!scenarioCreatorName"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Adopt into Compendium</button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template x-if="scenarioCreatorShowInstructionEditor">
+        <div class="modal-overlay" @click.self="closeScenarioCreatorInstructionEditor()" style="z-index:9700;">
+            <div style="width:min(640px,96%);max-height:min(600px,85vh);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Instruction Templates</h3>
+                    <button class="btn btn-secondary" @click="closeScenarioCreatorInstructionEditor()">Done</button>
+                </div>
+                <div style="padding:16px 24px;border-bottom:1px solid var(--border);">
+                    <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;color:var(--text-primary);">System Prompt</label>
+                    <textarea x-model="scenarioCreatorEditorSystemPrompt" rows="6" style="width:100%;padding:10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                    <button class="btn btn-secondary" style="font-size:11px;padding:4px 10px;margin-top:6px;" @click="resetScenarioCreatorSystemPrompt()">Reset to Default</button>
+                </div>
+                <div style="flex:1;overflow:auto;padding:16px 24px;">
+                    <template x-for="(tpl, idx) in scenarioCreatorInstructionTemplates" :key="tpl.id">
+                        <div style="margin-bottom:16px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-primary);">
+                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                                <input type="text" x-model="tpl.label" style="font-weight:600;font-size:13px;padding:4px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-primary);flex:1;">
+                                <button x-show="tpl.id.startsWith('custom_')" @click="deleteScenarioCreatorInstructionTemplate(tpl.id)" style="cursor:pointer;background:rgba(200,60,60,0.12);border:none;padding:2px 8px;border-radius:4px;font-size:14px;color:#e74c3c;margin-left:8px;">✕</button>
+                            </div>
+                            <textarea x-model="tpl.message" rows="2" style="width:100%;padding:6px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                        </div>
+                    </template>
+                    <button class="btn btn-secondary" @click="addScenarioCreatorInstructionTemplate()" style="font-size:12px;padding:6px 14px;">+ Add Template</button>
+                    <button class="btn btn-secondary" @click="resetScenarioCreatorInstructionTemplates()" style="font-size:12px;padding:6px 14px;margin-left:6px;">Reset to Default</button>
                 </div>
             </div>
         </div>
@@ -4715,6 +5282,40 @@
                                     @click="window.ChatMode.stopCharacterScenarioGeneration($data)"
                                     style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Linked World <span style="font-size:11px;font-weight:400;color:var(--text-secondary);">(replaces embedded Scenario if set)</span></label>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <select x-model="characterInfoDraft.worldId"
+                                    style="flex:1;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                                    <option value="">None (use embedded scenario)</option>
+                                    <template x-for="entry in worldCreatorCompendiumEntries" :key="entry.id">
+                                        <option :value="entry.id" x-text="entry.title"></option>
+                                    </template>
+                                </select>
+                                <span x-show="characterInfoDraft.worldId" @click="characterInfoDraft.worldId = ''"
+                                    style="cursor:pointer;font-size:16px;opacity:0.5;flex-shrink:0;" title="Unlink world">✕</span>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
+                                <span x-show="characterInfoDraft.worldId && activeWorldEntry" x-text="'Active: ' + (activeWorldEntry?.title || '')"></span>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Linked Scenario <span style="font-size:11px;font-weight:400;color:var(--text-secondary);">(overrides embedded scenario)</span></label>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <select x-model="characterInfoDraft.scenarioId"
+                                    style="flex:1;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                                    <option value="">None (use embedded scenario field)</option>
+                                    <template x-for="entry in scenarioCreatorCompendiumEntries" :key="entry.id">
+                                        <option :value="entry.id" x-text="entry.title"></option>
+                                    </template>
+                                </select>
+                                <span x-show="characterInfoDraft.scenarioId" @click="characterInfoDraft.scenarioId = ''"
+                                    style="cursor:pointer;font-size:16px;opacity:0.5;flex-shrink:0;" title="Unlink scenario">✕</span>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
+                                <span x-show="characterInfoDraft.scenarioId && activeScenarioEntry" x-text="'Active: ' + (activeScenarioEntry?.title || '')"></span>
                             </div>
                         </div>
                         <div class="character-info-field full-width">

@@ -1941,6 +1941,7 @@ document.addEventListener('alpine:init', () => {
                 this.charCreatorChatHistory.push({ role: 'assistant', content: '', timestamp: new Date().toISOString() });
                 this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
 
+                let savedMaxTokens;
                 try {
                     const promptMessages = [];
                     let charCreatorSystemPrompt = window.CharacterCreator.CHARACTER_SYSTEM_PROMPT;
@@ -1996,6 +1997,8 @@ document.addEventListener('alpine:init', () => {
 
                     this.charCreatorAbortController = new AbortController();
                     let fullResponse = '';
+                    savedMaxTokens = this.maxTokens;
+                    this.maxTokens = this.creatorTokenBudget;
                     await window.Generation.streamGeneration(promptMessages, (token) => {
                         fullResponse += token;
                         this.charCreatorChatHistory[assistantIdx].content = fullResponse;
@@ -2010,6 +2013,7 @@ document.addEventListener('alpine:init', () => {
                         this.charCreatorChatHistory = this.charCreatorChatHistory.slice();
                     }
                 } finally {
+                    this.maxTokens = savedMaxTokens;
                     this.charCreatorAbortController = null;
                     this.charCreatorGenerating = false;
                     this.saveCharCreatorDraft();
@@ -2274,6 +2278,620 @@ document.addEventListener('alpine:init', () => {
                     console.error('Character creator adopt error:', err);
                 }
             },
+            // ========== World Creator Methods ==========
+            openWorldCreator() {
+                this.worldCreatorGenres = this.currentProject?.genres?.length
+                    ? [...this.currentProject.genres]
+                    : ['fantasy'];
+                this.worldCreatorName = '';
+                this.worldCreatorNotes = '';
+                this.worldCreatorInput = '';
+                this.worldCreatorGenerating = false;
+                this.openWorldCreatorCategories = [];
+                this.worldCreatorSelectedTraits = {};
+                this.worldCreatorChatHistory = [];
+                this.worldCreatorEditingEntryId = null;
+                this.worldCreatorImageData = null;
+                this.worldCreatorImageFileName = '';
+                this.worldCreatorImageDescription = '';
+                this.worldCreatorImageError = '';
+                this.worldCreatorImageDescrLoading = false;
+                this.showWorldCreator = true;
+                this.worldCreatorInstructionTemplates = window.WorldCreator.loadInstructionTemplates();
+                this.openAllWorldCreatorCategories();
+                try {
+                    const saved = localStorage.getItem('ww_world_creator_draft');
+                    if (saved) {
+                        const draft = JSON.parse(saved);
+                        if (draft && draft.selectedTraits && Object.keys(draft.selectedTraits).length > 0) {
+                            this.worldCreatorDraftAlert = draft;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            },
+            closeWorldCreator() {
+                this.saveWorldCreatorDraft();
+                this.showWorldCreator = false;
+            },
+            saveWorldCreatorDraft() {
+                if (!this.showWorldCreator) return;
+                const draft = {
+                    genre: this.worldCreatorGenres,
+                    name: this.worldCreatorName,
+                    notes: this.worldCreatorNotes,
+                    selectedTraits: JSON.parse(JSON.stringify(this.worldCreatorSelectedTraits)),
+                    chatHistory: JSON.parse(JSON.stringify(this.worldCreatorChatHistory)),
+                    imageDescription: this.worldCreatorImageDescription || '',
+                    savedAt: new Date().toISOString()
+                };
+                try { localStorage.setItem('ww_world_creator_draft', JSON.stringify(draft)); } catch (e) { /* ignore */ }
+            },
+            discardWorldCreatorDraft() {
+                try { localStorage.removeItem('ww_world_creator_draft'); } catch (e) { /* ignore */ }
+                this.worldCreatorDraftAlert = null;
+            },
+            restoreWorldCreatorDraft(draft) {
+                if (!draft) return;
+                if (draft.genre) this.worldCreatorGenres = Array.isArray(draft.genre) ? draft.genre : [draft.genre];
+                if (draft.name) this.worldCreatorName = draft.name;
+                if (draft.notes) this.worldCreatorNotes = draft.notes;
+                if (draft.selectedTraits) this.worldCreatorSelectedTraits = draft.selectedTraits;
+                if (draft.chatHistory) this.worldCreatorChatHistory = draft.chatHistory;
+                if (draft.imageDescription) this.worldCreatorImageDescription = draft.imageDescription;
+                this.worldCreatorDraftAlert = null;
+                this.worldCreatorTraitVersion++;
+                const cats = window.WorldCreator.getFilteredCategories(this.worldCreatorGenres);
+                this.openWorldCreatorCategories = cats.map(c => c.id);
+            },
+            editWorldInCreator(compEntry) {
+                if (!compEntry || !compEntry._worldData) return;
+                this.discardWorldCreatorDraft();
+                try {
+                    const data = typeof compEntry._worldData === 'string' ? JSON.parse(compEntry._worldData) : compEntry._worldData;
+                    if (data.genre) this.worldCreatorGenres = Array.isArray(data.genre) ? data.genre : [data.genre];
+                    this.worldCreatorName = data.name || compEntry.title || '';
+                    this.worldCreatorNotes = data.notes || '';
+                    this.worldCreatorSelectedTraits = data.selectedTraits || {};
+                    this.worldCreatorEditingEntryId = compEntry.id || null;
+                    this.worldCreatorChatHistory = data.chatHistory || [];
+                    this.worldCreatorInput = '';
+                    this.worldCreatorGenerating = false;
+                    this.worldCreatorImageData = null;
+                    this.worldCreatorImageFileName = '';
+                    this.worldCreatorImageDescription = data.imageDescription || '';
+                    this.worldCreatorImageError = '';
+                    this.worldCreatorImageDescrLoading = false;
+                    this.worldCreatorInstructionTemplates = window.WorldCreator.loadInstructionTemplates();
+                    this.openWorldCreatorCategories = window.WorldCreator.getFilteredCategories(this.worldCreatorGenres).map(c => c.id);
+                    this.worldCreatorTraitVersion++;
+                    this.showWorldCreator = true;
+                } catch (e) { alert('Failed to load world data: ' + e.message); }
+            },
+            openAllWorldCreatorCategories() {
+                const cats = window.WorldCreator.getFilteredCategories(this.worldCreatorGenres || ['fantasy']);
+                this.openWorldCreatorCategories = cats.map(c => c.id);
+            },
+            toggleWorldCreatorGenre(genreId) {
+                const idx = this.worldCreatorGenres.indexOf(genreId);
+                if (idx === -1) {
+                    this.worldCreatorGenres = [...this.worldCreatorGenres, genreId];
+                } else if (this.worldCreatorGenres.length > 1) {
+                    this.worldCreatorGenres = this.worldCreatorGenres.filter(g => g !== genreId);
+                }
+                const cats = window.WorldCreator.getFilteredCategories(this.worldCreatorGenres);
+                this.openWorldCreatorCategories = cats.map(c => c.id);
+                this.saveWorldCreatorDraft();
+            },
+            toggleWorldCreatorCategory(id) {
+                const idx = this.openWorldCreatorCategories.indexOf(id);
+                if (idx === -1) this.openWorldCreatorCategories.push(id);
+                else this.openWorldCreatorCategories.splice(idx, 1);
+            },
+            toggleWorldCreatorTrait(catId, traitId) {
+                if (!this.worldCreatorSelectedTraits[catId]) this.worldCreatorSelectedTraits[catId] = [];
+                const arr = this.worldCreatorSelectedTraits[catId];
+                const idx = arr.indexOf(traitId);
+                if (idx === -1) arr.push(traitId);
+                else arr.splice(idx, 1);
+                this.worldCreatorSelectedTraits = Object.assign({}, this.worldCreatorSelectedTraits);
+                this.saveWorldCreatorDraft();
+            },
+            randomizeWorldCreator() {
+                this.worldCreatorSelectedTraits = window.WorldCreator.randomTraitsForGenre(this.worldCreatorGenres || ['fantasy']);
+                this.saveWorldCreatorDraft();
+            },
+            clearWorldCreatorTraits() {
+                this.worldCreatorSelectedTraits = {};
+                this.saveWorldCreatorDraft();
+            },
+            getFilteredWorldCreatorCategories() {
+                return window.WorldCreator.getFilteredCategories(this.worldCreatorGenres || ['fantasy']);
+            },
+            openWorldCreatorAddTraitForm(catId, groupLabel) {
+                this.worldCreatorAddTraitForm = { catId, groupLabel };
+                this.worldCreatorAddTraitName = '';
+                this.worldCreatorAddTraitHint = '';
+            },
+            closeWorldCreatorAddTraitForm() {
+                this.worldCreatorAddTraitForm = null;
+                this.worldCreatorAddTraitName = '';
+                this.worldCreatorAddTraitHint = '';
+            },
+            submitWorldCreatorAddTraitForm() {
+                const name = (this.worldCreatorAddTraitName || '').trim();
+                if (!name) return;
+                const hint = (this.worldCreatorAddTraitHint || '').trim();
+                const form = this.worldCreatorAddTraitForm;
+                if (!form) return;
+                window.WorldCreator.addUserTrait(form.catId, form.groupLabel, name, hint);
+                this.closeWorldCreatorAddTraitForm();
+                this.worldCreatorTraitVersion++;
+            },
+            removeWorldCreatorCustomTrait(catId, groupLabel, traitId) {
+                window.WorldCreator.removeUserTrait(catId, groupLabel, traitId);
+                const selected = this.worldCreatorSelectedTraits[catId];
+                if (selected) {
+                    const idx = selected.indexOf(traitId);
+                    if (idx !== -1) {
+                        selected.splice(idx, 1);
+                        this.worldCreatorSelectedTraits = Object.assign({}, this.worldCreatorSelectedTraits);
+                    }
+                }
+                this.worldCreatorTraitVersion++;
+            },
+            async sendWorldCreatorMessage(traitOverride) {
+                const msg = (this.worldCreatorInput || '').trim();
+                if (!msg || this.worldCreatorGenerating) return;
+                this.worldCreatorGenerating = true;
+                this.worldCreatorInput = '';
+                this.worldCreatorChatHistory.push({ role: 'user', content: msg, timestamp: new Date().toISOString() });
+                const assistantIdx = this.worldCreatorChatHistory.length;
+                this.worldCreatorChatHistory.push({ role: 'assistant', content: '', timestamp: new Date().toISOString() });
+                this.worldCreatorChatHistory = this.worldCreatorChatHistory.slice();
+                let savedMaxTokens;
+                try {
+                    const promptMessages = [];
+                    let systemPrompt = window.WorldCreator.getSystemPrompt();
+                    const lang = this.language || this.currentProject?.language || 'English';
+                    if (lang !== 'English') systemPrompt += '\n\nIMPORTANT: Write all responses entirely in ' + lang + '.';
+                    promptMessages.push({ role: 'system', content: systemPrompt });
+                    const traitSource = traitOverride || this.worldCreatorSelectedTraits;
+                    const traitParts = [];
+                    for (const cat of window.WorldCreator.WORLD_TRAIT_CATEGORIES) {
+                        const ids = traitSource[cat.id] || [];
+                        if (ids.length === 0) continue;
+                        const labels = [];
+                        for (const g of cat.groups) {
+                            for (const t of g.traits) {
+                                if (ids.includes(t.id)) labels.push(t.label);
+                            }
+                        }
+                        if (labels.length > 0) traitParts.push(cat.label + ': ' + labels.join(', '));
+                    }
+                    let fullMsg = msg;
+                    if (this.worldCreatorName) fullMsg = 'World: ' + this.worldCreatorName + '\n\n' + fullMsg;
+                    if (this.worldCreatorNotes) fullMsg += '\n\nNotes: ' + this.worldCreatorNotes;
+                    if (traitParts.length > 0) fullMsg += '\n\nTraits: ' + traitParts.join(' | ');
+                    if (this.worldCreatorImageDescription) fullMsg += '\n\nImage Reference: ' + this.worldCreatorImageDescription;
+                    promptMessages.push({ role: 'user', content: fullMsg });
+                    this.worldCreatorAbortController = new AbortController();
+                    let fullResponse = '';
+                    savedMaxTokens = this.maxTokens;
+                    this.maxTokens = this.creatorTokenBudget;
+                    await window.Generation.streamGeneration(promptMessages, (token) => {
+                        fullResponse += token;
+                        this.worldCreatorChatHistory[assistantIdx].content = fullResponse;
+                        this.worldCreatorChatHistory = this.worldCreatorChatHistory.slice();
+                    }, this, this.worldCreatorAbortController.signal);
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        this.worldCreatorChatHistory[assistantIdx].content = 'Error: ' + e.message;
+                        this.worldCreatorChatHistory = this.worldCreatorChatHistory.slice();
+                    }
+                } finally {
+                    this.maxTokens = savedMaxTokens;
+                    this.worldCreatorAbortController = null;
+                    this.worldCreatorGenerating = false;
+                    this.saveWorldCreatorDraft();
+                }
+            },
+            stopWorldCreatorGeneration() {
+                if (this.worldCreatorAbortController) {
+                    this.worldCreatorAbortController.abort();
+                    this.worldCreatorAbortController = null;
+                }
+                this.worldCreatorGenerating = false;
+            },
+            deleteWorldCreatorMessage(idx) {
+                if (idx < 0 || idx >= this.worldCreatorChatHistory.length) return;
+                this.worldCreatorChatHistory.splice(idx, 1);
+                this.worldCreatorChatHistory = this.worldCreatorChatHistory.slice();
+                this.saveWorldCreatorDraft();
+            },
+            async sendWorldCreatorInstruction(tpl) {
+                if (this.worldCreatorGenerating) return;
+                this.worldCreatorInput = tpl.message;
+                await this.sendWorldCreatorMessage();
+            },
+            previewWorldCreatorEntry() {
+                const entry = window.WorldCreator.buildCompendiumEntry(
+                    this.worldCreatorName, this.worldCreatorNotes, this.worldCreatorGenres,
+                    this.worldCreatorSelectedTraits, this.worldCreatorChatHistory, this.worldCreatorImageDescription
+                );
+                this.worldCreatorPreviewHtml = this.markdownToHtml(entry.body || '(empty)');
+                this.showWorldCreatorPreview = true;
+            },
+            async adoptWorldCreatorEntry() {
+                if (!this.currentProject) { alert('Please open a project first.'); return; }
+                const entry = window.WorldCreator.buildCompendiumEntry(
+                    this.worldCreatorName, this.worldCreatorNotes, this.worldCreatorGenres,
+                    this.worldCreatorSelectedTraits, this.worldCreatorChatHistory, this.worldCreatorImageDescription
+                );
+                if (!entry.title.trim()) { alert('Please give the world a name.'); return; }
+                try {
+                    if (this.worldCreatorEditingEntryId) {
+                        const editingId = this.worldCreatorEditingEntryId;
+                        await window.Compendium.updateEntry(editingId, { title: entry.title, body: entry.body, _worldData: entry._worldData });
+                        this.worldCreatorEditingEntryId = null;
+                        if (window.CompendiumManager) {
+                            await window.CompendiumManager.refreshCategoryList(this, 'worlds');
+                            await window.CompendiumManager.loadCompendiumCounts(this);
+                            await window.CompendiumManager._doSelectCompendiumEntry(this, editingId);
+                        }
+                        this.discardWorldCreatorDraft();
+                        this.showWorldCreator = false;
+                        this.showCodexPanel = true;
+                        alert('World "' + entry.title + '" updated!');
+                    } else {
+                        const saved = await window.Compendium.import(this.currentProject.id, [entry]);
+                        if (!this.openCompCategories.includes('worlds')) this.openCompCategories.push('worlds');
+                        if (window.CompendiumManager) {
+                            await window.CompendiumManager.refreshCategoryList(this, 'worlds');
+                            await window.CompendiumManager.loadCompendiumCounts(this);
+                            if (saved && saved.length > 0) await window.CompendiumManager._doSelectCompendiumEntry(this, saved[0].id);
+                        }
+                        this.discardWorldCreatorDraft();
+                        this.showWorldCreator = false;
+                        this.showCodexPanel = true;
+                        alert('World "' + entry.title + '" adopted into Compendium!');
+                    }
+                } catch (err) { alert('Failed to save world: ' + err.message); console.error('World creator adopt error:', err); }
+            },
+            // World Creator image handling
+            triggerWorldCreatorImageUpload() { document.getElementById('worldCreatorImageInput')?.click(); },
+            onWorldCreatorImageSelected(e) {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => { this.worldCreatorImageData = ev.target?.result || null; this.worldCreatorImageFileName = file.name; this.worldCreatorImageDescription = ''; this.worldCreatorImageError = ''; };
+                reader.readAsDataURL(file);
+            },
+            removeWorldCreatorImage() { this.worldCreatorImageData = null; this.worldCreatorImageFileName = ''; this.worldCreatorImageDescription = ''; this.worldCreatorImageError = ''; },
+            async describeWorldCreatorImage() {
+                if (!this.worldCreatorImageData) return;
+                this.worldCreatorImageDescrLoading = true;
+                this.worldCreatorImageError = '';
+                try {
+                    const desc = await window.ImageDescriber.describe(this.worldCreatorImageData);
+                    this.worldCreatorImageDescription = desc || '';
+                } catch (e) { this.worldCreatorImageError = 'Failed to describe image: ' + e.message; }
+                finally { this.worldCreatorImageDescrLoading = false; }
+            },
+            // World Creator instruction editor
+            openWorldCreatorInstructionEditor() {
+                this.worldCreatorEditorSystemPrompt = window.WorldCreator.getSystemPrompt();
+                this.worldCreatorShowInstructionEditor = true;
+            },
+            closeWorldCreatorInstructionEditor() {
+                window.WorldCreator.saveInstructionTemplates(this.worldCreatorInstructionTemplates);
+                window.WorldCreator.setSystemPrompt(this.worldCreatorEditorSystemPrompt);
+                this.worldCreatorShowInstructionEditor = false;
+            },
+            addWorldCreatorInstructionTemplate() {
+                const newId = 'custom_' + Date.now();
+                this.worldCreatorInstructionTemplates.push({ id: newId, label: 'New Instruction', message: 'Enter your instruction prompt here...', relevantCategories: [] });
+            },
+            deleteWorldCreatorInstructionTemplate(id) {
+                const idx = this.worldCreatorInstructionTemplates.findIndex(t => t.id === id);
+                if (idx !== -1 && this.worldCreatorInstructionTemplates[idx].id.startsWith('custom_')) this.worldCreatorInstructionTemplates.splice(idx, 1);
+            },
+            resetWorldCreatorInstructionTemplates() {
+                if (confirm('Reset all instruction templates to defaults?')) { window.WorldCreator.resetInstructionTemplates(); this.worldCreatorInstructionTemplates = window.WorldCreator.loadInstructionTemplates(); }
+            },
+            resetWorldCreatorSystemPrompt() {
+                if (confirm('Reset the system prompt to its default?')) { window.WorldCreator.resetSystemPrompt(); this.worldCreatorEditorSystemPrompt = window.WorldCreator.getSystemPrompt(); }
+            },
+
+            // ========== Scenario Creator Methods ==========
+            openScenarioCreator() {
+                this.scenarioCreatorGenres = this.currentProject?.genres?.length
+                    ? [...this.currentProject.genres]
+                    : ['fantasy'];
+                this.scenarioCreatorName = '';
+                this.scenarioCreatorNotes = '';
+                this.scenarioCreatorInput = '';
+                this.scenarioCreatorGenerating = false;
+                this.openScenarioCreatorCategories = [];
+                this.scenarioCreatorSelectedTraits = {};
+                this.scenarioCreatorChatHistory = [];
+                this.scenarioCreatorEditingEntryId = null;
+                this.showScenarioCreator = true;
+                this.scenarioCreatorInstructionTemplates = window.ScenarioCreator.loadInstructionTemplates();
+                this.openAllScenarioCreatorCategories();
+                try {
+                    const saved = localStorage.getItem('ww_scenario_creator_draft');
+                    if (saved) {
+                        const draft = JSON.parse(saved);
+                        if (draft && draft.selectedTraits && Object.keys(draft.selectedTraits).length > 0) {
+                            this.scenarioCreatorDraftAlert = draft;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            },
+            closeScenarioCreator() {
+                this.saveScenarioCreatorDraft();
+                this.showScenarioCreator = false;
+            },
+            saveScenarioCreatorDraft() {
+                if (!this.showScenarioCreator) return;
+                const draft = {
+                    genre: this.scenarioCreatorGenres,
+                    name: this.scenarioCreatorName,
+                    notes: this.scenarioCreatorNotes,
+                    selectedTraits: JSON.parse(JSON.stringify(this.scenarioCreatorSelectedTraits)),
+                    chatHistory: JSON.parse(JSON.stringify(this.scenarioCreatorChatHistory)),
+                    savedAt: new Date().toISOString()
+                };
+                try { localStorage.setItem('ww_scenario_creator_draft', JSON.stringify(draft)); } catch (e) { /* ignore */ }
+            },
+            discardScenarioCreatorDraft() {
+                try { localStorage.removeItem('ww_scenario_creator_draft'); } catch (e) { /* ignore */ }
+                this.scenarioCreatorDraftAlert = null;
+            },
+            restoreScenarioCreatorDraft(draft) {
+                if (!draft) return;
+                if (draft.genre) this.scenarioCreatorGenres = Array.isArray(draft.genre) ? draft.genre : [draft.genre];
+                if (draft.name) this.scenarioCreatorName = draft.name;
+                if (draft.notes) this.scenarioCreatorNotes = draft.notes;
+                if (draft.selectedTraits) this.scenarioCreatorSelectedTraits = draft.selectedTraits;
+                if (draft.chatHistory) this.scenarioCreatorChatHistory = draft.chatHistory;
+                this.scenarioCreatorDraftAlert = null;
+                this.scenarioCreatorTraitVersion++;
+                const cats = window.ScenarioCreator.getFilteredCategories(this.scenarioCreatorGenres);
+                this.openScenarioCreatorCategories = cats.map(c => c.id);
+            },
+            editScenarioInCreator(compEntry) {
+                if (!compEntry || !compEntry._scenarioData) return;
+                this.discardScenarioCreatorDraft();
+                try {
+                    const data = typeof compEntry._scenarioData === 'string' ? JSON.parse(compEntry._scenarioData) : compEntry._scenarioData;
+                    if (data.genre) this.scenarioCreatorGenres = Array.isArray(data.genre) ? data.genre : [data.genre];
+                    this.scenarioCreatorName = data.name || compEntry.title || '';
+                    this.scenarioCreatorNotes = data.notes || '';
+                    this.scenarioCreatorSelectedTraits = data.selectedTraits || {};
+                    this.scenarioCreatorEditingEntryId = compEntry.id || null;
+                    this.scenarioCreatorChatHistory = data.chatHistory || [];
+                    this.scenarioCreatorInput = '';
+                    this.scenarioCreatorGenerating = false;
+                    this.scenarioCreatorInstructionTemplates = window.ScenarioCreator.loadInstructionTemplates();
+                    this.openScenarioCreatorCategories = window.ScenarioCreator.getFilteredCategories(this.scenarioCreatorGenres).map(c => c.id);
+                    this.scenarioCreatorTraitVersion++;
+                    this.showScenarioCreator = true;
+                } catch (e) { alert('Failed to load scenario data: ' + e.message); }
+            },
+            openAllScenarioCreatorCategories() {
+                const cats = window.ScenarioCreator.getFilteredCategories(this.scenarioCreatorGenres || ['fantasy']);
+                this.openScenarioCreatorCategories = cats.map(c => c.id);
+            },
+            toggleScenarioCreatorGenre(genreId) {
+                const idx = this.scenarioCreatorGenres.indexOf(genreId);
+                if (idx === -1) this.scenarioCreatorGenres = [...this.scenarioCreatorGenres, genreId];
+                else if (this.scenarioCreatorGenres.length > 1) this.scenarioCreatorGenres = this.scenarioCreatorGenres.filter(g => g !== genreId);
+                const cats = window.ScenarioCreator.getFilteredCategories(this.scenarioCreatorGenres);
+                this.openScenarioCreatorCategories = cats.map(c => c.id);
+                this.saveScenarioCreatorDraft();
+            },
+            toggleScenarioCreatorCategory(id) {
+                const idx = this.openScenarioCreatorCategories.indexOf(id);
+                if (idx === -1) this.openScenarioCreatorCategories.push(id);
+                else this.openScenarioCreatorCategories.splice(idx, 1);
+            },
+            toggleScenarioCreatorTrait(catId, traitId) {
+                if (!this.scenarioCreatorSelectedTraits[catId]) this.scenarioCreatorSelectedTraits[catId] = [];
+                const arr = this.scenarioCreatorSelectedTraits[catId];
+                const idx = arr.indexOf(traitId);
+                if (idx === -1) arr.push(traitId);
+                else arr.splice(idx, 1);
+                this.scenarioCreatorSelectedTraits = Object.assign({}, this.scenarioCreatorSelectedTraits);
+                this.saveScenarioCreatorDraft();
+            },
+            randomizeScenarioCreator() {
+                this.scenarioCreatorSelectedTraits = window.ScenarioCreator.randomTraitsForGenre(this.scenarioCreatorGenres || ['fantasy']);
+                this.saveScenarioCreatorDraft();
+            },
+            clearScenarioCreatorTraits() {
+                this.scenarioCreatorSelectedTraits = {};
+                this.saveScenarioCreatorDraft();
+            },
+            getFilteredScenarioCreatorCategories() {
+                return window.ScenarioCreator.getFilteredCategories(this.scenarioCreatorGenres || ['fantasy']);
+            },
+            openScenarioCreatorAddTraitForm(catId, groupLabel) {
+                this.scenarioCreatorAddTraitForm = { catId, groupLabel };
+                this.scenarioCreatorAddTraitName = '';
+                this.scenarioCreatorAddTraitHint = '';
+            },
+            closeScenarioCreatorAddTraitForm() {
+                this.scenarioCreatorAddTraitForm = null;
+                this.scenarioCreatorAddTraitName = '';
+                this.scenarioCreatorAddTraitHint = '';
+            },
+            submitScenarioCreatorAddTraitForm() {
+                const name = (this.scenarioCreatorAddTraitName || '').trim();
+                if (!name) return;
+                const hint = (this.scenarioCreatorAddTraitHint || '').trim();
+                const form = this.scenarioCreatorAddTraitForm;
+                if (!form) return;
+                window.ScenarioCreator.addUserTrait(form.catId, form.groupLabel, name, hint);
+                this.closeScenarioCreatorAddTraitForm();
+                this.scenarioCreatorTraitVersion++;
+            },
+            removeScenarioCreatorCustomTrait(catId, groupLabel, traitId) {
+                window.ScenarioCreator.removeUserTrait(catId, groupLabel, traitId);
+                const selected = this.scenarioCreatorSelectedTraits[catId];
+                if (selected) {
+                    const idx = selected.indexOf(traitId);
+                    if (idx !== -1) { selected.splice(idx, 1); this.scenarioCreatorSelectedTraits = Object.assign({}, this.scenarioCreatorSelectedTraits); }
+                }
+                this.scenarioCreatorTraitVersion++;
+            },
+            async sendScenarioCreatorMessage(traitOverride) {
+                const msg = (this.scenarioCreatorInput || '').trim();
+                if (!msg || this.scenarioCreatorGenerating) return;
+                this.scenarioCreatorGenerating = true;
+                this.scenarioCreatorInput = '';
+                this.scenarioCreatorChatHistory.push({ role: 'user', content: msg, timestamp: new Date().toISOString() });
+                const assistantIdx = this.scenarioCreatorChatHistory.length;
+                this.scenarioCreatorChatHistory.push({ role: 'assistant', content: '', timestamp: new Date().toISOString() });
+                this.scenarioCreatorChatHistory = this.scenarioCreatorChatHistory.slice();
+                let savedMaxTokens;
+                try {
+                    const promptMessages = [];
+                    let systemPrompt = window.ScenarioCreator.getSystemPrompt();
+                    const lang = this.language || this.currentProject?.language || 'English';
+                    if (lang !== 'English') systemPrompt += '\n\nIMPORTANT: Write all responses entirely in ' + lang + '.';
+                    promptMessages.push({ role: 'system', content: systemPrompt });
+                    const traitSource = traitOverride || this.scenarioCreatorSelectedTraits;
+                    const traitParts = [];
+                    for (const cat of window.ScenarioCreator.SCENARIO_TRAIT_CATEGORIES) {
+                        const ids = traitSource[cat.id] || [];
+                        if (ids.length === 0) continue;
+                        const labels = [];
+                        for (const g of cat.groups) {
+                            for (const t of g.traits) {
+                                if (ids.includes(t.id)) labels.push(t.label);
+                            }
+                        }
+                        if (labels.length > 0) traitParts.push(cat.label + ': ' + labels.join(', '));
+                    }
+                    let fullMsg = msg;
+                    if (this.scenarioCreatorName) fullMsg = 'Scenario: ' + this.scenarioCreatorName + '\n\n' + fullMsg;
+                    if (this.scenarioCreatorNotes) fullMsg += '\n\nNotes: ' + this.scenarioCreatorNotes;
+                    if (traitParts.length > 0) fullMsg += '\n\nTraits: ' + traitParts.join(' | ');
+                    promptMessages.push({ role: 'user', content: fullMsg });
+                    this.scenarioCreatorAbortController = new AbortController();
+                    let fullResponse = '';
+                    savedMaxTokens = this.maxTokens;
+                    this.maxTokens = this.creatorTokenBudget;
+                    await window.Generation.streamGeneration(promptMessages, (token) => {
+                        fullResponse += token;
+                        this.scenarioCreatorChatHistory[assistantIdx].content = fullResponse;
+                        this.scenarioCreatorChatHistory = this.scenarioCreatorChatHistory.slice();
+                    }, this, this.scenarioCreatorAbortController.signal);
+                } catch (e) {
+                    if (e.name !== 'AbortError') {
+                        this.scenarioCreatorChatHistory[assistantIdx].content = 'Error: ' + e.message;
+                        this.scenarioCreatorChatHistory = this.scenarioCreatorChatHistory.slice();
+                    }
+                } finally {
+                    this.maxTokens = savedMaxTokens;
+                    this.scenarioCreatorAbortController = null;
+                    this.scenarioCreatorGenerating = false;
+                    this.saveScenarioCreatorDraft();
+                }
+            },
+            stopScenarioCreatorGeneration() {
+                if (this.scenarioCreatorAbortController) { this.scenarioCreatorAbortController.abort(); this.scenarioCreatorAbortController = null; }
+                this.scenarioCreatorGenerating = false;
+            },
+            deleteScenarioCreatorMessage(idx) {
+                if (idx < 0 || idx >= this.scenarioCreatorChatHistory.length) return;
+                this.scenarioCreatorChatHistory.splice(idx, 1);
+                this.scenarioCreatorChatHistory = this.scenarioCreatorChatHistory.slice();
+                this.saveScenarioCreatorDraft();
+            },
+            async sendScenarioCreatorInstruction(tpl) {
+                if (this.scenarioCreatorGenerating) return;
+                this.scenarioCreatorInput = tpl.message;
+                await this.sendScenarioCreatorMessage();
+            },
+            previewScenarioCreatorEntry() {
+                const entry = window.ScenarioCreator.buildCompendiumEntry(
+                    this.scenarioCreatorName, this.scenarioCreatorNotes, this.scenarioCreatorGenres,
+                    this.scenarioCreatorSelectedTraits, this.scenarioCreatorChatHistory
+                );
+                this.scenarioCreatorPreviewHtml = this.markdownToHtml(entry.body || '(empty)');
+                this.showScenarioCreatorPreview = true;
+            },
+            async adoptScenarioCreatorEntry() {
+                if (!this.currentProject) { alert('Please open a project first.'); return; }
+                const entry = window.ScenarioCreator.buildCompendiumEntry(
+                    this.scenarioCreatorName, this.scenarioCreatorNotes, this.scenarioCreatorGenres,
+                    this.scenarioCreatorSelectedTraits, this.scenarioCreatorChatHistory
+                );
+                if (!entry.title.trim()) { alert('Please give the scenario a name.'); return; }
+                try {
+                    if (this.scenarioCreatorEditingEntryId) {
+                        const editingId = this.scenarioCreatorEditingEntryId;
+                        await window.Compendium.updateEntry(editingId, { title: entry.title, body: entry.body, _scenarioData: entry._scenarioData });
+                        this.scenarioCreatorEditingEntryId = null;
+                        if (window.CompendiumManager) {
+                            await window.CompendiumManager.refreshCategoryList(this, 'scenarios');
+                            await window.CompendiumManager.loadCompendiumCounts(this);
+                            await window.CompendiumManager._doSelectCompendiumEntry(this, editingId);
+                        }
+                        this.discardScenarioCreatorDraft();
+                        this.showScenarioCreator = false;
+                        this.showCodexPanel = true;
+                        alert('Scenario "' + entry.title + '" updated!');
+                    } else {
+                        const saved = await window.Compendium.import(this.currentProject.id, [entry]);
+                        if (!this.openCompCategories.includes('scenarios')) this.openCompCategories.push('scenarios');
+                        if (window.CompendiumManager) {
+                            await window.CompendiumManager.refreshCategoryList(this, 'scenarios');
+                            await window.CompendiumManager.loadCompendiumCounts(this);
+                            if (saved && saved.length > 0) await window.CompendiumManager._doSelectCompendiumEntry(this, saved[0].id);
+                        }
+                        this.discardScenarioCreatorDraft();
+                        this.showScenarioCreator = false;
+                        this.showCodexPanel = true;
+                        alert('Scenario "' + entry.title + '" adopted into Compendium!');
+                    }
+                } catch (err) { alert('Failed to save scenario: ' + err.message); console.error('Scenario creator adopt error:', err); }
+            },
+            // Scenario Creator instruction editor
+            openScenarioCreatorInstructionEditor() {
+                this.scenarioCreatorEditorSystemPrompt = window.ScenarioCreator.getSystemPrompt();
+                this.scenarioCreatorShowInstructionEditor = true;
+            },
+            closeScenarioCreatorInstructionEditor() {
+                window.ScenarioCreator.saveInstructionTemplates(this.scenarioCreatorInstructionTemplates);
+                window.ScenarioCreator.setSystemPrompt(this.scenarioCreatorEditorSystemPrompt);
+                this.scenarioCreatorShowInstructionEditor = false;
+            },
+            addScenarioCreatorInstructionTemplate() {
+                const newId = 'custom_' + Date.now();
+                this.scenarioCreatorInstructionTemplates.push({ id: newId, label: 'New Instruction', message: '', relevantCategories: [] });
+            },
+            deleteScenarioCreatorInstructionTemplate(id) {
+                const idx = this.scenarioCreatorInstructionTemplates.findIndex(t => t.id === id);
+                if (idx !== -1 && this.scenarioCreatorInstructionTemplates[idx].id.startsWith('custom_')) this.scenarioCreatorInstructionTemplates.splice(idx, 1);
+            },
+            resetScenarioCreatorInstructionTemplates() {
+                if (confirm('Reset all instruction templates to defaults?')) { window.ScenarioCreator.resetInstructionTemplates(); this.scenarioCreatorInstructionTemplates = window.ScenarioCreator.loadInstructionTemplates(); }
+            },
+            resetScenarioCreatorSystemPrompt() {
+                if (confirm('Reset the system prompt to its default?')) { window.ScenarioCreator.resetSystemPrompt(); this.scenarioCreatorEditorSystemPrompt = window.ScenarioCreator.getSystemPrompt(); }
+            },
+
+            // ========== Compendium world/scenario entries for character info ==========
+            get worldCreatorCompendiumEntries() {
+                return this.compendiumLists?.['worlds'] || [];
+            },
+            get scenarioCreatorCompendiumEntries() {
+                return this.compendiumLists?.['scenarios'] || [];
+            },
+
             async selectCompendiumEntry(id) {
                 await window.CompendiumManager.selectCompendiumEntry(this, id);
             },
