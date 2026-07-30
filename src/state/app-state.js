@@ -141,6 +141,8 @@ function createAppState() {
         workshopSceneSearchSelectedIndex: 0,
         workshopCompendiumMap: {},
         workshopSceneMap: {},
+        workshopEditingIdx: null,
+        workshopEditingBuffer: '',
 
         // ========== Update Checker State ==========
         showUpdateDialog: false,

@@ -125,6 +125,66 @@ const Workshop = {
             await Workshop.saveWorkshopSessions(app);
         }
     },
+    deleteMessage(app, sessionIdx, msgIdx) {
+        const session = app.workshopSessions[sessionIdx];
+        if (!session) return;
+        session.messages.splice(msgIdx, 1);
+        session.messages = [...session.messages];
+        if (app.workshopEditingIdx !== null) {
+            app.workshopEditingIdx = null;
+            app.workshopEditingBuffer = '';
+        }
+        Workshop.saveWorkshopSessions(app);
+    },
+    editMessage(app, sessionIdx, msgIdx) {
+        const session = app.workshopSessions[sessionIdx];
+        if (!session) return;
+        const msg = session.messages[msgIdx];
+        if (!msg) return;
+        app.workshopEditingIdx = msgIdx;
+        app.workshopEditingBuffer = msg.content;
+    },
+    saveEdit(app, sessionIdx) {
+        if (app.workshopEditingIdx === null) return;
+        const session = app.workshopSessions[sessionIdx];
+        if (!session) return;
+        const msg = session.messages[app.workshopEditingIdx];
+        if (!msg) return;
+        msg.content = app.workshopEditingBuffer;
+        session.messages = [...session.messages];
+        app.workshopEditingIdx = null;
+        app.workshopEditingBuffer = '';
+        Workshop.saveWorkshopSessions(app);
+    },
+    cancelEdit(app) {
+        app.workshopEditingIdx = null;
+        app.workshopEditingBuffer = '';
+    },
+    retryMessage(app, sessionIdx, msgIdx) {
+        const session = app.workshopSessions[sessionIdx];
+        if (!session) return;
+        const msg = session.messages[msgIdx];
+        if (!msg) return;
+        if (app.workshopEditingIdx !== null) {
+            app.workshopEditingIdx = null;
+            app.workshopEditingBuffer = '';
+        }
+        if (msg.role === 'assistant') {
+            let lastUserContent = '';
+            for (let i = msgIdx - 1; i >= 0; i--) {
+                if (session.messages[i].role === 'user') {
+                    lastUserContent = session.messages[i].content;
+                    break;
+                }
+            }
+            session.messages = session.messages.slice(0, msgIdx);
+            session.messages = [...session.messages];
+            Workshop.saveWorkshopSessions(app);
+            app.workshopInput = lastUserContent || '';
+        } else if (msg.role === 'user') {
+            app.workshopInput = msg.content;
+        }
+    },
     async loadSelectedWorkshopPrompt(app) {
         if (!app.currentProject) return;
         const key = `workshopPrompt_${app.currentProject.id}`;
