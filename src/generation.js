@@ -263,7 +263,7 @@
                             onToken(data.content);
                         }
                         if (data.stop) {
-                            return;
+                            return { finishReason: 'stop' };
                         }
                     } catch (e) {
                         // ignore parse errors
@@ -271,6 +271,9 @@
                 }
             }
         }
+
+        // Stream ended without explicit stop signal — likely hit n_predict token budget
+        return { finishReason: 'length' };
     }
 
     async function streamGenerationAPI(prompt, onToken, provider, apiKey, model, customEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams = {}) {

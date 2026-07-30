@@ -596,14 +596,14 @@ window.ChatMode = {
 
     // ========== Sending Messages ==========
 
-    async _generateAssistantResponse(app, assistantIndex, mode) {
+    async _generateAssistantResponse(app, assistantIndex, mode, retryCount = 0) {
         app.chatCharacterIsGenerating = true;
         app.chatCharacterAbortController = new AbortController();
         try {
             const promptMessages = await this.buildCharacterPrompt(app, mode);
             const existingContent = mode === 'continue' ? (app.chatCharacterMessages[assistantIndex]?.content || '') : '';
             let fullResponse = '';
-            await window.Generation.streamGeneration(promptMessages, (token) => {
+            const result = await window.Generation.streamGeneration(promptMessages, (token) => {
                 fullResponse += token;
                 app.chatCharacterMessages[assistantIndex].content = existingContent + fullResponse;
                 app.chatCharacterMessages = [...app.chatCharacterMessages];
@@ -613,8 +613,10 @@ window.ChatMode = {
 
             const targetWords = app.maxTokens || 300;
             const wordCount = fullResponse.trim().split(/\s+/).filter(Boolean).length;
-            if (wordCount < Math.round(targetWords * 0.6) && mode !== 'continue') {
-                await this._generateAssistantResponse(app, assistantIndex, 'continue');
+            const truncated = result?.finishReason === 'length' || result?.finishReason === 'MAX_TOKENS';
+            const tooShort = wordCount < Math.round(targetWords * 0.6);
+            if ((truncated || tooShort) && retryCount < 3) {
+                await this._generateAssistantResponse(app, assistantIndex, 'continue', retryCount + 1);
                 await this.saveCharacterSession(app);
             }
         } catch (error) {

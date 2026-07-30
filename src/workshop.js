@@ -33,12 +33,14 @@ window.workshopChat = {
         const systemPrompt = selectedPrompt?.content ||
             "You are a creative writing assistant helping to brainstorm and develop story ideas. Be thoughtful, creative, and supportive.";
 
-        // Add system message with language directive
+        // Add system message with language directive and length instruction
         const workshopLang = app?.language || app?.currentProject?.language || 'English';
         const langDirective = workshopLang !== 'English' ? `\n\nWrite entirely in ${workshopLang}.` : '';
+        const targetWords = app?.maxTokens || 300;
+        const lengthInstruction = `\n\nWrite approximately ${targetWords} words in your response.`;
         messages.push({
             role: 'system',
-            content: systemPrompt + langDirective
+            content: systemPrompt + langDirective + lengthInstruction
         });
 
         // Extract mentions and build context
