@@ -317,6 +317,30 @@ window.ChatMode = {
             avatar: entry.imageUrl || null,
             rawBody: entry.body || ''
         };
+
+        // Load linked world/scenario
+        const charData = entry._charData || {};
+        app.activeWorldId = charData.worldId || null;
+        app.activeScenarioId = charData.scenarioId || null;
+        app.activeWorldEntry = null;
+        app.activeScenarioEntry = null;
+
+        if (app.activeWorldId && window.db) {
+            try {
+                app.activeWorldEntry = await window.db.compendium.get(app.activeWorldId);
+            } catch (e) {
+                console.warn('Failed to load linked world entry:', e);
+                app.activeWorldId = null;
+            }
+        }
+        if (app.activeScenarioId && window.db) {
+            try {
+                app.activeScenarioEntry = await window.db.compendium.get(app.activeScenarioId);
+            } catch (e) {
+                console.warn('Failed to load linked scenario entry:', e);
+                app.activeScenarioId = null;
+            }
+        }
     },
 
     // ========== Session Management ==========
@@ -465,14 +489,30 @@ window.ChatMode = {
             }
         }
 
+        // Inject linked world context (if set, replaces embedded scenario)
+        if (app.activeWorldEntry) {
+            const worldBody = (app.activeWorldEntry.body || '').trim();
+            if (worldBody) {
+                systemContent += `\n\n## World: ${app.activeWorldEntry.title}\n${worldBody}`;
+            }
+        }
+
+        // Inject linked scenario context (overrides embedded scenario field)
+        if (app.activeScenarioEntry) {
+            const scenarioBody = (app.activeScenarioEntry.body || '').trim();
+            if (scenarioBody) {
+                systemContent += `\n\n## Scenario: ${app.activeScenarioEntry.title}\n${scenarioBody}`;
+            }
+        } else if (char.scenario && !app.activeWorldEntry) {
+            // Fallback to embedded scenario only if no world entry is linked
+            systemContent += `\n\nScenario: ${char.scenario}`;
+        }
+
         if (char.description) {
             systemContent += `\n\n${char.description}`;
         }
         if (char.personality) {
             systemContent += `\n\nPersonality: ${char.personality}`;
-        }
-        if (char.scenario) {
-            systemContent += `\n\nScenario: ${char.scenario}`;
         }
         if (char.systemPrompt) {
             systemContent += `\n\n${char.systemPrompt}`;
@@ -729,6 +769,8 @@ window.ChatMode = {
             alternateGreetings: (char.alternateGreetings || []).slice(),
             examples: char.examples || '',
             systemPrompt: char.systemPrompt || '',
+            worldId: app.activeWorldId || '',
+            scenarioId: app.activeScenarioId || '',
             _activeGreetingIndex: 0,
             _activeGreetingBuffer: char.firstMessage || ''
         };
@@ -820,16 +862,43 @@ window.ChatMode = {
         }
         const body = bodyLines.join('\n').trim();
 
+        // Persist world/scenario linking in _charData
+        const charData = {};
+        if (draft.worldId) charData.worldId = draft.worldId;
+        if (draft.scenarioId) charData.scenarioId = draft.scenarioId;
+
         try {
             const entry = await db.compendium.get(app.chatCharacterId);
             if (entry) {
-                const updated = { ...entry, title: draft.name, body };
+                const updated = { ...entry, title: draft.name, body, _charData: charData };
                 await db.compendium.put(updated);
             }
         } catch (e) {
             console.error('Failed to save character info:', e);
             alert('Failed to save character info.');
             return;
+        }
+
+        // Update active world/scenario entries
+        app.activeWorldId = draft.worldId || null;
+        app.activeScenarioId = draft.scenarioId || null;
+        if (app.activeWorldId && window.db) {
+            try {
+                app.activeWorldEntry = await window.db.compendium.get(app.activeWorldId);
+            } catch (e) {
+                app.activeWorldEntry = null;
+            }
+        } else {
+            app.activeWorldEntry = null;
+        }
+        if (app.activeScenarioId && window.db) {
+            try {
+                app.activeScenarioEntry = await window.db.compendium.get(app.activeScenarioId);
+            } catch (e) {
+                app.activeScenarioEntry = null;
+            }
+        } else {
+            app.activeScenarioEntry = null;
         }
 
         // Update in-memory character

@@ -6,6 +6,8 @@
             icon: '⚔️',
             promptDescriptor: 'vivid worldbuilding, magic systems, mythical creatures, ancient powers, and a sense of wonder',
             charDescription: 'This is a fantasy setting — medieval-ish technology, magic, mythical creatures, ancient powers, and grand quests. Descriptions should evoke wonder, danger, and a sense of history.',
+            worldDescription: 'Build a world of magic and myth — ancient powers, mythical creatures, sprawling kingdoms, and hidden wonders. Describe geography shaped by magic, cultures built around mystical traditions, and histories written in dragonfire and prophecy.',
+            scenarioDescription: 'Frame a scenario driven by quests, prophecies, magical conflicts, or the collision of kingdoms and powers. Let the stakes involve ancient magic, mythical beings, or the fate of realms.',
             extraCompendiumCategories: ['Magic Systems', 'Bestiary', 'Pantheons', 'Factions', 'Races'],
             defaultPrompts: {
                 prose: {
@@ -36,6 +38,8 @@
             icon: '🚀',
             promptDescriptor: 'advanced technology, space travel, futuristic societies, scientific plausibility, and vast settings',
             charDescription: 'This is a science fiction setting — advanced technology, space travel, futuristic societies, and scientific possibilities. Descriptions should feel innovative, vast, and grounded in speculative realism.',
+            worldDescription: 'Build a future shaped by technology, space exploration, alien life, and advanced science. Describe worlds connected by starships, societies transformed by innovation, and the vastness of space as both opportunity and threat.',
+            scenarioDescription: 'Frame a scenario involving technological breakthroughs, first contact, space exploration, or societal transformation. Let the stakes be shaped by scientific discovery, alien encounters, or the consequences of progress.',
             extraCompendiumCategories: ['Technology', 'Ships & Craft', 'Planets & Locations', 'Alien Species', 'Governments'],
             defaultPrompts: {
                 prose: {
@@ -66,6 +70,8 @@
             icon: '🏙️',
             promptDescriptor: 'contemporary life, relatable social dynamics, realistic dialogue, and grounded emotional truth',
             charDescription: 'This is a modern, contemporary setting — present-day life with familiar technology, social dynamics, and urban or suburban environments. Descriptions should feel grounded and relatable.',
+            worldDescription: 'Build a contemporary world grounded in present-day reality. Describe familiar urban and suburban environments, modern technology, and the social dynamics of everyday life.',
+            scenarioDescription: 'Frame a scenario rooted in contemporary life — relationships, career challenges, personal conflicts, or social dynamics. Let the stakes feel real and emotionally grounded.',
             extraCompendiumCategories: [],
             defaultPrompts: {
                 prose: {
@@ -96,6 +102,8 @@
             icon: '🏛️',
             promptDescriptor: 'period-appropriate detail, historical authenticity, immersive sense of era, and era-specific social dynamics',
             charDescription: 'This is a historical setting — set in a specific past era with period-appropriate customs, technology, and social structures. Descriptions should evoke the feel of that time without anachronism.',
+            worldDescription: 'Build an authentic historical world rooted in a specific era. Describe period-appropriate environments, customs, technology, and social structures with accuracy and immersive detail.',
+            scenarioDescription: 'Frame a scenario shaped by the tensions, conflicts, and social dynamics of a specific historical period. Let the stakes involve real historical forces — war, revolution, cultural change, or personal survival within a rigid society.',
             extraCompendiumCategories: ['Timeline', 'Historical Figures', 'Period Glossary', 'Customs & Society'],
             defaultPrompts: {
                 prose: {
@@ -126,6 +134,8 @@
             icon: '👻',
             promptDescriptor: 'dread, suspense, psychological tension, atmospheric unease, and a sense that something is very wrong',
             charDescription: 'This is a horror setting — dread, suspense, the supernatural, and psychological terror. Descriptions should build unease, tension, and a sense that something is very wrong.',
+            worldDescription: 'Build a world where unease lurks beneath the surface. Describe environments that feel threatening, histories stained by tragedy, and a sense that something is fundamentally wrong with the world itself.',
+            scenarioDescription: 'Frame a scenario built on dread and danger. Let the stakes involve survival against supernatural or psychological threats, with tension that escalates through atmosphere and the unknown.',
             extraCompendiumCategories: ['Entities & Creatures', 'Tension Trackers', 'Haunted Locations', 'Artifacts'],
             defaultPrompts: {
                 prose: {
@@ -156,6 +166,8 @@
             icon: '💕',
             promptDescriptor: 'emotional intimacy, chemistry between characters, relationship dynamics, vulnerability, and heartfelt connection',
             charDescription: 'This is a romance setting — emotional intimacy, chemistry, relationships, and matters of the heart drive the story. Descriptions should highlight how the character connects, their warmth, their vulnerability, and their capacity for love.',
+            worldDescription: 'Build a world where connection and emotion take center stage. Describe environments that foster intimacy, social settings that bring people together, and a world that cares about matters of the heart.',
+            scenarioDescription: 'Frame a scenario centered on emotional connection, chemistry, and relationship dynamics. Let the stakes involve vulnerability, the risk of love, and the tension between what the heart wants and what the world demands.',
             extraCompendiumCategories: ['Relationship Beats', 'Chemistry Notes', 'Tropes', 'Love Languages'],
             defaultPrompts: {
                 prose: {
@@ -186,6 +198,8 @@
             icon: '🔥',
             promptDescriptor: 'sensual tension, explicit chemistry, erotic intimacy, vulnerability in desire, the heat of physical and emotional connection',
             charDescription: 'This is an erotic romance setting — sensual tension, explicit chemistry, and the heat of intimate connection drive the story. Descriptions should explore desire openly, portray intimacy with emotional depth, and balance raw passion with vulnerable, heartfelt moments.',
+            worldDescription: 'Build a world where desire and intimacy are woven into the fabric of society. Describe environments charged with sensual possibility, where attraction is acknowledged and explored openly.',
+            scenarioDescription: 'Frame a scenario driven by chemistry, attraction, and the tension between desire and emotional connection. Let the stakes involve the vulnerability of intimacy and the heat of passion colliding with real emotional risk.',
             extraCompendiumCategories: ['Chemistry Beats', 'Spice Tracker', 'Intimate Scenes', 'Relationship Dynamics'],
             defaultPrompts: {
                 prose: {
@@ -216,6 +230,8 @@
             icon: '🤠',
             promptDescriptor: 'harsh frontier landscapes, rugged independence, sparse and tough prose, and moral ambiguity',
             charDescription: 'This is a Western setting — frontier landscapes, dust and leather, harsh justice, and rugged independence. Descriptions should feel sparse, tough, and shaped by the land.',
+            worldDescription: 'Build a frontier world of rugged landscapes, scarce resources, and harsh justice. Describe wide-open plains, dusty towns, and a world where the land itself shapes the people who survive on it.',
+            scenarioDescription: 'Frame a scenario of frontier conflict — land disputes, outlaw justice, survival in harsh conditions, or the clash between civilization and the wild. Let the stakes be raw and elemental.',
             extraCompendiumCategories: ['Locations', 'Factions', 'Outlaws'],
             defaultPrompts: {
                 prose: {
@@ -246,6 +262,8 @@
             icon: '🔮',
             promptDescriptor: 'high-tech noir, gritty urban decay, cybernetic augmentation, corporate control, and the line between human and machine',
             charDescription: 'This is a cyberpunk setting — high tech, low life. Neon-lit streets, corporate power, cybernetic augmentation, and a grimy underbelly. Descriptions should feel gritty, stylish, and tinged with decay.',
+            worldDescription: 'Build a high-tech, low-life world of neon-drenched streets, corporate dominance, and cybernetic augmentation. Describe a society where technology and decay coexist, and the line between human and machine has blurred.',
+            scenarioDescription: 'Frame a scenario of rebellion against corporate power, digital heists, or survival in the cracks of a system designed to crush individuals. Let the stakes involve identity, freedom, and the cost of technology.',
             extraCompendiumCategories: ['Cybernetics & Tech', 'Corporations', 'Districts', 'Hacker Culture'],
             defaultPrompts: {
                 prose: {
@@ -276,6 +294,8 @@
             icon: '☢️',
             promptDescriptor: 'survival in a fallen world, scarce resources, weathered landscapes, and the endurance of the human spirit',
             charDescription: 'This is a post-apocalyptic setting — civilization has fallen, resources are scarce, and survival is daily. Descriptions should feel weathered, scarred, and shaped by loss and endurance.',
+            worldDescription: 'Build a world that has fallen — ruined cities, scarce resources, small communities clinging to survival. Describe landscapes marked by loss, where every day is a negotiation with scarcity and danger.',
+            scenarioDescription: 'Frame a scenario of survival in the aftermath. Let the stakes involve finding resources, protecting a community, navigating the politics of survivor groups, or holding onto hope in a broken world.',
             extraCompendiumCategories: ['Survivors & Factions', 'Hazards', 'Ruins & Locations', 'Resources'],
             defaultPrompts: {
                 prose: {
@@ -306,6 +326,8 @@
             icon: '🦸',
             promptDescriptor: 'extraordinary powers, secret identities, larger-than-life conflicts, and the moral line between hero and villain',
             charDescription: 'This is a superhero setting — extraordinary powers, secret identities, larger-than-life conflicts, and the line between hero and villain. Descriptions should capture the scale and drama of powers in a world that feels like ours but bigger.',
+            worldDescription: 'Build a world where extraordinary powers exist alongside ordinary life. Describe a society grappling with superhuman individuals, secret identities, and the moral questions that powers create.',
+            scenarioDescription: 'Frame a scenario involving superpowered conflict, the struggle between heroism and vigilantism, or the personal cost of having powers. Let the stakes balance action with moral weight.',
             extraCompendiumCategories: ['Powers & Abilities', 'Heroes & Villains', 'Teams & Factions', 'Secret Identities'],
             defaultPrompts: {
                 prose: {
@@ -358,6 +380,20 @@
 
     function getCharDescription(genreId) {
         return findGenre(genreId)?.charDescription || '';
+    }
+
+    function getWorldDescription(genreIds) {
+        return genreIds
+            .map(id => findGenre(id)?.worldDescription)
+            .filter(Boolean)
+            .join(' ');
+    }
+
+    function getScenarioDescription(genreIds) {
+        return genreIds
+            .map(id => findGenre(id)?.scenarioDescription)
+            .filter(Boolean)
+            .join(' ');
     }
 
     const POVS = [
@@ -415,6 +451,8 @@
         getPromptDescriptor,
         getExtraCompendiumCategories,
         getDefaultPromptsForGenre,
-        getCharDescription
+        getCharDescription,
+        getWorldDescription,
+        getScenarioDescription
     };
 })();
