@@ -35,24 +35,24 @@
         trimIncompleteEnding(text) {
             if (!text) return text;
             // Ignore trailing whitespace/newlines: streamed output often ends
-            // with one, and it must not hide a complete ending or trigger the
-            // paragraph-break fallback (which would delete the last paragraph).
+            // with one, and it must not hide a complete ending.
             let t = String(text).replace(/\s+$/, '');
             // Complete if it ends with a sentence terminator / ellipsis / em dash
-            // (optionally followed by a closing quote or bracket).
-            if (/[.!?…—]["'”’)\]]?$/.test(t)) {
+            // (incl. CJK), optionally followed by a closing quote or bracket.
+            if (/[.!?…—。！？]["'”’)\]]?$/.test(t)) {
                 return t;
             }
-            // Cut back to the last sentence terminator that starts a new sentence,
-            // keeping any closing quote attached to it.
-            const boundary = t.match(/^([\s\S]*[.!?…]["'”’)\]]?)\s+[^.!?…]+$/);
-            if (boundary) {
-                return boundary[1];
-            }
-            // No sentence boundary: fall back to the last paragraph break.
-            const paraBreak = t.lastIndexOf('\n\n');
-            if (paraBreak > 0) {
-                return t.slice(0, paraBreak).replace(/\s+$/, '');
+            // Cut back to the last terminator only when the trailing fragment is a
+            // genuinely incomplete sentence: short, and still ending mid-word or
+            // mid-letter (ignoring trailing quotes/brackets). Long fragments and
+            // endings like ":", "*" or unpunctuated final lines are kept — an
+            // unrecognized ending must never delete a whole paragraph.
+            const boundary = t.match(/^([\s\S]*[.!?…—。！？]["'”’)\]]?)\s+([^.!?…—。！？]+)$/);
+            if (boundary && boundary[2].length <= 120) {
+                const frag = boundary[2].replace(/["'”’)\]]+$/, '');
+                if (frag && /[A-Za-z0-9\u00C0-\uFFFF]$/.test(frag)) {
+                    return boundary[1];
+                }
             }
             return t;
         },

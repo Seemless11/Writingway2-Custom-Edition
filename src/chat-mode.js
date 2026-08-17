@@ -721,10 +721,12 @@ window.ChatMode = {
             // re-streaming the same message up to 3 times.
             const totalContent = app.chatCharacterMessages[assistantIndex]?.content || '';
             const wordCount = totalContent.trim().split(/\s+/).filter(Boolean).length;
-            const finishReason = (result?.finishReason || '').toLowerCase();
-            const truncated = finishReason === 'length' || finishReason === 'max_tokens';
             const tooShort = wordCount < Math.round(targetWords * 0.6);
-            const willContinue = (truncated || tooShort) && retryCount < 3;
+            // Continue only when the message is genuinely too short. Merely
+            // hitting the token cap mid-sentence is no reason to re-stream: it
+            // made every capped output grow extra segments and end with a
+            // freshly trimmed tail.
+            const willContinue = tooShort && retryCount < 3;
 
             // Trim only when the whole chain is done — trimming each segment
             // visibly deleted the tail several times on a single output.
