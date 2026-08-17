@@ -595,15 +595,22 @@ window.ChatMode = {
         if (char.personality) {
             systemContent += `\n\nPersonality: ${char.personality}`;
         }
-        if (char.systemPrompt) {
+        // The character's own system prompt and example dialogue are excluded for
+        // impersonation — they would command the model to speak as the character.
+        if (mode !== 'impersonate' && char.systemPrompt) {
             systemContent += `\n\n${char.systemPrompt}`;
         }
-        if (char.examples) {
+        if (mode !== 'impersonate' && char.examples) {
             systemContent += `\n\n${char.examples}`;
         }
 
         if (mode === 'impersonate') {
-            systemContent += `\n\nWrite the next message as ${personaName} — ${personaName}'s reply to ${char.name}. Do not write anything for ${char.name}. Study ${personaName}'s previous messages in this conversation and match their writing style, tone, vocabulary, formatting, and message length as closely as possible. Never speak or narrate as ${char.name}.`;
+            const lastMsg = [...app.chatCharacterMessages].reverse().find(m => m.content && m.content.trim());
+            const lastIsUser = lastMsg && lastMsg.role === 'user';
+            systemContent += `\n\nWrite a new, complete message as ${personaName} — a fresh reply to ${char.name}'s last message. Do NOT continue, extend, or repeat the last message. Match ${personaName}'s writing style, tone, vocabulary, and formatting based on their previous messages in the conversation. Never speak or narrate as ${char.name}.`;
+            if (lastIsUser) {
+                systemContent += `\n\n${personaName}'s own message is currently the most recent one in the conversation — do not continue it. Write a new follow-up message as ${personaName}, responding to ${char.name}'s previous reply.`;
+            }
             if (responseMode === 'narrative') {
                 systemContent += `\n\nWrite ${personaName}'s part as third-person narrative prose describing what ${personaName} does and says, like a novel, consistent with the narrative style of the conversation.`;
             }
@@ -620,7 +627,8 @@ window.ChatMode = {
 
         const targetWords = app.maxTokens || 300;
         if (mode === 'impersonate') {
-            systemContent += `\n\nKeep the message concise — roughly the same length as ${personaName}'s previous messages in the conversation.`;
+            const impTarget = Math.max(50, Math.round(targetWords * 0.5));
+            systemContent += `\n\nWrite approximately ${impTarget} words — a full, complete reply, not a fragment or a single short line. Expand ${personaName}'s usual style into a fuller message.`;
         } else {
             const minWords = Math.round(targetWords * 0.8);
             const maxWords = Math.round(targetWords * 1.3);
