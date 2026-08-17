@@ -5584,8 +5584,8 @@
                 </div>
                 <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
                     <div style="display:flex;gap:8px;align-items:center;">
-                        <select x-model="activePersonaId"
-                            @change="window.ChatMode.switchPersona($data, activePersonaId)"
+                        <select :value="activePersonaId"
+                            @change="window.ChatMode.switchPersona($data, $event.target.value)"
                             style="flex:1;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
                             <template x-for="p in userPersonas" :key="p.id">
                                 <option :value="p.id" x-text="p.name"></option>
