@@ -702,8 +702,33 @@ window.ChatMode = {
             }, app, app.chatCharacterAbortController.signal);
             await this.saveCharacterSession(app);
 
-            // Auto-remove a trailing incomplete sentence (same behavior as the story editor)
-            if (window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
+            // Continuation segments sometimes re-emit the narrative header as if a
+            // new turn began; strip it so the reply reads as one continuous message.
+            if (mode === 'continue') {
+                const char = app.chatCharacter;
+                const narrativeTag = char ? `[${char.name}'s response narrative]` : '';
+                if (narrativeTag && fullResponse.startsWith(narrativeTag)) {
+                    const cleaned = fullResponse.slice(narrativeTag.length).replace(/^\s+/, '');
+                    fullResponse = cleaned;
+                    app.chatCharacterMessages[assistantIndex].content = existingContent + cleaned;
+                    app.chatCharacterMessages = [...app.chatCharacterMessages];
+                }
+            }
+
+            const targetWords = app.maxTokens || 300;
+            // Evaluate against the total message, not just this segment: counting
+            // only the segment made every short continuation re-trigger the chain,
+            // re-streaming the same message up to 3 times.
+            const totalContent = app.chatCharacterMessages[assistantIndex]?.content || '';
+            const wordCount = totalContent.trim().split(/\s+/).filter(Boolean).length;
+            const finishReason = (result?.finishReason || '').toLowerCase();
+            const truncated = finishReason === 'length' || finishReason === 'max_tokens';
+            const tooShort = wordCount < Math.round(targetWords * 0.6);
+            const willContinue = (truncated || tooShort) && retryCount < 3;
+
+            // Trim only when the whole chain is done — trimming each segment
+            // visibly deleted the tail several times on a single output.
+            if (!willContinue && window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
                 const current = app.chatCharacterMessages[assistantIndex]?.content || '';
                 const trimmed = window.Editor.trimIncompleteEnding(current);
                 if (trimmed !== current) {
@@ -712,12 +737,7 @@ window.ChatMode = {
                 }
             }
 
-            const targetWords = app.maxTokens || 300;
-            const wordCount = fullResponse.trim().split(/\s+/).filter(Boolean).length;
-            const finishReason = (result?.finishReason || '').toLowerCase();
-            const truncated = finishReason === 'length' || finishReason === 'max_tokens';
-            const tooShort = wordCount < Math.round(targetWords * 0.6);
-            if ((truncated || tooShort) && retryCount < 3) {
+            if (willContinue) {
                 await this._generateAssistantResponse(app, assistantIndex, 'continue', retryCount + 1);
                 await this.saveCharacterSession(app);
             }
