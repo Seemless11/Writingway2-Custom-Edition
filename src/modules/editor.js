@@ -34,7 +34,10 @@
          */
         trimIncompleteEnding(text) {
             if (!text) return text;
-            let t = String(text);
+            // Ignore trailing whitespace/newlines: streamed output often ends
+            // with one, and it must not hide a complete ending or trigger the
+            // paragraph-break fallback (which would delete the last paragraph).
+            let t = String(text).replace(/\s+$/, '');
             // Complete if it ends with a sentence terminator / ellipsis / em dash
             // (optionally followed by a closing quote or bracket).
             if (/[.!?…—]["'”’)\]]?$/.test(t)) {
