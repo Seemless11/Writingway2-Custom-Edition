@@ -63,7 +63,11 @@
         try {
             const text = new TextDecoder().decode(raw);
             const decoded = atob(text);
-            return JSON.parse(decoded);
+            // atob() yields a binary string (bytes mapped to Latin-1 char codes);
+            // decode it back to bytes and parse as UTF-8 so non-ASCII text
+            // (accents, non-breaking spaces, etc.) survives intact.
+            const bytes = Uint8Array.from(decoded, function (c) { return c.charCodeAt(0); });
+            return JSON.parse(new TextDecoder().decode(bytes));
         } catch (e) {
             throw new Error('Failed to decode character data: ' + e.message);
         }
@@ -124,6 +128,8 @@
         result = result.replace(/\[(char|user):[^\]]*\]/gi, '');
         // Strip CSS-style /* ... */ comments
         result = result.replace(/\/\*[\s\S]*?\*\//g, '');
+        // Normalize non-breaking spaces to regular spaces
+        result = result.replace(/\u00A0/g, ' ');
         // Clean up excessive whitespace from removals
         result = result.replace(/\n{3,}/g, '\n\n');
         result = result.replace(/[ \t]{2,}/g, ' ');
@@ -151,7 +157,9 @@
             lines.push(sanitizeCardText(importData.scenario, charName));
         }
         const hasAlternates = importData.alternate_greetings && importData.alternate_greetings.length > 0;
-        const primaryGreeting = importData.first_message || (hasAlternates ? importData.alternate_greetings[0] : '');
+        const primaryGreeting = importData.first_message
+            ? sanitizeCardText(importData.first_message, charName)
+            : (hasAlternates ? importData.alternate_greetings[0] : '');
         if (primaryGreeting) {
             lines.push('');
             lines.push('## First Message');

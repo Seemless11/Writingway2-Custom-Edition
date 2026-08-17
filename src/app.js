@@ -6,6 +6,110 @@
 
 // Alpine.js App
 document.addEventListener('alpine:init', () => {
+
+    // Standalone safe markdown renderer used by x-html bindings and chat rendering.
+    // Raw HTML is escaped so AI/user content cannot inject markup; only a small set
+    // of formatting tags (u/em/strong/b/i/br/p/span/small/sub/sup/hr/s) survives.
+    function markdownToHtmlSafe(text) {
+        if (!text) return '';
+        text = String(text);
+
+        // Store fenced code blocks to prevent processing their contents
+        const codeBlocks = [];
+        text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
+            const idx = codeBlocks.length;
+            const escapedCode = code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+            codeBlocks.push(`<pre class="md-code-block"><code class="language-${lang || 'text'}">${escapedCode}</code></pre>`);
+            return `__CODE_BLOCK_${idx}__`;
+        });
+
+        // Escape any remaining raw HTML so it renders as inert text
+        let html = text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+
+        // Re-allow only a safe set of formatting tags (attribute-free; nothing else passes)
+        const SAFE_TAGS = ['u', 'em', 'strong', 'b', 'i', 'br', 'p', 'span', 'small', 'sub', 'sup', 'hr', 's'];
+        const safeTagRe = new RegExp('&lt;/?(' + SAFE_TAGS.join('|') + ')&gt;', 'gi');
+        html = html.replace(safeTagRe, (m, tag) => (m.charAt(4) === '/' ? '</' : '<') + tag.toLowerCase() + '>');
+
+        // Inline code
+        html = html.replace(/`([^`]+)`/g, (match, code) => {
+            const escapedCode = code
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+            return `<code class="md-inline-code">${escapedCode}</code>`;
+        });
+
+        html = html
+            // Headers (must be processed before paragraphs)
+            .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+            .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+            .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+            // Horizontal rules
+            .replace(/^---+$/gim, '<hr>')
+            .replace(/^\*\*\*+$/gim, '<hr>')
+            // Blockquotes (must be before paragraphs)
+            .replace(/^> (.+$)/gim, '<blockquote>$1</blockquote>')
+            // Unordered lists (basic support)
+            .replace(/^[\-\*] (.+$)/gim, '<li class="md-ul">$1</li>')
+            // Ordered lists (basic support)
+            .replace(/^\d+\. (.+$)/gim, '<li class="md-ol">$1</li>')
+            // Bold (process before paragraphs)
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            // Italic (process before paragraphs)
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            // Strikethrough (process before paragraphs)
+            .replace(/~~(.+?)~~/g, '<del>$1</del>')
+            // Links [text](url) — only allow safe schemes, escape quotes/ampersands
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
+                const href = url.trim();
+                const scheme = href.toLowerCase();
+                if (/^(https?|mailto):/.test(scheme) || href.startsWith('/') || href.startsWith('#')) {
+                    const safeUrl = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+                    return `<a href="${safeUrl}" target="_blank" rel="noopener">${label}</a>`;
+                }
+                return label; // drop javascript:, data:, vbscript:, etc.
+            })
+            // Convert double line breaks to paragraph breaks
+            .replace(/\n\n+/g, '</p><p>')
+            // Convert single line breaks to <br>
+            .replace(/\n/g, '<br>');
+
+        // Wrap consecutive list items in ul/ol tags
+        html = html.replace(/(<li class="md-ul">.+?<\/li>(?:<br>)?)+/g, (match) => {
+            const items = match.replace(/<br>/g, '');
+            return `<ul>${items}</ul>`;
+        });
+        html = html.replace(/(<li class="md-ol">.+?<\/li>(?:<br>)?)+/g, (match) => {
+            const items = match.replace(/<br>/g, '');
+            return `<ol>${items}</ol>`;
+        });
+        // Clean up list item classes
+        html = html.replace(/ class="md-ul"/g, '').replace(/ class="md-ol"/g, '');
+
+        // Restore code blocks
+        codeBlocks.forEach((block, idx) => {
+            html = html.replace(`__CODE_BLOCK_${idx}__`, block);
+        });
+
+        // Wrap in paragraphs if not already wrapped in block elements
+        if (!html.startsWith('<h') && !html.startsWith('<blockquote>') && !html.startsWith('<pre') && !html.startsWith('<ul') && !html.startsWith('<ol')) {
+            html = `<p>${html}</p>`;
+        }
+
+        return html;
+    }
+
+    // Expose for chat-mode rendering (renderChatMessage) and other modules
+    window.markdownToHtml = markdownToHtmlSafe;
+
     Alpine.data('app', () => {
         // Create initial state using factory (Phase 2 refactoring)
         const state = window.createAppState ? window.createAppState() : {};
@@ -35,7 +139,7 @@ document.addEventListener('alpine:init', () => {
             },
 
             get compendiumCategories() {
-                const base = ['characters', 'places', 'items', 'lore', 'notes'];
+                const base = ['worlds', 'scenarios', 'characters', 'places', 'items', 'lore', 'notes'];
                 if (this.currentProject?.genres?.length && window.GenreDefs) {
                     const extra = window.GenreDefs.getExtraCompendiumCategories(this.currentProject.genres);
                     return [...base, ...extra.filter(c => !base.includes(c))];
@@ -125,7 +229,7 @@ document.addEventListener('alpine:init', () => {
                                 <h1 style="margin:0 0 16px 0;color:#4a9eff;font-size:24px;">🚀 How to Start Writingway</h1>
                                 <ol style="line-height:1.8;padding-left:24px;margin:16px 0;">
                                     <li>Close this browser tab</li>
-                                    <li>Navigate to your Writingway folder: <code style="background:#1a1a1a;padding:2px 6px;border-radius:4px;">E:\\Writingway2</code></li>
+                                    <li>Navigate to your Writingway folder (where this file lives)</li>
                                     <li>Double-click <code style="background:#1a1a1a;padding:2px 6px;border-radius:4px;color:#4a9eff;font-weight:600;">start.bat</code></li>
                                 </ol>
                                 <div style="background:rgba(74,158,255,0.1);border:1px solid rgba(74,158,255,0.3);border-radius:8px;padding:16px;margin-top:20px;">
@@ -1825,15 +1929,37 @@ document.addEventListener('alpine:init', () => {
             },
 
             editCharacterInCreator(compEntry) {
-                if (!compEntry || !compEntry._charData) return;
+                if (!compEntry) return;
                 this.discardCharCreatorDraft();
                 try {
-                    const data = typeof compEntry._charData === 'string'
-                        ? JSON.parse(compEntry._charData)
-                        : compEntry._charData;
-                    if (data.genre) {
-                        this.charCreatorGenres = Array.isArray(data.genre) ? data.genre : [data.genre];
+                    let data = {};
+                    let genres = this.currentProject?.genres?.length
+                        ? [...this.currentProject.genres]
+                        : ['fantasy'];
+
+                    if (compEntry._charData) {
+                        data = typeof compEntry._charData === 'string'
+                            ? JSON.parse(compEntry._charData)
+                            : compEntry._charData;
+                        if (data.genre) {
+                            genres = Array.isArray(data.genre) ? data.genre : [data.genre];
+                        }
+                    } else {
+                        const body = compEntry.body || '';
+                        const parseField = (fieldName) => {
+                            if (!body) return '';
+                            const regex = new RegExp(`##\\s*${fieldName}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, 'i');
+                            const match = body.match(regex);
+                            return match ? match[1].trim() : '';
+                        };
+                        data.name = compEntry.title || '';
+                        data.notes = '';
+                        data.selectedTraits = {};
+                        data.chatHistory = [];
+                        data.imageDescription = '';
                     }
+
+                    this.charCreatorGenres = genres;
                     this.charCreatorName = data.name || compEntry.title || '';
                     this.charCreatorNotes = data.notes || '';
                     this.charCreatorSelectedTraits = data.selectedTraits || {};
@@ -2241,9 +2367,55 @@ document.addEventListener('alpine:init', () => {
                 try {
                     if (this.charCreatorEditingEntryId) {
                         const editingId = this.charCreatorEditingEntryId;
+
+                        // Helper: extract a ## Section from body
+                        function extractSection(body, sectionName) {
+                            if (!body) return null;
+                            const regex = new RegExp(`##\\s*${sectionName}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, 'i');
+                            const match = body.match(regex);
+                            return match ? match[1].trim() : null;
+                        }
+
+                        // Helper: remove ## Sections from body
+                        function stripSections(body, sectionNames) {
+                            if (!body) return '';
+                            let result = body;
+                            for (const name of sectionNames) {
+                                const regex = new RegExp(`\\n##\\s*${name}\\s*\\n[\\s\\S]*?(?=\\n##\\s|$)`, 'gi');
+                                result = result.replace(regex, '');
+                            }
+                            return result.trim().replace(/\n{3,}/g, '\n\n');
+                        }
+
+                        // Fetch existing entry to preserve its body
+                        const existingEntry = await db.compendium.get(editingId);
+                        const originalBody = existingEntry?.body || '';
+
+                        // Extract new sections from creator output
+                        const newTraits = extractSection(entry.body, 'Traits');
+                        const newDescription = extractSection(entry.body, 'Description');
+
+                        // Remove old Traits/Description from original, keep everything else
+                        let mergedBody = stripSections(originalBody, ['Traits', 'Description']);
+
+                        // Append new Traits (replaces)
+                        if (newTraits) {
+                            mergedBody += '\n\n## Traits\n\n' + newTraits;
+                        }
+
+                        // Append new Description (appends with --- separator)
+                        if (newDescription) {
+                            const origDesc = extractSection(originalBody, 'Description');
+                            if (origDesc) {
+                                mergedBody += '\n\n## Description\n\n' + origDesc + '\n\n---\n\n' + newDescription;
+                            } else {
+                                mergedBody += '\n\n## Description\n\n' + newDescription;
+                            }
+                        }
+
                         await window.Compendium.updateEntry(editingId, {
                             title: entry.title,
-                            body: entry.body,
+                            body: mergedBody,
                             _charData: entry._charData
                         });
                         this.charCreatorEditingEntryId = null;
@@ -3358,86 +3530,9 @@ document.addEventListener('alpine:init', () => {
                 // Default paste behavior is fine for textarea
             },
 
-            // Convert Markdown to HTML for preview
+            // Convert Markdown to HTML for preview (safe renderer, escapes raw HTML)
             markdownToHtml(text) {
-                if (!text) return '';
-
-                // Store code blocks to prevent processing their contents
-                const codeBlocks = [];
-                let html = text;
-
-                // Extract fenced code blocks (```language\ncode\n```)
-                html = html.replace(/```(\w*)\n?([\s\S]*?)```/g, (match, lang, code) => {
-                    const idx = codeBlocks.length;
-                    // Escape HTML in code blocks
-                    const escapedCode = code
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/"/g, '&quot;');
-                    codeBlocks.push(`<pre class="md-code-block"><code class="language-${lang || 'text'}">${escapedCode}</code></pre>`);
-                    return `__CODE_BLOCK_${idx}__`;
-                });
-
-                // Extract inline code (`code`)
-                html = html.replace(/`([^`]+)`/g, (match, code) => {
-                    const escapedCode = code
-                        .replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;');
-                    return `<code class="md-inline-code">${escapedCode}</code>`;
-                });
-
-                html = html
-                    // Headers (must be processed before paragraphs)
-                    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
-                    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
-                    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
-                    // Horizontal rules
-                    .replace(/^---+$/gim, '<hr>')
-                    .replace(/^\*\*\*+$/gim, '<hr>')
-                    // Blockquotes (must be before paragraphs)
-                    .replace(/^> (.+$)/gim, '<blockquote>$1</blockquote>')
-                    // Unordered lists (basic support)
-                    .replace(/^[\-\*] (.+$)/gim, '<li class="md-ul">$1</li>')
-                    // Ordered lists (basic support)
-                    .replace(/^\d+\. (.+$)/gim, '<li class="md-ol">$1</li>')
-                    // Bold (process before paragraphs)
-                    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-                    // Italic (process before paragraphs)
-                    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-                    // Strikethrough (process before paragraphs)
-                    .replace(/~~(.+?)~~/g, '<del>$1</del>')
-                    // Links [text](url)
-                    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-                    // Convert double line breaks to paragraph breaks
-                    .replace(/\n\n+/g, '</p><p>')
-                    // Convert single line breaks to <br>
-                    .replace(/\n/g, '<br>');
-
-                // Wrap consecutive list items in ul/ol tags
-                html = html.replace(/(<li class="md-ul">.+?<\/li>(?:<br>)?)+/g, (match) => {
-                    const items = match.replace(/<br>/g, '');
-                    return `<ul>${items}</ul>`;
-                });
-                html = html.replace(/(<li class="md-ol">.+?<\/li>(?:<br>)?)+/g, (match) => {
-                    const items = match.replace(/<br>/g, '');
-                    return `<ol>${items}</ol>`;
-                });
-                // Clean up list item classes
-                html = html.replace(/ class="md-ul"/g, '').replace(/ class="md-ol"/g, '');
-
-                // Restore code blocks
-                codeBlocks.forEach((block, idx) => {
-                    html = html.replace(`__CODE_BLOCK_${idx}__`, block);
-                });
-
-                // Wrap in paragraphs if not already wrapped in block elements
-                if (!html.startsWith('<h') && !html.startsWith('<blockquote>') && !html.startsWith('<pre') && !html.startsWith('<ul') && !html.startsWith('<ol')) {
-                    html = `<p>${html}</p>`;
-                }
-
-                return html;
+                return markdownToHtmlSafe(text);
             },        // Apply Markdown formatting to selected text in textarea
             applyFormatting(format) {
                 const editor = document.querySelector('.editor-textarea');
@@ -3795,12 +3890,13 @@ document.addEventListener('alpine:init', () => {
 
             // Generation action handlers
             async acceptGeneration() {
-                // Accept — nothing to change, just hide actions and clear buffers
-                this.showGenActions = false;
-                this.showGeneratedHighlight = false;
-                this.lastGenStart = null;
-                this.lastGenText = '';
-                this.lastBeat = '';
+            // Accept — nothing to change, just hide actions and clear buffers
+            this.showGenActions = false;
+            this.showGeneratedHighlight = false;
+            this.lastGenStart = null;
+            this.lastGenText = '';
+            this.lastBeat = '';
+            this.lastGenTruncated = false;
                 // ensure scene saved
                 await this.saveScene();
             },
@@ -3814,6 +3910,7 @@ document.addEventListener('alpine:init', () => {
                 this.currentScene.content = newContent;
                 this.showGenActions = false;
                 this.showGeneratedHighlight = false;
+                this.lastGenTruncated = false;
                 // save removal
                 await this.saveScene();
 
@@ -3844,6 +3941,7 @@ document.addEventListener('alpine:init', () => {
                 this.lastGenStart = null;
                 this.lastGenText = '';
                 this.lastBeat = '';
+                this.lastGenTruncated = false;
                 if (this.showMiniBeatInput) this.beatInput = '';
                 await this.saveScene();
             },

@@ -121,6 +121,17 @@
                 }
 
                 if (app.currentChapter && app.currentChapter.id === chapterId) app.currentChapter = target || null;
+
+                // If the open scene belonged to the deleted chapter, keep it consistent:
+                // if scenes were moved, re-point it at the new chapter; otherwise clear it.
+                if (app.currentScene && app.currentScene.chapterId === chapterId) {
+                    if (target) {
+                        app.currentScene = { ...app.currentScene, chapterId: target.id };
+                    } else {
+                        app.currentScene = null;
+                    }
+                }
+
                 await app.normalizeAllOrders();
             } catch (e) {
                 console.error('Failed to delete chapter:', e);

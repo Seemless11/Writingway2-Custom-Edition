@@ -23,6 +23,38 @@
         },
 
         /**
+         * Remove a trailing incomplete sentence from generated text.
+         * Endings that are treated as complete: sentence terminators (. ! ? …)
+         * optionally followed by a closing quote/bracket, ellipses, and em dashes.
+         * Otherwise the text is cut back to the last sentence terminator that
+         * begins a new sentence, keeping any attached closing quote. Falls back
+         * to the last paragraph break, then leaves the text untouched.
+         * @param {string} text - Generated text to trim
+         * @returns {string} Text with any incomplete ending removed
+         */
+        trimIncompleteEnding(text) {
+            if (!text) return text;
+            let t = String(text);
+            // Complete if it ends with a sentence terminator / ellipsis / em dash
+            // (optionally followed by a closing quote or bracket).
+            if (/[.!?…—]["'”’)\]]?$/.test(t)) {
+                return t;
+            }
+            // Cut back to the last sentence terminator that starts a new sentence,
+            // keeping any closing quote attached to it.
+            const boundary = t.match(/^([\s\S]*[.!?…]["'”’)\]]?)\s+[^.!?…]+$/);
+            if (boundary) {
+                return boundary[1];
+            }
+            // No sentence boundary: fall back to the last paragraph break.
+            const paraBreak = t.lastIndexOf('\n\n');
+            if (paraBreak > 0) {
+                return t.slice(0, paraBreak).replace(/\s+$/, '');
+            }
+            return t;
+        },
+
+        /**
          * Insert special character at cursor position in editor
          * @param {Object} app - Alpine app instance
          * @param {string} char - Character to insert
@@ -210,10 +242,16 @@
                 }, app);
                 app.rewriteInProgress = false;
 
+                // Remove a trailing incomplete sentence so the rewritten text never ends mid-sentence
+                const trimmed = this.trimIncompleteEnding(app.rewriteOutput);
+                if (trimmed !== app.rewriteOutput) {
+                    app.rewriteOutput = trimmed;
+                }
+
                 // Notify user if response was truncated
                 if (result?.finishReason === 'length' || result?.finishReason === 'MAX_TOKENS') {
                     console.warn('⚠️ Rewrite hit token limit');
-                    alert('⚠️ The generation reached the token limit and may be incomplete.\n\nTip: Increase the target length in the toolbar above for longer responses.');
+                    alert('⚠️ The generation reached the token limit and may be incomplete. Any incomplete sentence at the end was removed.\n\nTip: Increase the target length in the toolbar above for longer responses.');
                 }
             } catch (e) {
                 console.error('performRewrite error', e);

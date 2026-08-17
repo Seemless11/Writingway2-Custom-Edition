@@ -9,7 +9,7 @@
             const provider = app.aiProvider || 'anthropic';
 
             // Providers that don't require an API key
-            const noKeyRequired = provider === 'lmstudio';
+            const noKeyRequired = provider === 'lmstudio' || provider === 'koboldcpp';
 
             // If using API mode and has API key (or provider doesn't need one), mark as ready
             if (aiMode === 'api' && (hasApiKey || noKeyRequired)) {

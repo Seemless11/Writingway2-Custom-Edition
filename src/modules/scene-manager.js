@@ -42,8 +42,11 @@
                 chapterId: targetChapter.id,
                 title: sceneName,
                 order: (targetChapter.scenes || []).length,
-                // inherit from project defaults, with optional per-scene POV character
-                povCharacter: app.povCharacter || app.currentProject?.povCharacter || '',
+                // Persist the UI's current POV choice only when explicitly set;
+                // otherwise leave unset so loadScene falls back to the project default.
+                povCharacter: (app.povCharacter && app.povCharacter.trim())
+                    ? app.povCharacter
+                    : '',
                 created: new Date(),
                 modified: new Date(),
                 updatedAt: now
@@ -102,13 +105,19 @@
             app.currentScene = {
                 ...scene,
                 content: cleanContent,
+                // Snapshot used by tab-sync conflict detection (scenes table has no content column)
+                _loadedContent: cleanContent,
                 // Track when this version was loaded for conflict detection
                 loadedUpdatedAt: scene.updatedAt || Date.now(),
                 contentLoadedUpdatedAt: content?.updatedAt || Date.now()
             };
 
-            // Load scene-specific generation options into UI state
-            app.povCharacter = scene.povCharacter || app.currentProject?.povCharacter || '';
+            // Load scene-specific generation options into UI state.
+            // Only fall back to the project default when the scene has no stored
+            // value at all — an explicitly cleared POV character must stay cleared.
+            app.povCharacter = (scene.povCharacter !== undefined && scene.povCharacter !== null)
+                ? scene.povCharacter
+                : (app.currentProject?.povCharacter || '');
             app.pov = app.currentProject?.pov || '3rd person limited';
             app.tense = app.currentProject?.tense || 'past';
             app.language = app.currentProject?.language || 'English';

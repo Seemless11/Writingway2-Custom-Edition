@@ -103,8 +103,12 @@
          * @param {Object} app - Alpine app instance
          */
         async saveAndProceedCompendium(app) {
-            await this.saveCompendiumEntry(app);
-            await this.executePendingCompendiumAction(app);
+            const ok = await this.saveCompendiumEntry(app);
+            // Only proceed with the pending action if the save actually succeeded,
+            // otherwise the user's edits would be lost silently.
+            if (ok) {
+                await this.executePendingCompendiumAction(app);
+            }
         },
 
         /**
@@ -322,9 +326,10 @@
         /**
          * Save the current compendium entry
          * @param {Object} app - Alpine app instance
+         * @returns {boolean} - True if the save succeeded
          */
         async saveCompendiumEntry(app) {
-            if (!app.currentCompEntry || !app.currentCompEntry.id) return;
+            if (!app.currentCompEntry || !app.currentCompEntry.id) return false;
             try {
                 app.compendiumSaveStatus = 'Saving...';
                 const entryCategory = app.currentCompEntry.category;
@@ -348,10 +353,12 @@
                 this.storeCompendiumOriginal(app);
                 app.compendiumSaveStatus = 'Saved';
                 setTimeout(() => { app.compendiumSaveStatus = ''; }, 2000);
+                return true;
             } catch (e) {
                 console.error('Failed to save compendium entry:', e);
                 app.compendiumSaveStatus = 'Error';
                 setTimeout(() => { app.compendiumSaveStatus = ''; }, 3000);
+                return false;
             }
         },
 
@@ -560,92 +567,152 @@
             }
         },
         /**
-         * Import a SillyTavern character card (JSON or PNG) into the compendium
-         * Opens a file picker, parses the card, and saves it as a 'characters' entry
+         * Import one or more SillyTavern character cards (JSON or PNG) into the compendium
+         * Opens a multi-file picker, parses each card, and saves them as 'characters' entries
          * @param {Object} app - Alpine app instance
          */
         async importCharacterCard(app) {
             // Use the current project ID or a sentinel for standalone chat mode
             const pid = app.currentProject?.id || '__chat_global__';
 
-            // Create a hidden file input
+            // Create a hidden multi-file input
             const input = document.createElement('input');
             input.type = 'file';
             input.accept = '.json,.png';
+            input.multiple = true;
             input.style.display = 'none';
             document.body.appendChild(input);
 
             input.addEventListener('change', async () => {
-                const file = input.files && input.files[0];
-                if (!file) {
-                    document.body.removeChild(input);
-                    return;
-                }
+                const files = Array.from(input.files || []);
+                document.body.removeChild(input);
+                if (files.length === 0) return;
 
                 try {
                     if (!window.CharacterCardImporter) {
                         throw new Error('CharacterCardImporter module not loaded');
                     }
 
-                    // Parse the card file
-                    const importData = await window.CharacterCardImporter.importFile(file);
+                    // Fetch existing character titles once for duplicate detection
+                    let existingNames = new Set();
+                    try {
+                        const existing = await window.Compendium.listByCategory(pid, 'characters') || [];
+                        existingNames = new Set(existing.map(e => (e.title || '').trim().toLowerCase()).filter(Boolean));
+                    } catch (e) {
+                        console.warn('Failed to load existing characters for duplicate check:', e);
+                    }
 
-                    // Convert to compendium entry format
-                    const entry = window.CharacterCardImporter.convertToCompendiumEntry(importData);
+                    // Parse each card file; skip failures and duplicates, collect lorebooks
+                    const entries = [];
+                    const failures = [];
+                    const skipped = [];
+                    const lorebooks = [];
+                    let hasAvatar = false;
 
-                    // Save to DB
-                    const saved = await window.Compendium.import(pid, [entry]);
+                    for (const file of files) {
+                        try {
+                            const importData = await window.CharacterCardImporter.importFile(file);
+                            const name = (importData.name || '').trim();
+                            if (!name) {
+                                failures.push({ name: file.name, error: 'Character data is missing a name field' });
+                                continue;
+                            }
+                            if (existingNames.has(name.toLowerCase())) {
+                                skipped.push(name);
+                                continue;
+                            }
+                            existingNames.add(name.toLowerCase());
 
-                    // Refresh the characters category
-                    if (app.currentProject) {
-                        if (!app.openCompCategories.includes('characters')) {
-                            app.openCompCategories.push('characters');
-                        }
-                        await this.refreshCategoryList(app, 'characters');
-                        await this.loadCompendiumCounts(app);
-                        if (saved && saved.length > 0) {
-                            await this._doSelectCompendiumEntry(app, saved[0].id);
-                        }
-                    } else {
-                        // If in chat mode with no project, refresh the roster
-                        if (window.ChatMode) {
-                            window.ChatMode.loadCharacterRoster(app);
+                            const entry = window.CharacterCardImporter.convertToCompendiumEntry(importData);
+                            entries.push(entry);
+                            if (importData.image_base64) hasAvatar = true;
+
+                            // Collect embedded lorebooks (character_book) for a single combined prompt
+                            // V2 spec cards store the book at composer.character_book; V1/non-standard at character_book
+                            const charBook = importData.raw_data?.character_book || importData.raw_data?.composer?.character_book;
+                            if (charBook && charBook.entries && charBook.entries.length > 0) {
+                                const bookName = (typeof charBook.name === 'string' && charBook.name.trim())
+                                    ? charBook.name.trim()
+                                    : name + "'s Lore";
+                                lorebooks.push({ charName: name, bookName: bookName, entries: charBook.entries });
+                            }
+                        } catch (err) {
+                            failures.push({ name: file.name, error: err.message });
                         }
                     }
 
-                    // Refresh the recent characters list shown in chat empty state
-                    if (window.ChatMode) {
-                        await window.ChatMode.loadRecentCharacters(app);
+                    // Save all parsed cards in a single DB write
+                    let saved = [];
+                    if (entries.length > 0) {
+                        saved = await window.Compendium.import(pid, entries);
                     }
 
-                    const charName = importData.name || 'Character';
-                    const imgInfo = importData.image_base64 ? ' + avatar' : '';
-                    alert(`Imported "${charName}" into the Characters category.${imgInfo}`);
-
-                    // Check for embedded lorebook (character_book) in the card
-                    const charBook = importData.raw_data?.character_book;
-                    if (charBook && charBook.entries && charBook.entries.length > 0 && app.currentProject) {
-                        const bookName = (typeof charBook.name === 'string' && charBook.name.trim())
-                            ? charBook.name.trim()
-                            : charName + "'s Lore";
-                        if (confirm(`This character has an embedded lorebook "${bookName}" with ${charBook.entries.length} entries.\n\nImport it into your compendium?`)) {
-                            try {
-                                const result = await window.LorebookImporter.importLorebookData(app, charBook.entries, bookName, {
-                                    category: 'lore',
-                                    includeKeys: true,
-                                    silent: true
-                                });
-                                alert('Imported ' + result.count + ' lorebook entries from "' + bookName + '".' + (result.truncations.length > 0 ? '\n⚠️ ' + result.truncations.length + ' entries had keys dropped (10 tag cap).' : ''));
-                            } catch (e) {
-                                alert('Lorebook import failed: ' + e.message);
+                    // Embedded lorebooks: one combined confirmation, then batch import
+                    if (lorebooks.length > 0 && app.currentProject) {
+                        const list = lorebooks.map(b => '• "' + b.bookName + '" (' + b.entries.length + ' entries, from ' + b.charName + ')').join('\n');
+                        if (confirm('The following embedded lorebooks were found:\n\n' + list + '\n\nImport them into your compendium?')) {
+                            let importedCount = 0;
+                            let truncationCount = 0;
+                            for (const book of lorebooks) {
+                                try {
+                                    const result = await window.LorebookImporter.importLorebookData(app, book.entries, book.bookName, {
+                                        category: 'lore',
+                                        includeKeys: true,
+                                        silent: true
+                                    });
+                                    importedCount += result.count;
+                                    truncationCount += result.truncations.length;
+                                } catch (e) {
+                                    alert('Lorebook import for "' + book.bookName + '" failed: ' + e.message);
+                                }
+                            }
+                            if (importedCount > 0) {
+                                alert('Imported ' + importedCount + ' lorebook entries from ' + lorebooks.length + ' embedded book' + (lorebooks.length === 1 ? '' : 's') + '.' + (truncationCount > 0 ? '\n⚠️ ' + truncationCount + ' entries had keys dropped (10 tag cap).' : ''));
                             }
                         }
                     }
+
+                    // Refresh UI once
+                    if (saved.length > 0) {
+                        if (app.currentProject) {
+                            if (!app.openCompCategories.includes('characters')) {
+                                app.openCompCategories.push('characters');
+                            }
+                            await this.refreshCategoryList(app, 'characters');
+                            await this.loadCompendiumCounts(app);
+                            await this._doSelectCompendiumEntry(app, saved[0].id);
+                        } else {
+                            // If in chat mode with no project, refresh the roster
+                            if (window.ChatMode) {
+                                window.ChatMode.loadCharacterRoster(app);
+                            }
+                        }
+
+                        // Refresh the recent characters list shown in chat empty state
+                        if (window.ChatMode) {
+                            await window.ChatMode.loadRecentCharacters(app);
+                        }
+                    }
+
+                    // Summary of the batch
+                    const parts = [];
+                    if (entries.length > 0) {
+                        parts.push('Imported ' + entries.length + ' character' + (entries.length === 1 ? '' : 's') + (hasAvatar ? ' (with avatars)' : '') + '.');
+                    }
+                    if (skipped.length > 0) {
+                        parts.push(skipped.length + ' skipped (duplicate: ' + skipped.join(', ') + ').');
+                    }
+                    if (failures.length > 0) {
+                        parts.push(failures.length + ' failed: ' + failures.map(f => '"' + f.name + '" — ' + f.error).join('; ') + '.');
+                    }
+                    if (parts.length === 0) {
+                        alert('No character cards were imported.');
+                        return;
+                    }
+                    alert(parts.join('\n'));
                 } catch (err) {
                     alert('Import failed: ' + err.message);
                     console.error('Character card import error:', err);
-                } finally {
-                    document.body.removeChild(input);
                 }
             });
 

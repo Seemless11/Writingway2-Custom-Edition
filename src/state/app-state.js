@@ -97,6 +97,8 @@ function createAppState() {
         chatCharacterMessages: [],
         chatCharacterSessionId: null,
         showCharacterInfo: false,
+        showAvatarLightbox: false,
+        avatarLightboxEntry: null,
         showGreetingPicker: false,
         selectedGreetingIndex: 0,
         characterInfoDraft: {},
@@ -203,6 +205,7 @@ function createAppState() {
         showGenActions: false,
         showGeneratedHighlight: false,
         lastBeat: '',
+        lastGenTruncated: false,
 
         // ========== Quick Search for Compendium Mentions (@) ==========
         showQuickSearch: false,
@@ -543,6 +546,7 @@ function createAppState() {
                 { id: 'gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite' }
             ],
             lmstudio: [], // Models fetched dynamically from LM Studio server
+            koboldcpp: [], // Model fetched dynamically from KoboldCpp server
             nanogpt: [] // NanoGPT models entered manually by user
         },
 

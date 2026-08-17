@@ -22,10 +22,13 @@
                 return false;
             }
 
-            // Check for conflicts: if scene has loadedUpdatedAt, verify it hasn't changed
-            if (scene.loadedUpdatedAt) {
+            // Check for conflicts: if scene has loadedUpdatedAt, verify it hasn't changed.
+            // hasPendingRemoteChange is set by tab-sync when another tab saved while we
+            // had local unsaved edits — always warn before overwriting in that case.
+            if (scene.loadedUpdatedAt || scene.hasPendingRemoteChange) {
                 const dbScene = await db.scenes.get(scene.id);
-                if (dbScene && dbScene.updatedAt && dbScene.updatedAt > scene.loadedUpdatedAt) {
+                const remoteUpdated = dbScene && dbScene.updatedAt && dbScene.updatedAt > scene.loadedUpdatedAt;
+                if (remoteUpdated || scene.hasPendingRemoteChange) {
                     const shouldOverwrite = confirm(
                         `Warning: This scene was modified in another tab since you loaded it.\n\n` +
                         `Click OK to overwrite with your changes, or Cancel to reload the latest version.`
@@ -37,6 +40,7 @@
                         await app.loadScene?.(scene.id);
                         return false;
                     }
+                    scene.hasPendingRemoteChange = false;
                 }
             }
 
@@ -143,13 +147,8 @@
                 }
             } catch (e) {
                 // If safe merge fails, fallback to update/put already handled inside helper
-                try { mergedScene = await db.scenes.get(scene.id); } catch (err) { /* ignore */ }
+                try { mergedScene = await db.scenes.get(scene.id); } catch (err) { console.warn('Failed to read back scene after merge:', err); }
             }
-            // Debug: read back the scene from DB to ensure fields persisted
-            try {
-                // readback retained for optional error diagnostics (no log)
-                const dbScene = mergedScene || await db.scenes.get(scene.id);
-            } catch (e) { /* ignore */ }
 
             // Update in-memory lists
             try {

@@ -207,10 +207,54 @@ window.ChatMode = {
 
     // ========== Character Selection ==========
 
+    showAvatarLightbox(app, entry) {
+        if (!entry || !entry.imageUrl) return;
+        app.avatarLightboxEntry = entry;
+        app.showAvatarLightbox = true;
+    },
+
+    closeAvatarLightbox(app) {
+        app.showAvatarLightbox = false;
+        app.avatarLightboxEntry = null;
+    },
+
+    async showChatAvatarLightbox(app) {
+        if (!app.chatCharacter?.avatar) return;
+        let entry = null;
+        if (app.chatCharacterId && window.db) {
+            try {
+                entry = await window.db.compendium.get(app.chatCharacterId);
+            } catch (e) {
+                entry = null;
+            }
+        }
+        if (!entry) {
+            entry = {
+                id: app.chatCharacterId,
+                title: app.chatCharacter.name,
+                imageUrl: app.chatCharacter.avatar,
+                tags: []
+            };
+        }
+        this.showAvatarLightbox(app, entry);
+    },
+
+    onHeaderAvatarClick(app) {
+        if (app.chatCharacter?.avatar) {
+            this.showChatAvatarLightbox(app);
+        } else {
+            this.showCharacterInfo(app);
+        }
+    },
+
     async selectCharacter(app, entry) {
         if (!entry) return;
+        // Guard against interleaved selections: a newer call invalidates this one
+        const seq = (app._charSelectSeq || 0) + 1;
+        app._charSelectSeq = seq;
         app.chatCharacterId = entry.id;
         await this.loadCharacterCard(app, entry);
+        if (seq !== app._charSelectSeq) return;
         app.characterRosterSearch = '';
         app.rosterSearchDebounced = '';
         app.rosterFilteredList = [];
@@ -222,7 +266,9 @@ window.ChatMode = {
         } catch (e) { }
 
         await this.loadChatSessions(app);
+        if (seq !== app._charSelectSeq) return;
         await this.loadOrCreateCharacterSession(app);
+        if (seq !== app._charSelectSeq) return;
         if (app.chatCharacterMessages.length === 0) {
             if (app.chatCharacter.alternateGreetings && app.chatCharacter.alternateGreetings.length > 0) {
                 app.showGreetingPicker = true;
@@ -265,6 +311,33 @@ window.ChatMode = {
 
     cancelGreetingSelection(app) {
         app.showGreetingPicker = false;
+    },
+
+    chatGreetingList(app) {
+        const list = [app.chatCharacter?.firstMessage].concat(app.chatCharacter?.alternateGreetings || []);
+        return list.filter(g => g);
+    },
+
+    syncSelectedGreetingIndex(app) {
+        const list = this.chatGreetingList(app);
+        if (list.length < 2) return;
+        const first = app.chatCharacterMessages?.[0];
+        const match = first ? list.findIndex(g => g === first.content) : -1;
+        app.selectedGreetingIndex = match >= 0 ? match : 0;
+    },
+
+    async cycleGreeting(app, dir) {
+        const list = this.chatGreetingList(app);
+        if (list.length < 2) return;
+        const first = app.chatCharacterMessages?.[0];
+        if (!first || first.role !== 'assistant') return;
+        const current = list.findIndex(g => g === first.content);
+        const cur = current >= 0 ? current : (app.selectedGreetingIndex || 0);
+        const next = (cur + (dir > 0 ? 1 : -1) + list.length) % list.length;
+        app.selectedGreetingIndex = next;
+        first.content = list[next];
+        await this.saveCharacterSession(app);
+        this.scrollMessagesToBottom(app);
     },
 
     async startNewCharacterChat(app, entry, greetingIndex) {
@@ -319,7 +392,10 @@ window.ChatMode = {
         };
 
         // Load linked world/scenario
-        const charData = entry._charData || {};
+        let charData = entry._charData || {};
+        if (typeof charData === 'string') {
+            try { charData = JSON.parse(charData) || {}; } catch (e) { charData = {}; }
+        }
         app.activeWorldId = charData.worldId || null;
         app.activeScenarioId = charData.scenarioId || null;
         app.activeWorldEntry = null;
@@ -362,6 +438,7 @@ window.ChatMode = {
                     ...m,
                     name: m.role === 'assistant' ? (app.chatCharacter?.name || 'Assistant') : (app.userPersona?.name || 'You')
                 }));
+                this.syncSelectedGreetingIndex(app);
                 return;
             }
         } catch (e) {
@@ -456,6 +533,7 @@ window.ChatMode = {
             ...m,
             name: m.role === 'assistant' ? (app.chatCharacter?.name || 'Assistant') : (app.userPersona?.name || 'You')
         }));
+        this.syncSelectedGreetingIndex(app);
         this.scrollMessagesToBottom(app);
     },
 
@@ -555,8 +633,8 @@ window.ChatMode = {
         }
 
         systemContent = systemContent
-            .replace(/\{\{char(_name)?\}\}/gi, char.name || 'Character')
-            .replace(/\{\{user(_name)?\}\}/gi, personaName)
+            .replace(/\{\{char(_name)?\}\}/gi, () => char.name || 'Character')
+            .replace(/\{\{user(_name)?\}\}/gi, () => personaName)
             .replace(/\{\{[^}]*\}\}/g, '')
             .replace(/\[(char|user):[^\]]*\]/gi, '')
             .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -568,8 +646,8 @@ window.ChatMode = {
         const narrativeTag = `[${char.name}'s response narrative]`;
         const resolveMsgContent = (text) => {
             return text
-                .replace(/\{\{char(_name)?\}\}/gi, char.name || 'Character')
-                .replace(/\{\{user(_name)?\}\}/gi, personaName)
+                .replace(/\{\{char(_name)?\}\}/gi, () => char.name || 'Character')
+                .replace(/\{\{user(_name)?\}\}/gi, () => personaName)
                 .replace(/\{\{[^}]*\}\}/g, '')
                 .replace(/\[(char|user):[^\]]*\]/gi, '')
                 .replace(/\/\*[\s\S]*?\*\//g, '')
@@ -611,9 +689,20 @@ window.ChatMode = {
             }, app, app.chatCharacterAbortController.signal);
             await this.saveCharacterSession(app);
 
+            // Auto-remove a trailing incomplete sentence (same behavior as the story editor)
+            if (window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
+                const current = app.chatCharacterMessages[assistantIndex]?.content || '';
+                const trimmed = window.Editor.trimIncompleteEnding(current);
+                if (trimmed !== current) {
+                    app.chatCharacterMessages[assistantIndex].content = trimmed;
+                    app.chatCharacterMessages = [...app.chatCharacterMessages];
+                }
+            }
+
             const targetWords = app.maxTokens || 300;
             const wordCount = fullResponse.trim().split(/\s+/).filter(Boolean).length;
-            const truncated = result?.finishReason === 'length' || result?.finishReason === 'MAX_TOKENS';
+            const finishReason = (result?.finishReason || '').toLowerCase();
+            const truncated = finishReason === 'length' || finishReason === 'max_tokens';
             const tooShort = wordCount < Math.round(targetWords * 0.6);
             if ((truncated || tooShort) && retryCount < 3) {
                 await this._generateAssistantResponse(app, assistantIndex, 'continue', retryCount + 1);
@@ -622,12 +711,15 @@ window.ChatMode = {
         } catch (error) {
             if (error.name === 'AbortError') {
                 console.log('Character chat generation aborted by user');
+                // Persist the partial reply so it is not lost on reload
+                try { await this.saveCharacterSession(app); } catch (e) { /* ignore */ }
                 return;
             }
             console.error('Character chat error:', error);
             app.chatCharacterMessages[assistantIndex].content = `Error: ${error.message}`;
             app.chatCharacterMessages[assistantIndex].isError = true;
             app.chatCharacterMessages = [...app.chatCharacterMessages];
+            try { await this.saveCharacterSession(app); } catch (e) { /* ignore */ }
         } finally {
             app.chatCharacterIsGenerating = false;
             app.chatCharacterAbortController = null;
@@ -864,17 +956,37 @@ window.ChatMode = {
         }
         const body = bodyLines.join('\n').trim();
 
-        // Persist world/scenario linking in _charData
-        const charData = {};
+        // Persist world/scenario linking in _charData, preserving any existing
+        // creator data (name/genre/notes/selectedTraits/chatHistory/imageDescription)
+        let entry = null;
+        try {
+            entry = await db.compendium.get(app.chatCharacterId);
+        } catch (e) {
+            console.error('Failed to load character entry:', e);
+            alert('Failed to save character info.');
+            return;
+        }
+        if (!entry) {
+            alert('Character entry not found. Please select the character again and retry.');
+            return;
+        }
+        let existingCharData = {};
+        if (entry._charData) {
+            try {
+                existingCharData = typeof entry._charData === 'string' ? (JSON.parse(entry._charData) || {}) : entry._charData;
+            } catch (e) {
+                existingCharData = {};
+            }
+        }
+        const charData = { ...existingCharData };
         if (draft.worldId) charData.worldId = draft.worldId;
+        else delete charData.worldId;
         if (draft.scenarioId) charData.scenarioId = draft.scenarioId;
+        else delete charData.scenarioId;
 
         try {
-            const entry = await db.compendium.get(app.chatCharacterId);
-            if (entry) {
-                const updated = { ...entry, title: draft.name, body, _charData: charData };
-                await db.compendium.put(updated);
-            }
+            const updated = { ...entry, title: draft.name, body, _charData: charData };
+            await db.compendium.put(updated);
         } catch (e) {
             console.error('Failed to save character info:', e);
             alert('Failed to save character info.');
@@ -1167,11 +1279,19 @@ window.ChatMode = {
         text = String(text);
 
         const inlineMd = str => str
-            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
             .replace(/`([^`]+)`/g, '<code>$1</code>')
             .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
             .replace(/~~(.+?)~~/g, '<del>$1</del>')
-            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+            .replace(/\[([^\]]+)\]\(([^)]+)\)/g, (match, label, url) => {
+                const href = url.trim();
+                const scheme = href.toLowerCase();
+                if (/^(https?|mailto):/.test(scheme) || href.startsWith('/') || href.startsWith('#')) {
+                    const safeUrl = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+                    return `<a href="${safeUrl}" target="_blank" rel="noopener">${label}</a>`;
+                }
+                return label; // drop javascript:, data:, vbscript:, etc.
+            })
             .replace(/\n\n+/g, '</p><p>')
             .replace(/\n/g, '<br>');
 
@@ -1630,15 +1750,19 @@ window.renderChatMessage = function(el, msg, useRoleplay, personaName) {
     if (personaName) {
         content = content.replace(/\{\{user(_name)?\}\}/gi, personaName);
     }
+    const escapeOnly = (str) => String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
     try {
         const html = useRoleplay
             ? window.ChatMode.roleplayToHtml(content)
-            : (window.markdownToHtml ? window.markdownToHtml(content) : content);
+            : (window.markdownToHtml ? window.markdownToHtml(content) : escapeOnly(content));
         if (el.innerHTML !== html) {
             el.innerHTML = html;
         }
     } catch (e) {
         console.warn('renderChatMessage error:', e);
-        el.innerHTML = window.markdownToHtml ? window.markdownToHtml(content) : content;
+        el.innerHTML = window.markdownToHtml ? window.markdownToHtml(content) : escapeOnly(content);
     }
 };

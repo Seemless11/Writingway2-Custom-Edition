@@ -57,7 +57,6 @@
                 // Import structure (flatten acts into chapters)
                 let chapterOrder = 0;
                 let totalScenes = 0;
-                const chapterMap = {}; // Track chapter IDs for scenes
 
                 for (const act of (structureData.acts || [])) {
                     for (const chapter of (act.chapters || [])) {
@@ -74,8 +73,6 @@
                             created: new Date(),
                             modified: new Date()
                         });
-
-                        chapterMap[`${act.name}-${chapter.name}`] = chapterId;
 
                         // Import scenes for this chapter
                         let sceneOrder = 0;
@@ -144,11 +141,11 @@
 
             console.log('Matched scene files:', sceneFiles);
 
-            // Sort by timestamp (newest first)
+            // Sort by timestamp (newest first) — numeric compare, not localeCompare
             sceneFiles.sort((a, b) => {
-                const aTime = a.match(/_(\d+)\.(html|txt)$/)?.[1] || '0';
-                const bTime = b.match(/_(\d+)\.(html|txt)$/)?.[1] || '0';
-                return bTime.localeCompare(aTime);
+                const aTime = parseInt(a.match(/_(\d+)\.(html|txt)$/)?.[1] || '0', 10);
+                const bTime = parseInt(b.match(/_(\d+)\.(html|txt)$/)?.[1] || '0', 10);
+                return bTime - aTime;
             });
 
             let sceneContent = '';

@@ -759,8 +759,8 @@
                                     <div class="chat-header">
                                         <div class="chat-header-info">
                                             <div class="chat-header-avatar"
-                                                @click="window.ChatMode.showCharacterInfo($data)"
-                                                title="View/Edit Character"
+                                                @click="window.ChatMode.onHeaderAvatarClick($data)"
+                                                title="View avatar / Edit character"
                                                 :style="chatCharacter.avatar ? `background-image:url('${chatCharacter.avatar}');background-size:cover;background-position:center;` : ''">
                                                 <span x-show="!chatCharacter.avatar" x-text="(chatCharacter.name || '?')[0]"></span>
                                             </div>
@@ -862,6 +862,13 @@
                                                 <!-- Display Mode -->
                                                 <template x-if="editingMessageIndex !== idx">
                                                     <div style="position:relative;">
+                                                        <template x-if="idx === 0 && msg.role === 'assistant' && (chatCharacter?.alternateGreetings?.length || 0) > 0">
+                                                            <button class="chat-greeting-arrow chat-greeting-arrow--prev"
+                                                                @click="window.ChatMode.cycleGreeting($data, -1)"
+                                                                :title="'Previous greeting (' + (window.ChatMode.chatGreetingList($data).findIndex(g => g === msg.content) + 1) + ' / ' + window.ChatMode.chatGreetingList($data).length + ')'">
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                                            </button>
+                                                        </template>
                                                         <div class="chat-message-bubble"
                                                             :class="msg.isError ? 'chat-message-bubble--error' : msg.role === 'user' ? 'chat-message-bubble--user' : 'chat-message-bubble--assistant'"
                                                             x-effect="renderChatMessage($el, msg, chatRoleplayFormatting, userPersona?.name || 'You')">
@@ -878,6 +885,13 @@
                                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                                                             </button>
                                                         </div>
+                                                        <template x-if="idx === 0 && msg.role === 'assistant' && (chatCharacter?.alternateGreetings?.length || 0) > 0">
+                                                            <button class="chat-greeting-arrow chat-greeting-arrow--next"
+                                                                @click="window.ChatMode.cycleGreeting($data, 1)"
+                                                                :title="'Next greeting (' + (window.ChatMode.chatGreetingList($data).findIndex(g => g === msg.content) + 1) + ' / ' + window.ChatMode.chatGreetingList($data).length + ')'">
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                                            </button>
+                                                        </template>
                                                     </div>
                                                 </template>
                                             </div>
@@ -1125,6 +1139,7 @@
 
                                                     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;"
                                                          x-show="showGenActions" x-cloak>
+                                                        <span x-show="lastGenTruncated" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the incomplete sentence at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
                                                         <button class="btn btn-primary" @click="acceptGeneration" style="font-size:12px;padding:4px 12px;">Accept</button>
                                                         <button class="btn btn-secondary" @click="retryGeneration" style="font-size:12px;padding:4px 12px;">Retry</button>
                                                         <button class="btn btn-secondary" @click="discardGeneration" style="font-size:12px;padding:4px 12px;">Discard</button>
@@ -1195,6 +1210,7 @@
                                             </div>
                                             <!-- Generation actions inside legacy panel -->
                                             <div x-show="showGenActions" x-cloak style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+                                                <span x-show="lastGenTruncated" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the incomplete sentence at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
                                                 <button class="btn btn-primary" @click="acceptGeneration" style="font-size:11px;padding:3px 10px;">Accept</button>
                                                 <button class="btn btn-secondary" @click="retryGeneration" style="font-size:11px;padding:3px 10px;">Retry</button>
                                                 <button class="btn btn-secondary" @click="discardGeneration" style="font-size:11px;padding:3px 10px;">Discard</button>
@@ -1965,7 +1981,7 @@
                             :style="hasLocalAIAvailable() ? 'flex:1;display:flex;flex-direction:column;align-items:center;padding:12px;' : 'width:100%;display:flex;flex-direction:column;align-items:center;padding:12px;'">
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:4px;"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
                             <div style="font-weight:600;text-align:center;">API / Local API</div>
-                            <div style="font-size:10px;opacity:0.7;text-align:center;">(LM Studio, Ollama, etc.)</div>
+                            <div style="font-size:10px;opacity:0.7;text-align:center;">(LM Studio, KoboldCpp, Ollama, etc.)</div>
                         </button>
                         <button x-show="hasLocalAIAvailable()" class="btn" :class="aiMode === 'local' ? 'btn-primary' : 'btn-secondary'"
                             @click="aiMode = 'local'; if (availableLocalModels.length > 0 && !aiModel) aiModel = availableLocalModels[0]; scanLocalModels();"
@@ -1989,7 +2005,7 @@
                     <!-- Helper text for API mode -->
                     <div x-show="aiMode === 'api'" style="margin-top:12px;padding:10px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.2);border-radius:6px;">
                         <p style="font-size:11px;color:var(--text-secondary);margin:0;line-height:1.5;">
-                            Use this when connecting to LM Studio, Ollama, Groq, or any OpenAI-compatible server endpoint.<br>
+                            Use this when connecting to LM Studio, KoboldCpp, Ollama, Groq, or any OpenAI-compatible server endpoint.<br>
                             Works for both remote and local APIs via HTTP.
                         </p>
                     </div>
@@ -2011,7 +2027,7 @@
                         <label
                             style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">Provider</label>
                         <select x-model="aiProvider"
-                            @change="aiModel = (providerModels[aiProvider] && providerModels[aiProvider].length > 0) ? providerModels[aiProvider].find(m => m.recommended)?.id || providerModels[aiProvider][0].id : ''; modelsFetched = false; if (aiProvider === 'lmstudio') { aiEndpoint = aiEndpoint || 'http://localhost:1234'; fetchProviderModels(); } if (aiProvider === 'nanogpt') { aiEndpoint = aiEndpoint || 'https://nano-gpt.com/api'; }"
+                            @change="aiModel = (providerModels[aiProvider] && providerModels[aiProvider].length > 0) ? providerModels[aiProvider].find(m => m.recommended)?.id || providerModels[aiProvider][0].id : ''; modelsFetched = false; if (aiProvider === 'lmstudio') { aiEndpoint = aiEndpoint || 'http://localhost:1234'; fetchProviderModels(); } if (aiProvider === 'koboldcpp') { aiEndpoint = aiEndpoint || 'http://localhost:5001'; fetchProviderModels(); } if (aiProvider === 'nanogpt') { aiEndpoint = aiEndpoint || 'https://nano-gpt.com/api'; }"
                             style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
                             <option value="openrouter">OpenRouter (Multi-model, has free options)</option>
                             <option value="anthropic">Anthropic (Claude)</option>
@@ -2019,11 +2035,12 @@
                             <option value="google">Google AI (Gemini)</option>
                             <option value="nanogpt">NanoGPT (nano-gpt.com)</option>
                             <option value="lmstudio">LM Studio (Local Server)</option>
+                            <option value="koboldcpp">KoboldCpp (Local Server)</option>
                             <option value="custom">Custom API Endpoint</option>
                         </select>
                     </div>
 
-                    <div x-show="aiProvider !== 'lmstudio'" style="margin-bottom:16px;">
+                    <div x-show="aiProvider !== 'lmstudio' && aiProvider !== 'koboldcpp'" style="margin-bottom:16px;">
                         <label
                             style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">API
                             Key</label>
@@ -2061,13 +2078,26 @@
                         </p>
                     </div>
 
+                    <!-- KoboldCpp info box -->
+                    <div x-show="aiProvider === 'koboldcpp'" style="margin-bottom:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:12px;">
+                        <p style="margin:0;font-size:13px;color:var(--text-primary);">
+                            <strong>🦍 KoboldCpp Setup</strong>
+                        </p>
+                        <p style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+                            1. Launch KoboldCpp and load a GGUF model<br>
+                            2. Keep it running on its default port (5001)<br>
+                            3. Click "Refresh" below to detect the loaded model<br>
+                            No API key needed!
+                        </p>
+                    </div>
+
                     <div style="margin-bottom:16px;">
                         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
                             <label
                                 style="display:block;font-size:13px;font-weight:600;color:var(--text-primary);">Model</label>
                             <button class="btn btn-secondary" @click="fetchProviderModels()"
                                 x-show="aiProvider !== 'nanogpt' && aiProvider !== 'custom'"
-                                :disabled="(aiProvider !== 'lmstudio' && !aiApiKey) || fetchingModels" style="font-size:11px;padding:4px 8px;"
+                                :disabled="((aiProvider !== 'lmstudio' && aiProvider !== 'koboldcpp') && !aiApiKey) || fetchingModels" style="font-size:11px;padding:4px 8px;"
                                 title="Refresh available models from provider">
                                 <span x-show="!fetchingModels" style="display:flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> Refresh</span>
                                 <span x-show="fetchingModels" style="display:flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Loading...</span>
@@ -2096,12 +2126,16 @@
                             ✓ Model list updated from provider
                         </p>
                         <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
-                            x-show="!aiApiKey && aiMode === 'api' && aiProvider !== 'lmstudio' && aiProvider !== 'nanogpt' && aiProvider !== 'custom'">
+                            x-show="!aiApiKey && aiMode === 'api' && aiProvider !== 'lmstudio' && aiProvider !== 'koboldcpp' && aiProvider !== 'nanogpt' && aiProvider !== 'custom'">
                             ℹ️ Enter API key above to see available models
                         </p>
                         <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
                             x-show="aiProvider === 'lmstudio' && !modelsFetched && providerModels.lmstudio.length === 0">
                             ℹ️ Click Refresh to fetch models from LM Studio
+                        </p>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-show="aiProvider === 'koboldcpp' && !modelsFetched && providerModels.koboldcpp.length === 0">
+                            ℹ️ Click Refresh to detect the model loaded in KoboldCpp
                         </p>
                         <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
                             x-show="aiProvider === 'nanogpt'">
@@ -2134,6 +2168,18 @@
                             style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
                         <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
                             Just the base URL (e.g., http://localhost:1234 or http://192.168.1.164:1234). Don't include /v1/models.
+                        </p>
+                    </div>
+
+                    <div x-show="aiProvider === 'koboldcpp'" style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">KoboldCpp Server URL</label>
+                        <input type="text" x-model="aiEndpoint"
+                            placeholder="http://localhost:5001"
+                            @change="fetchProviderModels()"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
+                            Just the base URL (e.g., http://localhost:5001 or http://192.168.1.164:5001). Don't include /api/v1.
                         </p>
                     </div>
 
@@ -2590,7 +2636,7 @@
                         </button>
                         <div x-show="moreOpen" x-cloak @click="moreOpen = false" style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:100;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.2);">
                             <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openScenarioCreator()" title="Create a new scenario with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Scenario</button>
-                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="importCharacterCard()" title="Import a SillyTavern character card"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="importCharacterCard()" title="Import SillyTavern character cards (one or more)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
                             <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openPasteImport()" title="Paste wiki article or text to extract a character"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Paste Import</button>
                             <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Vault</button>
                             <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openLorebookPanel()" title="View imported lorebooks"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Lorebooks</button>
@@ -2803,8 +2849,8 @@
                         </div>
                         <div style="flex:0 0 auto;display:flex;gap:8px;margin-top:8px;align-items:center;">
                             <button class="btn btn-secondary" @click="editCharacterInCreator(currentCompEntry)"
-                                x-show="currentCompEntry && currentCompEntry._charData"
-                                title="Re-open this character in the creator to edit traits"
+                                x-show="currentCompEntry && currentCompEntry.category === 'characters'"
+                                title="Open this character in the creator to edit traits"
                                 style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Edit in Creator</button>
                             <button class="btn btn-secondary" @click="editWorldInCreator(currentCompEntry)"
                                 x-show="currentCompEntry && currentCompEntry._worldData"
@@ -5259,6 +5305,8 @@
                                     :class="{ 'character-card--imported': entry.tags?.includes('imported') && entry.tags?.includes('sillytavern'), 'character-card--selected': chatCharacterId === entry.id }"
                                     tabindex="0">
                                     <div class="character-card-avatar"
+                                        :class="{ 'character-card-avatar--zoomable': entry.imageUrl }"
+                                        @click.stop="window.ChatMode.showAvatarLightbox($data, entry)"
                                         :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}')` : ''">
                                         <span x-show="!entry.imageUrl" class="character-card-avatar-letter" x-text="(entry.title || '?')[0]"></span>
                                     </div>
@@ -5294,6 +5342,40 @@
         </div>
     </template>
 
+    <!-- Avatar Lightbox -->
+    <template x-if="showAvatarLightbox && avatarLightboxEntry?.imageUrl">
+        <div class="modal-overlay" @click.self="window.ChatMode.closeAvatarLightbox($data)"
+            @keydown.escape.window="window.ChatMode.closeAvatarLightbox($data)" style="z-index:9900;">
+            <div class="avatar-lightbox">
+                <div class="avatar-lightbox-header">
+                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                        <div class="character-card-avatar" style="width:40px;"
+                            :style="`background-image:url('${avatarLightboxEntry.imageUrl}')`"></div>
+                        <div style="min-width:0;">
+                            <div class="avatar-lightbox-title" x-text="avatarLightboxEntry.title || 'Character'"></div>
+                            <div class="avatar-lightbox-subtitle">
+                                <span x-show="avatarLightboxEntry.tags?.includes('imported') && avatarLightboxEntry.tags?.includes('sillytavern')">Imported character card</span>
+                                <span x-show="!avatarLightboxEntry.tags?.includes('imported') || !avatarLightboxEntry.tags?.includes('sillytavern')">Character card</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        <button x-show="avatarLightboxEntry.id === chatCharacterId"
+                            @click="window.ChatMode.closeAvatarLightbox($data); window.ChatMode.showCharacterInfo($data)"
+                            style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);padding:6px 10px;display:inline-flex;align-items:center;gap:5px;font-size:12px;"
+                            title="Edit character">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> Edit
+                        </button>
+                        <button class="btn btn-secondary" @click="window.ChatMode.closeAvatarLightbox($data)" style="font-size:12px;padding:6px 14px;">Done</button>
+                    </div>
+                </div>
+                <div class="avatar-lightbox-body">
+                    <div class="avatar-lightbox-image" :style="`background-image:url('${avatarLightboxEntry.imageUrl}')`"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <!-- Character Info/Edit Modal -->
     <template x-if="showCharacterInfo">
         <div class="modal-overlay" @click.self="showCharacterInfo = false" style="z-index:9800;">
@@ -5301,6 +5383,9 @@
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
                     <div style="display:flex;align-items:center;gap:10px;">
                         <div class="character-avatar-preview"
+                            :class="{ 'character-avatar-preview--zoomable': chatCharacter?.avatar }"
+                            @click="window.ChatMode.showChatAvatarLightbox($data)"
+                            title="View avatar full size"
                             :style="chatCharacter?.avatar ? `background-image:url('${chatCharacter.avatar}')` : ''">
                             <span x-show="!chatCharacter?.avatar" x-text="(chatCharacter?.name || '?')[0]"></span>
                         </div>

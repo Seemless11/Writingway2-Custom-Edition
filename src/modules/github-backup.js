@@ -437,7 +437,7 @@
             }
             for (const [sceneId, text] of Object.entries(backupData.sceneContents || {})) {
                 const wordCount = text ? text.trim().split(/\s+/).filter(w => w.length > 0).length : 0;
-                await db.content.put({ sceneId, text, wordCount });
+                await db.content.put({ sceneId, text, wordCount, updatedAt: Date.now() });
             }
 
             if (db.compendium) {

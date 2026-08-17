@@ -184,21 +184,15 @@
                     });
 
                     if (updatedScene && updatedScene.updatedAt && updatedScene.updatedAt > loadedTimestamp) {
-                        // Check if user has unsaved changes - if so, don't interrupt them
-                        const hasUnsavedChanges = app.currentScene.content !== updatedScene.content;
-
-                        console.log('🔍 Content check:', {
-                            hasUnsavedChanges,
-                            currentLength: app.currentScene.content?.length,
-                            dbLength: updatedScene.content?.length
-                        });
+                        // Check if user has unsaved changes - if so, don't interrupt them,
+                        // but flag the pending remote change so the save-time conflict check
+                        // still warns before overwriting (scenes table has no content column,
+                        // so compare against the content snapshot taken at load time).
+                        const hasUnsavedChanges = app.currentScene.content !== app.currentScene._loadedContent;
 
                         if (hasUnsavedChanges) {
-                            console.log('⏭️ User has unsaved changes, silently updating loadedUpdatedAt without showing dialog');
-                            // Silently acknowledge the change so we don't get repeated notifications
-                            if (app.currentScene) {
-                                app.currentScene.loadedUpdatedAt = updatedScene.updatedAt;
-                            }
+                            console.log('⏭️ User has unsaved changes, flagging pending remote change for save-time warning');
+                            app.currentScene.hasPendingRemoteChange = true;
                         } else {
                             // Scene was modified in another tab and user has no unsaved changes
                             console.warn('⚠️ Showing conflict dialog');
@@ -251,7 +245,7 @@
             case MSG_TYPES.CODEX_SAVED:
                 // Reload if viewing same project
                 if (app.currentProject?.id === data.projectId) {
-                    await app.loadAllPrompts?.();
+                    await app.loadPrompts?.();
                 }
                 break;
 
@@ -259,7 +253,14 @@
             case MSG_TYPES.COMPENDIUM_DELETED:
                 // Reload compendium if viewing same project
                 if (app.currentProject?.id === data.projectId) {
-                    await app.loadCompendium?.();
+                    await app.loadCompendiumCounts?.();
+                    if (window.CompendiumManager && Array.isArray(app.openCompCategories)) {
+                        for (const cat of app.openCompCategories) {
+                            try {
+                                await window.CompendiumManager.refreshCategoryList(app, cat);
+                            } catch (e) { /* ignore */ }
+                        }
+                    }
                 }
                 break;
 

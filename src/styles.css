@@ -2719,6 +2719,71 @@ html.light-mode .backup-warning-banner,
     background: rgba(var(--accent-rgb), 0.06);
 }
 
+.character-card-avatar--zoomable {
+    cursor: zoom-in;
+}
+
+/* Avatar lightbox */
+.avatar-lightbox {
+    display: flex;
+    flex-direction: column;
+    width: min(560px, 94vw);
+    max-height: 88vh;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.avatar-lightbox-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.avatar-lightbox-title {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.avatar-lightbox-subtitle {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.avatar-lightbox-body {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: var(--bg-primary);
+}
+
+.avatar-lightbox-image {
+    width: 100%;
+    aspect-ratio: 4/5;
+    max-height: calc(88vh - 150px);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+    flex-shrink: 0;
+}
+
 /* Imported badge */
 .character-card-imported-badge {
     display: inline-flex;
@@ -3227,6 +3292,43 @@ html.light-mode .sidebar-toggle-tab:hover,
     opacity: 1;
 }
 
+.chat-greeting-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 2;
+}
+
+.chat-message:hover .chat-greeting-arrow {
+    opacity: 1;
+}
+
+.chat-greeting-arrow:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.chat-greeting-arrow--prev {
+    left: -36px;
+}
+
+.chat-greeting-arrow--next {
+    right: -36px;
+}
+
 .chat-message-actions {
     position: absolute;
     top: -10px;
@@ -3368,6 +3470,10 @@ html.light-mode .sidebar-toggle-tab:hover,
     color: var(--accent);
     background-size: cover;
     background-position: center;
+}
+
+.character-avatar-preview--zoomable {
+    cursor: zoom-in;
 }
 
 /* ========== Roleplay Formatting ========== */

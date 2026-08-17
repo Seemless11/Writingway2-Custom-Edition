@@ -13,7 +13,7 @@
         async fetchProviderModels(app) {
             // Fetch available models from the current provider
             // LM Studio doesn't require an API key
-            if (app.aiMode !== 'api' || (!app.aiApiKey && app.aiProvider !== 'lmstudio')) return;
+            if (app.aiMode !== 'api' || (!app.aiApiKey && app.aiProvider !== 'lmstudio' && app.aiProvider !== 'koboldcpp')) return;
             if (app.fetchingModels) return; // Prevent duplicate fetches
 
             try {
@@ -109,6 +109,32 @@
                     } catch (e) {
                         console.warn('Failed to fetch LM Studio models:', e);
                         // Keep empty list - user will need to ensure LM Studio is running
+                        app.modelsFetched = true;
+                    }
+                } else if (app.aiProvider === 'koboldcpp') {
+                    // KoboldCpp native KoboldAI API exposes the loaded model at /api/v1/model
+                    // Normalize endpoint: strip trailing slashes and any /api or /v1 paths
+                    let endpoint = (app.aiEndpoint || 'http://localhost:5001').replace(/\/+$/, '');
+                    endpoint = endpoint.replace(/(\/api|\/v1)(\/.*)?$/, '');
+                    try {
+                        const response = await fetch(`${endpoint}/api/v1/model`, {
+                            signal: AbortSignal.timeout(5000)
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            const modelId = data.result || 'koboldcpp';
+                            app.providerModels.koboldcpp = [
+                                { id: modelId, name: modelId, recommended: true }
+                            ];
+                            app.modelsFetched = true;
+                            // Auto-select the loaded model if none selected
+                            if (!app.aiModel) {
+                                app.aiModel = modelId;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Failed to fetch KoboldCpp model:', e);
+                        // Keep empty list - user will need to ensure KoboldCpp is running
                         app.modelsFetched = true;
                     }
                 }
@@ -309,12 +335,56 @@
                     } catch (err) {
                         throw new Error(`Could not connect to LM Studio at ${endpoint}. Make sure LM Studio is running and has a model loaded. Error: ${err.message}`);
                     }
+                } else if (app.aiProvider === 'koboldcpp') {
+                    // Test KoboldCpp connection via /api/v1/model endpoint
+                    // Normalize endpoint: strip trailing slashes and any /api or /v1 paths
+                    let endpoint = (app.aiEndpoint || 'http://localhost:5001').replace(/\/+$/, '');
+                    endpoint = endpoint.replace(/(\/api|\/v1)(\/.*)?$/, '');
+                    app.loadingMessage = 'Connecting to KoboldCpp...';
+
+                    try {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+                        const response = await fetch(`${endpoint}/api/v1/model`, {
+                            signal: controller.signal
+                        });
+                        clearTimeout(timeoutId);
+
+                        if (response.ok) {
+                            const data = await response.json();
+                            const modelId = data.result || 'koboldcpp';
+                            // Update the model list with the loaded model
+                            app.providerModels.koboldcpp = [
+                                { id: modelId, name: modelId, recommended: true }
+                            ];
+
+                            // Auto-select the loaded model if none selected
+                            if (!app.aiModel) {
+                                app.aiModel = modelId;
+                            }
+
+                            // Save the normalized endpoint back
+                            app.aiEndpoint = endpoint;
+
+                            app.aiStatus = 'ready';
+                            app.aiStatusText = 'AI Ready (KoboldCpp)';
+                            app.loadingProgress = 100;
+                            app.loadingMessage = 'Connected!';
+                            setTimeout(() => { app.showModelLoading = false; }, 500);
+                            alert(`✓ Connected to KoboldCpp! Model loaded: ${modelId}`);
+                        } else {
+                            throw new Error(`KoboldCpp returned status ${response.status}`);
+                        }
+                    } catch (err) {
+                        throw new Error(`Could not connect to KoboldCpp at ${endpoint}. Make sure KoboldCpp is running and has a model loaded. Error: ${err.message}`);
+                    }
                 } else {
                     // Test API connection (basic validation)
-                    if (!app.aiApiKey && app.aiProvider !== 'lmstudio') {
+                    if (!app.aiApiKey && app.aiProvider !== 'lmstudio' && app.aiProvider !== 'koboldcpp') {
                         throw new Error('API key is required');
                     }
-                    if (!app.aiModel && app.aiProvider !== 'lmstudio') {
+                    if (!app.aiModel && app.aiProvider !== 'lmstudio' && app.aiProvider !== 'koboldcpp') {
                         throw new Error('Model name is required');
                     }
 
@@ -372,7 +442,7 @@
                     app.modelPresets = settings.modelPresets || {};
 
                     // Fetch fresh model list if we have API credentials (or LM Studio which doesn't need a key)
-                    if (app.aiMode === 'api' && (app.aiApiKey || app.aiProvider === 'lmstudio')) {
+                    if (app.aiMode === 'api' && (app.aiApiKey || app.aiProvider === 'lmstudio' || app.aiProvider === 'koboldcpp')) {
                         this.fetchProviderModels(app).catch(() => {}); // Fire-and-forget, don't block init
                     }
 

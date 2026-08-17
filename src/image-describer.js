@@ -64,12 +64,18 @@ Describe with confidence and specificity. Do NOT hedge with "maybe" or "probably
             });
 
             if (!response.ok) {
-                var errText = await response.text();
+                var errText = '';
+                try { errText = await response.text(); } catch (e) { errText = ''; }
                 return { error: 'Vision API returned ' + response.status + ': ' + errText };
             }
 
-            var data = await response.json();
-            var content = data.choices?.[0]?.message?.content;
+            var data;
+            try {
+                data = await response.json();
+            } catch (e) {
+                return { error: 'Vision API returned an unparseable response: ' + e.message };
+            }
+            var content = data && data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : null;
             if (!content || !content.trim()) {
                 return { error: 'No description generated.' };
             }

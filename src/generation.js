@@ -3,6 +3,46 @@
 // - buildPrompt(beat, sceneContext, options) => string
 // - streamGeneration(prompt, onToken(token)) => Promise<void>
 (function () {
+    // Provider-aware hint for the generic generation failure alert.
+    function generationErrorHint(app) {
+        if (app?.aiProvider === 'koboldcpp') {
+            return 'Check that KoboldCpp is running and a model is loaded.';
+        }
+        if (app?.aiMode === 'local') {
+            return 'Make sure llama-server is running.';
+        }
+        return 'Check your AI provider connection and settings.';
+    }
+
+    function isTruncated(result) {
+        const fr = (result?.finishReason || '').toLowerCase();
+        return fr === 'length' || fr === 'max_tokens';
+    }
+
+    /**
+     * Remove a trailing incomplete sentence from the last generated chunk.
+     * Fixes both the in-memory chunk (app.lastGenText) and the live scene
+     * content by removing exactly the trailing characters that got cut.
+     * @param {Object} app - Alpine app instance
+     * @param {string} targetSceneId - Scene the generation was targeting
+     */
+    function trimTrailingIncomplete(app, targetSceneId) {
+        if (!app.lastGenText || !window.Editor || typeof window.Editor.trimIncompleteEnding !== 'function') return;
+        const original = app.lastGenText;
+        const trimmed = window.Editor.trimIncompleteEnding(original);
+        if (trimmed === original) return;
+        const diff = original.length - trimmed.length;
+        app.lastGenText = trimmed;
+        if (app.currentScene?.id === targetSceneId && app.currentScene && app.currentScene.content && diff > 0) {
+            const content = app.currentScene.content;
+            // Only tail-remove when the generated chunk is still the exact suffix,
+            // so text the user typed mid-generation is never touched.
+            if (content.endsWith(original)) {
+                app.currentScene.content = content.slice(0, content.length - diff) + trimmed;
+            }
+        }
+    }
+
     function buildPrompt(beat, sceneContext, options = {}) {
         try {
             console.debug('[buildPrompt] received prosePrompt:', JSON.stringify(options.prosePrompt));
@@ -87,9 +127,9 @@
             for (const ce of options.compendiumEntries) {
                 try {
                     const title = window.MacroUtils.stripSTMacros(ce.title || '') || ('entry ' + (ce.id || ''));
-                    const body = window.MacroUtils.stripSTMacros((ce.body || ce.body || ce.description || '') || ce.body || '');
+                    const body = window.MacroUtils.stripSTMacros(ce.body || ce.description || '') || ce.body || '';
                     compendiumText += `\n-- ${title} --\n${body}\n`;
-                } catch (e) { /* ignore */ }
+                } catch (e) { console.warn('Skipped compendium entry in prompt:', e); }
             }
         }
 
@@ -152,36 +192,52 @@
         const hasPreset = aiModel && app?.modelPresets?.[aiModel];
         const preset = hasPreset ? app.modelPresets[aiModel] : {};
         const temperature = preset.temperature ?? app?.temperature ?? 0.8;
-        const maxTokens = app?.maxTokens ?? preset.maxTokens ?? 300;
+        const maxTokens = preset.maxTokens ?? app?.maxTokens ?? 300;
         const topP = preset.topP ?? app?.topP ?? 0.9;
         const topK = preset.topK ?? app?.topK ?? 40;
         const repetitionPenalty = preset.repetitionPenalty ?? app?.repetitionPenalty ?? 1.0;
         const frequencyPenalty = preset.frequencyPenalty ?? app?.frequencyPenalty ?? 0.0;
         const presencePenalty = preset.presencePenalty ?? app?.presencePenalty ?? 0.0;
         const minP = preset.minP ?? app?.minP ?? 0.0;
-        const seed = preset.seed !== undefined ? preset.seed : (app?.seed !== undefined ? app.seed : null);
+        const seed = app?.seed !== undefined ? app.seed : (preset.seed !== undefined ? preset.seed : null);
 
         // Convert prompt to appropriate format
         let promptStr = prompt;
         let messages = null;
 
+        const usesStringPrompt = aiMode === 'local' || aiProvider === 'koboldcpp';
+
         if (typeof prompt === 'object' && prompt.messages) {
             // buildPrompt() result with messages and asString()
             messages = prompt.messages;
-            if (aiMode === 'local') {
-                // Use string format for local server
+            if (usesStringPrompt) {
+                // Use string format for local servers that take a plain text prompt
                 promptStr = prompt.asString();
             }
         } else if (Array.isArray(prompt)) {
             // Raw messages array (e.g., from workshop chat)
             messages = prompt;
-            if (aiMode === 'local') {
-                // Convert messages array to ChatML format for local server
+            if (usesStringPrompt) {
+                // Convert messages array to ChatML format for local servers
                 promptStr = messagesToChatML(messages);
             }
         }
 
-        const extraParams = hasPreset ? preset : {};
+        // Collect all non-default sampling params the caller configured; with no
+        // preset, extraParams is empty and the settings below would otherwise be dropped.
+        const extraParams = {};
+        if (topP !== 0.9) extraParams.top_p = topP;
+        if (topK !== 40) extraParams.top_k = topK;
+        if (repetitionPenalty !== 1.0) extraParams.repeat_penalty = repetitionPenalty;
+        if (frequencyPenalty !== 0.0) extraParams.frequency_penalty = frequencyPenalty;
+        if (presencePenalty !== 0.0) extraParams.presence_penalty = presencePenalty;
+        if (minP !== 0.0) extraParams.min_p = minP;
+        if (seed !== null && seed !== undefined) extraParams.seed = seed;
+
+        if (aiProvider === 'koboldcpp') {
+            // KoboldCpp native KoboldAI API - uses a plain string prompt
+            return await streamGenerationKobold(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams);
+        }
 
         if (aiMode === 'api') {
             // API Mode - use configured provider with messages
@@ -273,6 +329,104 @@
         }
 
         // Stream ended without explicit stop signal — likely hit n_predict token budget
+        return { finishReason: 'length' };
+    }
+
+    async function streamGenerationKobold(prompt, onToken, endpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams) {
+        // KoboldCpp native KoboldAI API streaming
+        // Normalize endpoint: strip trailing slashes and any /api or /v1 paths
+        let base = (endpoint || 'http://localhost:5001').replace(/\/+$/, '');
+        base = base.replace(/(\/api|\/v1)(\/.*)?$/, '');
+
+        const tokenBudget = Math.round((maxTokens || 300) / 0.75 * 2);
+        const genparams = {
+            prompt: prompt,
+            max_length: tokenBudget,
+            stop_sequence: ['<|im_end|>', '<|endoftext|>']
+        };
+
+        // Only include parameters if not using provider defaults
+        if (!useProviderDefaults) {
+            genparams.temperature = temperature || 0.8;
+            if (extraParams) {
+                if (extraParams.topP !== undefined) genparams.top_p = extraParams.topP;
+                if (extraParams.topK !== undefined) genparams.top_k = extraParams.topK;
+                if (extraParams.repetitionPenalty !== undefined) genparams.rep_pen = extraParams.repetitionPenalty;
+                if (extraParams.minP !== undefined) genparams.min_p = extraParams.minP;
+                if (extraParams.seed !== undefined) genparams.seed = extraParams.seed;
+            }
+        }
+
+        // Stream from the KoboldAI SSE endpoint. If the server doesn't support
+        // SSE streaming (older builds / 404), fall back to the non-streaming
+        // /api/v1/generate endpoint and emit the result in chunks.
+        let response = await fetch(base + '/api/extra/generate/stream', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(genparams),
+            signal: abortSignal
+        });
+
+        if (!response.ok) {
+            response = await fetch(base + '/api/v1/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(genparams),
+                signal: abortSignal
+            });
+        }
+
+        if (!response.ok) {
+            throw new Error(`KoboldCpp returned ${response.status}`);
+        }
+
+        // If the server answered with a complete JSON body instead of an SSE
+        // stream, fall back to the non-streaming /api/v1/generate shape.
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            const data = await response.json();
+            const text = data.results && data.results.length > 0 ? (data.results[0].text || '') : '';
+            if (text) {
+                const words = text.split(/(\s+)/);
+                for (const word of words) {
+                    onToken(word);
+                    await new Promise(resolve => setTimeout(resolve, 10)); // Small delay for UI
+                }
+            }
+            return { finishReason: 'stop' };
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        if (data.token) {
+                            onToken(data.token);
+                        }
+                        if (data.finish_reason) {
+                            return { finishReason: data.finish_reason };
+                        }
+                    } catch (e) {
+                        // ignore parse errors for incomplete chunks
+                    }
+                }
+            }
+        }
+
+        // Stream ended without explicit stop signal — likely hit the token budget
         return { finishReason: 'length' };
     }
 
@@ -741,9 +895,9 @@
             for (const ce of options.compendiumEntries) {
                 try {
                     const title = window.MacroUtils.stripSTMacros(ce.title || '') || ('entry ' + (ce.id || ''));
-                    const body = window.MacroUtils.stripSTMacros((ce.body || ce.body || ce.description || '') || ce.body || '');
+                    const body = window.MacroUtils.stripSTMacros(ce.body || ce.description || '') || ce.body || '';
                     compendiumText += `\n-- ${title} --\n${body}\n`;
-                } catch (e) { /* ignore */ }
+                } catch (e) { console.warn('Skipped compendium entry in prompt:', e); }
             }
         }
 
@@ -813,6 +967,10 @@
         if (!beatText && app.aiStatus !== 'ready') return;
         if (!beatText && !sceneContent) return;
         app.isGenerating = true;
+        // Capture the target scene up front so tokens are never appended to a
+        // different scene if the user switches scenes mid-generation.
+        const targetSceneId = app.currentScene?.id || null;
+        const targetProjectId = app.currentProject?.id || null;
         try {
             if (beatText) app.lastBeat = beatText;
 
@@ -860,6 +1018,7 @@
             app.lastGenStart = prevLen;
             app.lastGenText = '';
             app.showGenActions = false;
+            app.lastGenTruncated = false;
             app.beatAbortController = new AbortController();
             app._genFollow = true;
             const ta = document.querySelector('.editor-textarea');
@@ -870,14 +1029,24 @@
                 ta.addEventListener('scroll', onScroll);
                 app._genScrollCleanup = () => ta.removeEventListener('scroll', onScroll);
             }
-            await streamGeneration(prompt, (token) => {
-                app.currentScene.content += token;
+            const result = await streamGeneration(prompt, (token) => {
                 app.lastGenText += token;
-                app.$nextTick(() => {
-                    const ta = document.querySelector('.editor-textarea');
-                    if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
-                });
+                // Only stream into the live editor while the same scene is open;
+                // otherwise buffer and flush to the target scene on completion.
+                if (app.currentScene?.id === targetSceneId) {
+                    app.currentScene.content += token;
+                    app.$nextTick(() => {
+                        const ta = document.querySelector('.editor-textarea');
+                        if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
+                    });
+                }
             }, app, app.beatAbortController.signal);
+            // Auto-remove an incomplete ending sentence so the story never stops mid-sentence
+            trimTrailingIncomplete(app, targetSceneId);
+            if (isTruncated(result)) {
+                app.lastGenTruncated = true;
+                console.warn('⚠️ Flow generation hit the token limit; incomplete ending trimmed');
+            }
             app.showGenActions = true;
             app.showGeneratedHighlight = true;
             app.$nextTick(() => {
@@ -898,14 +1067,38 @@
                 }, 5000);
             });
             if (app.showMiniBeatInput) app.beatInput = '';
-            await app.saveScene();
+
+            // If the user switched scenes mid-generation, flush the buffered text
+            // straight into the target scene's content row instead of the open scene.
+            if (app.currentScene?.id !== targetSceneId && targetSceneId && app.lastGenText) {
+                try {
+                    const existing = await db.content.get(targetSceneId);
+                    if (existing) {
+                        const merged = existing.text + app.lastGenText;
+                        await db.content.update(targetSceneId, { text: merged, wordCount: merged.split(/\s+/).filter(Boolean).length, updatedAt: Date.now() });
+                    } else {
+                        await db.content.add({ sceneId: targetSceneId, text: app.lastGenText, wordCount: app.lastGenText.split(/\s+/).filter(Boolean).length, updatedAt: Date.now() });
+                    }
+                    if (window.TabSync) {
+                        window.TabSync.broadcast(window.TabSync.MSG_TYPES.SCENE_UPDATED, {
+                            id: targetSceneId,
+                            projectId: targetProjectId,
+                            updatedAt: Date.now()
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to flush generated text to background scene:', e);
+                }
+            } else {
+                await app.saveScene();
+            }
         } catch (error) {
             if (error.name === 'AbortError') {
                 console.log('Flow generation stopped by user');
                 app.showGenActions = true;
             } else {
                 console.error('Flow generation error:', error);
-                alert('Failed to generate text. Make sure llama-server is running.\n\nError: ' + (error && error.message ? error.message : error));
+                alert('Failed to generate text. ' + generationErrorHint(app) + '\n\nError: ' + (error && error.message ? error.message : error));
             }
         } finally {
             if (app._genScrollCleanup) {
@@ -925,6 +1118,10 @@
         const beatText = app.getCurrentBeat();
         if (!beatText || app.aiStatus !== 'ready') return;
         app.isGenerating = true;
+        // Capture the target scene up front so tokens are never appended to a
+        // different scene if the user switches scenes mid-generation.
+        const targetSceneId = app.currentScene?.id || null;
+        const targetProjectId = app.currentProject?.id || null;
         try {
             app.lastBeat = beatText;
 
@@ -993,6 +1190,7 @@
             app.lastGenStart = prevLen;
             app.lastGenText = '';
             app.showGenActions = false;
+            app.lastGenTruncated = false;
             // Create abort controller for this generation
             app.beatAbortController = new AbortController();
             // Set up scroll follow during streaming
@@ -1006,14 +1204,24 @@
                 app._genScrollCleanup = () => ta.removeEventListener('scroll', onScroll);
             }
             // Stream tokens and append into the current scene
-            await streamGeneration(prompt, (token) => {
-                app.currentScene.content += token;
+            const result = await streamGeneration(prompt, (token) => {
                 app.lastGenText += token;
+                // Only stream into the live editor while the same scene is open;
+                // otherwise buffer and flush to the target scene on completion.
+                if (app.currentScene?.id === targetSceneId) {
+                    app.currentScene.content += token;
+                }
                 app.$nextTick(() => {
                     const ta = document.querySelector('.editor-textarea');
                     if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
                 });
             }, app, app.beatAbortController.signal);
+            // Auto-remove an incomplete ending sentence so the story never stops mid-sentence
+            trimTrailingIncomplete(app, targetSceneId);
+            if (isTruncated(result)) {
+                app.lastGenTruncated = true;
+                console.warn('⚠️ Generation hit the token limit; incomplete ending trimmed');
+            }
             // Generation complete — expose accept/retry/discard actions
             app.showGenActions = true;
             app.showGeneratedHighlight = true;
@@ -1038,15 +1246,38 @@
             });
             // Clear beat input only in legacy mode
             if (app.showMiniBeatInput) app.beatInput = '';
-            // Auto-save after generation
-            await app.saveScene();
+
+            // If the user switched scenes mid-generation, flush the buffered text
+            // straight into the target scene's content row instead of the open scene.
+            if (app.currentScene?.id !== targetSceneId && targetSceneId && app.lastGenText) {
+                try {
+                    const existing = await db.content.get(targetSceneId);
+                    if (existing) {
+                        const merged = existing.text + app.lastGenText;
+                        await db.content.update(targetSceneId, { text: merged, wordCount: merged.split(/\s+/).filter(Boolean).length, updatedAt: Date.now() });
+                    } else {
+                        await db.content.add({ sceneId: targetSceneId, text: app.lastGenText, wordCount: app.lastGenText.split(/\s+/).filter(Boolean).length, updatedAt: Date.now() });
+                    }
+                    if (window.TabSync) {
+                        window.TabSync.broadcast(window.TabSync.MSG_TYPES.SCENE_UPDATED, {
+                            id: targetSceneId,
+                            projectId: targetProjectId,
+                            updatedAt: Date.now()
+                        });
+                    }
+                } catch (e) {
+                    console.error('Failed to flush generated text to background scene:', e);
+                }
+            } else {
+                await app.saveScene();
+            }
         } catch (error) {
             if (error.name === 'AbortError') {
                 console.log('Generation stopped by user');
                 app.showGenActions = true;
             } else {
                 console.error('Generation error:', error);
-                alert('Failed to generate text. Make sure llama-server is running.\n\nError: ' + (error && error.message ? error.message : error));
+                alert('Failed to generate text. ' + generationErrorHint(app) + '\n\nError: ' + (error && error.message ? error.message : error));
             }
         } finally {
             if (app._genScrollCleanup) {

@@ -13,7 +13,12 @@
 
         window.__test.getApp = function () {
             const el = document.querySelector('[x-data="app"]');
-            return (el && el.__x && el.__x.$data) ? el.__x.$data : null;
+            if (!el) return null;
+            // Alpine v3 stores the component data on _x_dataStack; __x is only
+            // present on some versions, so fall back to the stack.
+            if (el.__x && el.__x.$data) return el.__x.$data;
+            if (el._x_dataStack && el._x_dataStack.length > 0) return el._x_dataStack[0];
+            return null;
         };
 
         window.__test.seedProject = async function (name) {

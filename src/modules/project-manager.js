@@ -366,6 +366,11 @@
                 await db.compendium.where('projectId').equals(projectId).delete();
                 await db.prompts.where('projectId').equals(projectId).delete();
 
+                // Orphaned-data fix: prompt history and workshop sessions carry a
+                // projectId too and were previously never removed.
+                await db.promptHistory.where('projectId').equals(projectId).delete();
+                await db.workshopSessions.where('projectId').equals(projectId).delete();
+
                 // Delete project itself
                 await db.projects.delete(projectId);
 
@@ -950,7 +955,7 @@ p:first-of-type {
                     return;
                 }
 
-                if (!file.name.endsWith('.zip')) {
+                if (!file.name.toLowerCase().endsWith('.zip')) {
                     alert('Please select a .zip file exported from Writingway.');
                     return;
                 }
@@ -966,8 +971,15 @@ p:first-of-type {
                     return;
                 }
 
-                const metadataText = await metadataFile.async('text');
-                const metadata = JSON.parse(metadataText);
+                let metadata = null;
+                try {
+                    const metadataText = await metadataFile.async('text');
+                    metadata = JSON.parse(metadataText);
+                } catch (e) {
+                    console.error('Failed to parse metadata.json:', e);
+                    alert('Invalid export file: metadata.json is corrupted or unparseable.');
+                    return;
+                }
 
                 if (!metadata.project) {
                     alert('Invalid export file: missing project data');

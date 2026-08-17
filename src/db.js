@@ -175,6 +175,54 @@ db.version(10).stores({
     // noop: new table created automatically
 });
 
+// Healing migration (v11): re-attach any scenes left without a chapterId.
+// This self-heals partial failures of the original v2 upgrade, which could
+// previously leave scenes orphaned after a midway failure.
+db.version(11).stores({
+    projects: 'id, name, created, modified, updatedAt',
+    chapters: 'id, projectId, title, order, created, modified, updatedAt',
+    scenes: 'id, projectId, chapterId, title, order, created, modified, updatedAt',
+    content: 'sceneId, text, wordCount, updatedAt',
+    prompts: 'id, [category+title], [projectId+category+title], projectId, category, title, created, modified, updatedAt',
+    codex: 'id, projectId, title, created, modified, updatedAt',
+    compendium: 'id, [projectId+category], projectId, category, title, modified, tags, updatedAt',
+    promptHistory: 'id, projectId, sceneId, timestamp, beat, prompt',
+    workshopSessions: 'id, [projectId+createdAt], projectId, name, createdAt, updatedAt',
+    settings: 'key'
+}).upgrade(async tx => {
+    const projects = await tx.table('projects').toArray();
+    for (const p of projects) {
+        const orphanScenes = await tx.table('scenes')
+            .where('projectId').equals(p.id)
+            .filter(s => !s.chapterId)
+            .toArray();
+        if (orphanScenes.length === 0) continue;
+
+        // Reuse an existing chapter if present, otherwise create a default one
+        let chapId = null;
+        const existing = await tx.table('chapters')
+            .where('projectId').equals(p.id)
+            .first();
+        if (existing) {
+            chapId = existing.id;
+        } else {
+            chapId = Date.now().toString() + '-m-' + Math.random().toString(36).slice(2, 7);
+            await tx.table('chapters').add({
+                id: chapId,
+                projectId: p.id,
+                title: 'Chapter 1',
+                order: 0,
+                created: new Date(),
+                modified: new Date()
+            });
+        }
+
+        for (const s of orphanScenes) {
+            await tx.table('scenes').update(s.id, { chapterId: chapId });
+        }
+    }
+});
+
 // Expose the global Dexie instance for debugging and console usage
 try { window.db = window.db || db; } catch (e) { /* ignore in non-browser env */ }
 
