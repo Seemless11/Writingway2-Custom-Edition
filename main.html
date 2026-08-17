@@ -939,6 +939,15 @@
                                                     min="0.1" max="2.0" step="0.1"
                                                     class="gen-slider">
                                             </div>
+                                            <span class="gen-divider"></span>
+                                            <div class="gen-item gen-trim">
+                                                <button class="gen-length-btn" type="button"
+                                                    @click="chatAutoTrim = !chatAutoTrim"
+                                                    :class="{ 'gen-active': chatAutoTrim }"
+                                                    :title="chatAutoTrim ? 'Auto-trim is ON: incomplete ending sentences are removed from replies' : 'Auto-trim is OFF: replies are kept exactly as generated'">
+                                                    <span x-text="chatAutoTrim ? 'Trim: ON' : 'Trim: OFF'"></span>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     <!-- Chat Input -->

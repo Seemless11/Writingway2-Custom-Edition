@@ -730,7 +730,7 @@ window.ChatMode = {
 
             // Trim only when the whole chain is done — trimming each segment
             // visibly deleted the tail several times on a single output.
-            if (!willContinue && window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
+            if (!willContinue && app.chatAutoTrim !== false && window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
                 const current = app.chatCharacterMessages[assistantIndex]?.content || '';
                 const trimmed = window.Editor.trimIncompleteEnding(current);
                 if (trimmed !== current) {
@@ -853,7 +853,7 @@ window.ChatMode = {
             await this.saveCharacterSession(app);
 
             // Auto-remove a trailing incomplete sentence (same behavior as the story editor)
-            if (window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
+            if (app.chatAutoTrim !== false && window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
                 const current = app.chatCharacterMessages[userIndex]?.content || '';
                 const trimmed = window.Editor.trimIncompleteEnding(current);
                 if (trimmed !== current) {

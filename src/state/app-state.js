@@ -92,6 +92,7 @@ function createAppState() {
         rosterVirtualEnd: 15,
         rosterSortOrder: 'name-asc',
         chatCharacterInput: '',
+        chatAutoTrim: true, // Auto-remove incomplete ending sentences from chat replies
         chatCharacterIsGenerating: false,
         chatCharacterAbortController: null,
         chatCharacterMessages: [],
