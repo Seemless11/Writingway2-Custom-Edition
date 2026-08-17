@@ -547,7 +547,10 @@ window.ChatMode = {
 
         const messages = [];
 
-        let systemContent = `You are ${char.name}.`;
+        const personaName = persona?.name || 'You';
+        let systemContent = mode === 'impersonate'
+            ? `You are ${personaName}, the user in this conversation.`
+            : `You are ${char.name}.`;
 
         const pid = chatProjectId(app);
         if (pid && window.db) {
@@ -599,7 +602,12 @@ window.ChatMode = {
             systemContent += `\n\n${char.examples}`;
         }
 
-        if (responseMode === 'character') {
+        if (mode === 'impersonate') {
+            systemContent += `\n\nWrite the next message as ${personaName} — ${personaName}'s reply to ${char.name}. Do not write anything for ${char.name}. Study ${personaName}'s previous messages in this conversation and match their writing style, tone, vocabulary, formatting, and message length as closely as possible. Never speak or narrate as ${char.name}.`;
+            if (responseMode === 'narrative') {
+                systemContent += `\n\nWrite ${personaName}'s part as third-person narrative prose describing what ${personaName} does and says, like a novel, consistent with the narrative style of the conversation.`;
+            }
+        } else if (responseMode === 'character') {
             systemContent += `\n\nYou must respond entirely in-character as ${char.name}. Speak in first person as ${char.name}. React naturally to the user's messages. Do not write narration or prose about what ${char.name} does — simply be ${char.name} and respond directly. Use *asterisks* around actions or emotes if needed.`;
         } else {
             systemContent += `\n\nYou are writing a story. Write in third person narrative prose describing what happens in the conversation between the user and ${char.name}. Describe actions, emotions, setting, and dialogue naturally like a novel. Do not speak as the character in first person — narrate the scene instead.`;
@@ -611,22 +619,27 @@ window.ChatMode = {
         }
 
         const targetWords = app.maxTokens || 300;
-        const minWords = Math.round(targetWords * 0.8);
-        const maxWords = Math.round(targetWords * 1.3);
-        const paragraphCount = targetWords <= 200 ? 2 : targetWords <= 400 ? 3 : targetWords <= 600 ? 4 : 5;
-        systemContent += `\n\nRESPONSE LENGTH REQUIREMENTS:
+        if (mode === 'impersonate') {
+            systemContent += `\n\nKeep the message concise — roughly the same length as ${personaName}'s previous messages in the conversation.`;
+        } else {
+            const minWords = Math.round(targetWords * 0.8);
+            const maxWords = Math.round(targetWords * 1.3);
+            const paragraphCount = targetWords <= 200 ? 2 : targetWords <= 400 ? 3 : targetWords <= 600 ? 4 : 5;
+            systemContent += `\n\nRESPONSE LENGTH REQUIREMENTS:
 - Write approximately ${targetWords} words
 - Structure your response as ${paragraphCount} paragraphs
 - Each paragraph should contain 3-5 sentences
 - Do NOT write less than ${minWords} words
 - Do NOT write more than ${maxWords} words
 - This is a hard requirement. Count your paragraphs as you write.`;
+        }
 
-        const personaName = persona?.name || 'You';
         if (persona?.description) {
             systemContent += `\n\nThe user is ${personaName}. ${persona.description}`;
         }
-        systemContent += `\n\nAlways refer to the user as ${personaName}.`;
+        if (mode !== 'impersonate') {
+            systemContent += `\n\nAlways refer to the user as ${personaName}.`;
+        }
 
         if (mode === 'continue') {
             systemContent += `\n\nContinue the response naturally from where you left off. The conversation continues without a new user message. Extend the last response, adding more detail or advancing the scene. Keep the same tone and style. Do not repeat what has already been said. Do not greet the user or start a new topic.`;
@@ -782,6 +795,92 @@ window.ChatMode = {
         this.scrollMessagesToBottom(app);
 
         await this._generateAssistantResponse(app, assistantIndex, 'continue');
+    },
+
+    // ========== Impersonation ==========
+
+    async impersonate(app) {
+        if (app.chatCharacterIsGenerating) return;
+        if (!app.chatCharacter) return;
+
+        const userIndex = app.chatCharacterMessages.length;
+        app.chatCharacterMessages.push({
+            role: 'user',
+            content: '',
+            timestamp: new Date().toISOString(),
+            name: app.userPersona?.name || 'You'
+        });
+        app.chatCharacterMessages = [...app.chatCharacterMessages];
+        this.scrollMessagesToBottom(app);
+
+        await this._generateUserMessage(app, userIndex, 'impersonate');
+    },
+
+    async _generateUserMessage(app, userIndex, mode) {
+        app.chatCharacterIsGenerating = true;
+        app.chatCharacterAbortController = new AbortController();
+        try {
+            const promptMessages = await this.buildCharacterPrompt(app, mode);
+            let fullResponse = '';
+            await window.Generation.streamGeneration(promptMessages, (token) => {
+                fullResponse += token;
+                app.chatCharacterMessages[userIndex].content = fullResponse;
+                app.chatCharacterMessages = [...app.chatCharacterMessages];
+                this.scrollMessagesToBottom(app, true);
+            }, app, app.chatCharacterAbortController.signal);
+            await this.saveCharacterSession(app);
+
+            // Auto-remove a trailing incomplete sentence (same behavior as the story editor)
+            if (window.Editor && typeof window.Editor.trimIncompleteEnding === 'function') {
+                const current = app.chatCharacterMessages[userIndex]?.content || '';
+                const trimmed = window.Editor.trimIncompleteEnding(current);
+                if (trimmed !== current) {
+                    app.chatCharacterMessages[userIndex].content = trimmed;
+                    app.chatCharacterMessages = [...app.chatCharacterMessages];
+                }
+            }
+
+            await this.saveCharacterSession(app);
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Character chat impersonation aborted by user');
+                // Persist the partial reply so it is not lost on reload
+                try { await this.saveCharacterSession(app); } catch (e) { /* ignore */ }
+                return;
+            }
+            console.error('Character chat impersonation error:', error);
+            app.chatCharacterMessages[userIndex].content = `Error: ${error.message}`;
+            app.chatCharacterMessages[userIndex].isError = true;
+            app.chatCharacterMessages = [...app.chatCharacterMessages];
+            try { await this.saveCharacterSession(app); } catch (e) { /* ignore */ }
+        } finally {
+            app.chatCharacterIsGenerating = false;
+            app.chatCharacterAbortController = null;
+        }
+    },
+
+    // ========== Slash Commands ==========
+
+    handleSlashCommand(app, text) {
+        if (!text || !text.trim()) return false;
+        const trimmed = text.trim();
+        if (!trimmed.startsWith('/')) return false;
+        const parts = trimmed.slice(1).split(/\s+/);
+        const command = (parts[0] || '').toLowerCase();
+        switch (command) {
+            case 'impersonate':
+            case 'qi':
+                app.chatCharacterInput = '';
+                this.impersonate(app);
+                return true;
+            case 'help':
+                alert('Available commands:\n\n/impersonate (or /qi) — generate a reply as you, based on your previous messages\n/help — show this list');
+                return true;
+            default:
+                // Unknown slash commands are ignored silently
+                app.chatCharacterInput = '';
+                return true;
+        }
     },
 
     // ========== Message Actions ==========
@@ -1126,8 +1225,8 @@ window.ChatMode = {
 
     async savePersonas(app) {
         try {
-            const stored = await db.settings.get('personas') || { key: 'personas', value: [] };
-            stored.value = app.userPersonas;
+const stored = await db.settings.get('personas') || { key: 'personas', value: [] };
+        stored.value = JSON.parse(JSON.stringify(app.userPersonas));
             stored.activeId = app.activePersonaId;
             await db.settings.put(stored);
         } catch (e) {

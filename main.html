@@ -946,11 +946,17 @@
                                         <div class="chat-input-wrapper">
                                             <textarea class="chat-input-textarea" x-model="chatCharacterInput"
                                                 rows="1"
-                                                @keydown="if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); if (!chatCharacterIsGenerating) window.ChatMode.sendMessage($data, chatCharacterInput); }"
+                                                @keydown="if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); if (!chatCharacterIsGenerating) { if (!window.ChatMode.handleSlashCommand($data, chatCharacterInput)) window.ChatMode.sendMessage($data, chatCharacterInput); } }"
                                                 @input="$el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 150) + 'px'"
                                                 placeholder="Type a message..."
                                                 :disabled="chatCharacterIsGenerating"
                                                 :style="chatCharacterIsGenerating ? 'opacity:0.5;' : ''"></textarea>
+                                            <button class="chat-quick-btn"
+                                                @click="window.ChatMode.impersonate($data)"
+                                                :disabled="chatCharacterIsGenerating"
+                                                :title="'Impersonate: generate ' + (userPersona?.name || 'your') + '\'s reply (/impersonate)'">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            </button>
                                             <button class="chat-send-button"
                                                 @click="window.ChatMode.sendMessage($data, chatCharacterInput)"
                                                 :disabled="false"

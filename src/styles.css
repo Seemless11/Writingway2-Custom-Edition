@@ -3527,6 +3527,37 @@ html.light-mode .sidebar-toggle-tab:hover,
     gap: 4px;
 }
 
+/* Quick Impersonate button */
+.chat-quick-btn {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.chat-quick-btn:hover:not(:disabled) {
+    background: var(--bg-secondary);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.chat-quick-btn:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.chat-quick-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
 .gen-settings {
     display: flex;
     align-items: center;
