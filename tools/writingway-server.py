@@ -31,6 +31,8 @@ PORT = 8000
 ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
 BACKUPS_DIR = ROOT / "project-backups"
+SNAPSHOTS_DIR = BACKUPS_DIR / "all"
+MAX_SNAPSHOTS = 50
 MODELS_DIR = ROOT / "models"
 LLAMA_DIR = ROOT / "llama"
 LLAMA_RELEASE_API = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
@@ -145,6 +147,12 @@ def backup_filename(project: dict, exported_at: str | None = None) -> str:
     timestamp = exported_at or datetime.now(timezone.utc).isoformat()
     timestamp = timestamp.replace(":", "-").replace(".", "-").replace("+00:00", "Z")
     return f"{timestamp}--{safe_name}--{sanitize_filename(project_id)}.json"
+
+
+def snapshot_filename() -> str:
+    timestamp = datetime.now(timezone.utc).isoformat()
+    timestamp = timestamp.replace("+00:00", "Z").replace(":", "-").replace(".", "-")
+    return f"{timestamp}--all.json"
 
 
 def github_json(url: str) -> dict:
@@ -342,11 +350,20 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/get-backup":
             self.handle_get_backup(parsed.query)
             return
+        if parsed.path == "/api/list-snapshots":
+            self.handle_list_snapshots()
+            return
+        if parsed.path == "/api/get-snapshot":
+            self.handle_get_snapshot(parsed.query)
+            return
         super().do_GET()
 
     def do_POST(self):
         if self.path == "/api/save-project":
             self.handle_save_project()
+            return
+        if self.path == "/api/save-all":
+            self.handle_save_all()
             return
         if self.path == "/api/install-llama":
             self.handle_install_llama()
@@ -573,10 +590,114 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
                 {"ok": False, "error": str(exc)},
             )
 
+    def handle_save_all(self):
+        payload = self.read_json_payload()
+        if payload is None:
+            return
+
+        tables = payload.get("tables") if isinstance(payload, dict) else None
+        if not isinstance(tables, dict):
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Missing tables payload"})
+            return
+
+        try:
+            SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+            filename = snapshot_filename()
+            target = SNAPSHOTS_DIR / filename
+
+            payload["snapshotSavedAt"] = datetime.now(timezone.utc).isoformat()
+            payload["snapshotVersion"] = 1
+
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=str(SNAPSHOTS_DIR),
+                delete=False,
+                suffix=".tmp",
+            ) as tmp_file:
+                json.dump(payload, tmp_file, ensure_ascii=False, indent=2)
+                tmp_file.write("\n")
+                temp_name = tmp_file.name
+
+            os.replace(temp_name, target)
+
+            # Enforce a rolling cap so snapshots don't grow without bound.
+            snapshots = sorted(SNAPSHOTS_DIR.glob("*--all.json"), reverse=True)
+            for old in snapshots[MAX_SNAPSHOTS:]:
+                try:
+                    old.unlink()
+                except OSError:
+                    pass
+
+            self.respond_json(
+                HTTPStatus.OK,
+                {
+                    "ok": True,
+                    "id": filename,
+                    "path": str(target.relative_to(ROOT)),
+                    "timestamp": payload["snapshotSavedAt"],
+                },
+            )
+        except Exception as exc:
+            self.respond_json(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": str(exc)},
+            )
+
+    def handle_list_snapshots(self):
+        try:
+            snapshots = []
+            if SNAPSHOTS_DIR.exists():
+                for snap_file in sorted(SNAPSHOTS_DIR.glob("*--all.json"), reverse=True):
+                    stat = snap_file.stat()
+                    snapshots.append(
+                        {
+                            "id": snap_file.name,
+                            "timestamp": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                            "path": str(snap_file.relative_to(ROOT)),
+                            "size": stat.st_size,
+                        }
+                    )
+
+            self.respond_json(HTTPStatus.OK, {"ok": True, "snapshots": snapshots})
+        except Exception as exc:
+            self.respond_json(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": str(exc)},
+            )
+
+    def handle_get_snapshot(self, query: str):
+        params = parse_qs(query or "")
+        snapshot_id = (params.get("id") or [""])[0].strip()
+        if not snapshot_id:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Missing id"})
+            return
+
+        if Path(snapshot_id).name != snapshot_id:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid snapshot id"})
+            return
+
+        try:
+            snap_file = SNAPSHOTS_DIR / snapshot_id
+            if not snap_file.exists() or not snap_file.is_file():
+                self.respond_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Snapshot not found"})
+                return
+
+            with snap_file.open("r", encoding="utf-8") as f:
+                snapshot = json.load(f)
+
+            self.respond_json(HTTPStatus.OK, {"ok": True, "snapshot": snapshot})
+        except Exception as exc:
+            self.respond_json(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                {"ok": False, "error": str(exc)},
+            )
+
 
 def main():
     PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
     BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer((HOST, PORT), WritingwayHandler)
     print(f"Writingway server running at http://{HOST}:{PORT}")
     print(f"Project saves will be written to {PROJECTS_DIR}")

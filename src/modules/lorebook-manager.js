@@ -173,6 +173,31 @@
             }
         },
 
+        async setLorebookSourceAlwaysInContext(app, sourceTag, value) {
+            if (!sourceTag) return;
+            const entries = app.lorebookSources[sourceTag] || [];
+            if (entries.length === 0) return;
+            const enabled = !!value;
+            try {
+                for (const entry of entries) {
+                    await window.Compendium.updateEntry(entry.id, { alwaysInContext: enabled });
+                }
+                await this.loadLorebookEntries(app);
+                if (app.currentLorebookEntry && !app.lorebookDirty) {
+                    const fresh = await window.Compendium.getEntry(app.currentLorebookEntry.id);
+                    if (fresh) {
+                        app.currentLorebookEntry = fresh;
+                        this.storeLorebookOriginal(app);
+                    }
+                }
+                if (window.CompendiumManager && typeof window.CompendiumManager.loadCompendiumCounts === 'function') {
+                    await window.CompendiumManager.loadCompendiumCounts(app);
+                }
+            } catch (e) {
+                console.error('Failed to update lorebook source alwaysInContext:', e);
+            }
+        },
+
         addLorebookTag(app) {
             if (!app.currentLorebookEntry) return;
             const tag = (app.newLorebookTag || '').trim();

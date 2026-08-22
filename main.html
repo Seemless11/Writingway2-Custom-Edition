@@ -38,6 +38,7 @@
     <script defer src="src/modules/github-backup.js"></script>
     <script defer src="src/modules/filesystem-save.js"></script>
     <script defer src="src/modules/tab-sync.js"></script>
+    <script defer src="src/modules/db-snapshot.js"></script>
     <script defer src="src/template-loader.js"></script>
     <script defer src="src/workshop.js"></script>
     <script defer src="src/modules/workshop.js"></script>
@@ -2933,6 +2934,17 @@
                                     <div class="comp-category-label" style="font-weight:700;color:var(--text-primary);" x-text="sourceTag.replace('ST:', '')"></div>
                                     <div style="display:flex;align-items:center;gap:6px;">
                                         <div class="comp-category-count" style="font-size:12px;color:var(--text-secondary);" x-text="entries.length"></div>
+                                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"
+                                            :title="(entries.length > 0 && entries.every(e => e.alwaysInContext)) ? 'All entries always in chat context - click to disable for all' : 'Toggle always include in chat context for all entries'">
+                                            <input type="checkbox"
+                                                :checked="entries.length > 0 && entries.every(e => e.alwaysInContext)"
+                                                x-effect="$el.indeterminate = (entries.length > 0 && entries.some(e => e.alwaysInContext) && !entries.every(e => e.alwaysInContext))"
+                                                @click.stop
+                                                @change="setLorebookSourceAlwaysInContext(sourceTag, $event.target.checked)"
+                                                style="cursor:pointer;"
+                                                :aria-label="'Toggle always include in chat context for ' + sourceTag.replace('ST:', '') + ' entries'">
+                                            <span style="font-size:11px;color:var(--text-secondary);">Always in ctx</span>
+                                        </label>
                                         <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;" @click.stop="deleteLorebookSource(sourceTag)" :title="'Delete all ' + sourceTag.replace('ST:', '') + ' entries'">🗑️</button>
                                     </div>
                                 </div>

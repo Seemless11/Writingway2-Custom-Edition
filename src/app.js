@@ -264,6 +264,15 @@ document.addEventListener('alpine:init', () => {
                 // Deferred so the user sees the picker without delay
                 try { await this.migrateMissingSceneProjectIds(); } catch (e) { /* ignore */ }
 
+                // Auto-restore: if browser storage was wiped, recover from the newest disk snapshot
+                try {
+                    if (window.DbSnapshot && typeof window.DbSnapshot.maybeAutoRestore === 'function') {
+                        await window.DbSnapshot.maybeAutoRestore(this);
+                    }
+                } catch (e) {
+                    console.warn('Auto-restore from snapshot failed:', e);
+                }
+
                 this.updateLoadingScreen(30, 'Checking local AI...', 'Looking for GGUF models and llama.cpp...');
                 await this.fetchRuntimeInfo();
 
@@ -475,6 +484,15 @@ document.addEventListener('alpine:init', () => {
                     }
                 } catch (e) {
                     console.error('Failed to load backup settings:', e);
+                }
+
+                // Start periodic full-database snapshots to disk (durable recovery)
+                if (window.DbSnapshot && typeof window.DbSnapshot.startAutoSave === 'function') {
+                    try {
+                        window.DbSnapshot.startAutoSave(this);
+                    } catch (e) {
+                        console.warn('Failed to start database snapshots:', e);
+                    }
                 }
 
                 // Final step: mark initialization complete
@@ -1572,6 +1590,10 @@ document.addEventListener('alpine:init', () => {
 
             async deleteLorebookSource(sourceTag) {
                 await window.LorebookManager.deleteLorebookSource(this, sourceTag);
+            },
+
+            async setLorebookSourceAlwaysInContext(sourceTag, value) {
+                await window.LorebookManager.setLorebookSourceAlwaysInContext(this, sourceTag, value);
             },
 
             addLorebookTag() {

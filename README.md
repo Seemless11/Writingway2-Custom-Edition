@@ -38,6 +38,9 @@ It gives you:
 - **Local-first writing workflow**
   Your projects live in IndexedDB while you work, and can also be saved to disk as project files.
 
+- **Automatic local snapshots**
+  Writingway periodically writes a full copy of your database (projects, scenes, compendium, chats, personas) to `project-backups/all/`. If your browser storage is ever cleared, the app offers to restore your data from the newest snapshot on the next launch.
+
 - **Character Chat mode**
   Full roleplay chat with imported character cards. Session management, multi-session sidebar, right-panel character info, persona switching, lorebook context, RP formatting tools, and per-chat temperature/output controls.
 
@@ -55,6 +58,9 @@ It gives you:
 
 - **Backups**
   GitHub Gist backup with 5-minute auto-backup timer, or local versioned backups through the app server. OneDrive and Google Drive are listed in the UI but are not implemented yet.
+
+- **Automatic database snapshots (recommended)**
+  Every 3 minutes (plus on startup and when you close the app), the full database is written to `project-backups/all/`. If your browser clears site data — incognito mode, "clear on exit", disk cleanup — Writingway detects the empty database on the next launch and offers to restore from the newest snapshot. Keep the `project-backups` folder; it is your safety net.
 
 - **In-app update staging**
   Writingway can detect newer builds on GitHub, download an update, stage it locally, and apply it the next time you restart from the launcher.
