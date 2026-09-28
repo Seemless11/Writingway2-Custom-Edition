@@ -5075,7 +5075,11 @@
                 <div style="flex:1;min-height:0;display:flex;gap:16px;padding:16px 24px;">
                     <!-- Left: Source text + image -->
                     <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow-y:auto;gap:8px;">
-                        <label style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Source Text</label>
+                        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">
+                            <label style="font-size:13px;font-weight:600;color:var(--text-primary);">Source Text</label>
+                            <span style="font-size:11px;" :style="(pasteImportText || '').length > (window.Compendium ? window.Compendium.capFor({aiMode: aiMode}) : 12000) ? 'color:var(--accent-amber,var(--color-accent));' : 'color:var(--text-secondary);'" x-text="((pasteImportText || '').length).toLocaleString() + ' / ' + (window.Compendium ? window.Compendium.capFor({aiMode: aiMode}) : 12000).toLocaleString() + ' chars'"></span>
+                        </div>
+                        <div style="font-size:11px;color:var(--text-secondary);margin:-2px 0 6px;">Long pastes are truncated to fit the AI context — local models take ~12k chars, API models ~60k. Reasoning-heavy models can spend their whole budget thinking instead of answering — if extraction fails, retry with a chat/flash model.</div>
                         <textarea id="pasteImportTextarea" x-model="pasteImportText"
                             placeholder="Paste wiki article, fandom page, character description, or any text containing character information..."
                             style="flex-shrink:0;min-height:150px;padding:12px 16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;line-height:1.6;box-sizing:border-box;"></textarea>
