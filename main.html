@@ -1138,6 +1138,7 @@
                                                         style="font-size:12px;padding:3px 10px;">
                                                         🌊 Flow
                                                     </button>
+                                                    <span x-show="isGenerating && genStatus" x-text="genStatus" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;"></span>
                                                     <button class="btn btn-danger" @click="stopBeatGeneration"
                                                         x-show="isGenerating"
                                                         title="Stop generation" style="font-size:12px;padding:3px 10px;">
@@ -1190,6 +1191,7 @@
                                                     x-show="!isGenerating"
                                                     :disabled="aiStatus !== 'ready'"
                                                     style="font-size:12px;padding:4px 12px;white-space:nowrap;">🌊 Flow</button>
+                                                <span x-show="isGenerating && genStatus" x-text="genStatus" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;"></span>
                                                 <button class="btn btn-danger" @click="stopBeatGeneration"
                                                     x-show="isGenerating"
                                                     style="font-size:12px;padding:4px 12px;white-space:nowrap;">⏹ Stop</button>

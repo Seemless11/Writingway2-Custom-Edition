@@ -208,6 +208,7 @@ function createAppState() {
         lastBeat: '',
         lastGenTruncated: false,
         lastGenTrimmed: false,
+        genStatus: '', // In-progress status shown while generating (e.g. token-cap resume)
 
         // ========== Quick Search for Compendium Mentions (@) ==========
         showQuickSearch: false,

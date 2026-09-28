@@ -312,13 +312,25 @@
      * @returns {Promise<Object>} - Result of the final stream in the chain
      */
     async function streamGenerationWithResume(prompt, app, onToken) {
+        // Claim the current run id up front: if a newer generation starts
+        // (run id bumps), this stale loop must exit instead of firing more
+        // attempts into the wrong run.
+        const myRun = app._genRunId;
         let currentPrompt = prompt;
         let result;
         let attempt = 0;
         while (true) {
             attempt++;
             if (attempt > 3) break;
-            const signal = app.beatAbortController ? app.beatAbortController.signal : null;
+            // Stop must hold across resume attempts. A superseded run, a user
+            // abort, or a nulled controller must never fire another request -
+            // otherwise the generation becomes unstoppable (abort-vs-resolve
+            // race, or an overlapping run's controller overwriting the slot).
+            if (myRun !== undefined && myRun !== app._genRunId) break;
+            if (app._genAbortLatched) break;
+            if (!app.beatAbortController) break;
+            if (attempt > 1 && app) app.genStatus = 'Hit token cap - continuing...';
+            const signal = app.beatAbortController.signal;
             result = await streamGeneration(currentPrompt, onToken, app, signal, { continuation: attempt > 1 });
             if (!isTruncated(result) || !app.lastGenText) break;
             currentPrompt = buildContinuePrompt(currentPrompt, app.lastGenText);
@@ -1085,6 +1097,11 @@
             app.lastGenTruncated = false;
             app.lastGenTrimmed = false;
             app.beatAbortController = new AbortController();
+            // Fresh run: claim a run id (stale resume loops exit), clear any
+            // latched abort from a previous run, and clear the resume status.
+            app._genRunId = (app._genRunId || 0) + 1;
+            app._genAbortLatched = false;
+            app.genStatus = '';
             app._genFollow = true;
             const ta = document.querySelector('.editor-textarea');
             if (ta) {
@@ -1180,6 +1197,7 @@
                 app._genScrollCleanup = null;
             }
             app.beatAbortController = null;
+            app.genStatus = '';
             app.isGenerating = false;
         }
     }
@@ -1268,6 +1286,11 @@
             app.lastGenTrimmed = false;
             // Create abort controller for this generation
             app.beatAbortController = new AbortController();
+            // Fresh run: claim a run id (stale resume loops exit), clear any
+            // latched abort from a previous run, and clear the resume status.
+            app._genRunId = (app._genRunId || 0) + 1;
+            app._genAbortLatched = false;
+            app.genStatus = '';
             // Set up scroll follow during streaming
             app._genFollow = true;
             const ta = document.querySelector('.editor-textarea');
@@ -1371,6 +1394,7 @@
                 app._genScrollCleanup = null;
             }
             app.beatAbortController = null;
+            app.genStatus = '';
             app.isGenerating = false;
         }
     }
@@ -1380,6 +1404,10 @@
      * @param {Object} app - Alpine app instance
      */
     function stopBeatGeneration(app) {
+        // Latch the abort so the resume loop can never fire another attempt
+        // after this point, even if the in-flight stream resolves instead of
+        // rejecting (abort-vs-resolve race) or the controller was superseded.
+        app._genAbortLatched = true;
         if (app.beatAbortController) {
             app.beatAbortController.abort();
             app.beatAbortController = null;
@@ -1512,6 +1540,7 @@ Write ${lengthInstruction}, rich with specific details that fit the world.${titl
         buildFlowPrompt,
         buildCompendiumPrompt,
         streamGeneration,
+        streamGenerationWithResume,
         loadPromptHistory,
         generateFromBeat,
         generateFlowFromBeat,
