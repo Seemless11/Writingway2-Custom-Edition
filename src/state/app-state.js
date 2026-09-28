@@ -207,6 +207,7 @@ function createAppState() {
         showGeneratedHighlight: false,
         lastBeat: '',
         lastGenTruncated: false,
+        lastGenTrimmed: false,
 
         // ========== Quick Search for Compendium Mentions (@) ==========
         showQuickSearch: false,

@@ -1155,7 +1155,8 @@
 
                                                     <div style="margin-left:auto;display:flex;gap:6px;align-items:center;"
                                                          x-show="showGenActions" x-cloak>
-                                                        <span x-show="lastGenTruncated" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the incomplete sentence at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
+                                                        <span x-show="lastGenTruncated && lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the short incomplete ending at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
+                                                        <span x-show="lastGenTruncated && !lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the ending may be incomplete. The text was kept as-is so no content was lost — use Flow or Retry to finish it.">⚠ cut off — incomplete ending kept</span>
                                                         <button class="btn btn-primary" @click="acceptGeneration" style="font-size:12px;padding:4px 12px;">Accept</button>
                                                         <button class="btn btn-secondary" @click="retryGeneration" style="font-size:12px;padding:4px 12px;">Retry</button>
                                                         <button class="btn btn-secondary" @click="discardGeneration" style="font-size:12px;padding:4px 12px;">Discard</button>
@@ -1226,7 +1227,8 @@
                                             </div>
                                             <!-- Generation actions inside legacy panel -->
                                             <div x-show="showGenActions" x-cloak style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
-                                                <span x-show="lastGenTruncated" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the incomplete sentence at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
+                                                <span x-show="lastGenTruncated && lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the short incomplete ending at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
+                                                        <span x-show="lastGenTruncated && !lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the ending may be incomplete. The text was kept as-is so no content was lost — use Flow or Retry to finish it.">⚠ cut off — incomplete ending kept</span>
                                                 <button class="btn btn-primary" @click="acceptGeneration" style="font-size:11px;padding:3px 10px;">Accept</button>
                                                 <button class="btn btn-secondary" @click="retryGeneration" style="font-size:11px;padding:3px 10px;">Retry</button>
                                                 <button class="btn btn-secondary" @click="discardGeneration" style="font-size:11px;padding:3px 10px;">Discard</button>

@@ -43,12 +43,12 @@
                 return t;
             }
             // Cut back to the last terminator only when the trailing fragment is a
-            // genuinely incomplete sentence: short, and still ending mid-word or
-            // mid-letter (ignoring trailing quotes/brackets). Long fragments and
-            // endings like ":", "*" or unpunctuated final lines are kept — an
-            // unrecognized ending must never delete a whole paragraph.
+            // genuinely tiny dangling tail: short (<= 60 chars) and still ending
+            // mid-word or mid-letter (ignoring trailing quotes/brackets). Longer
+            // fragments — an entire unwritten point or sentence — are meaningful
+            // content and must never be deleted, so they are kept.
             const boundary = t.match(/^([\s\S]*[.!?…—。！？]["'”’)\]]?)\s+([^.!?…—。！？]+)$/);
-            if (boundary && boundary[2].length <= 120) {
+            if (boundary && boundary[2].length <= 60) {
                 const frag = boundary[2].replace(/["'”’)\]]+$/, '');
                 if (frag && /[A-Za-z0-9\u00C0-\uFFFF]$/.test(frag)) {
                     return boundary[1];
@@ -245,16 +245,20 @@
                 }, app);
                 app.rewriteInProgress = false;
 
-                // Remove a trailing incomplete sentence so the rewritten text never ends mid-sentence
-                const trimmed = this.trimIncompleteEnding(app.rewriteOutput);
-                if (trimmed !== app.rewriteOutput) {
-                    app.rewriteOutput = trimmed;
+                // Remove a trailing incomplete sentence only when the model hit
+                // the token limit; natural stops are never silently edited.
+                const truncated = result && (result.finishReason === 'length' || result.finishReason === 'MAX_TOKENS');
+                if (truncated) {
+                    const trimmed = this.trimIncompleteEnding(app.rewriteOutput);
+                    if (trimmed !== app.rewriteOutput) {
+                        app.rewriteOutput = trimmed;
+                    }
                 }
 
                 // Notify user if response was truncated
-                if (result?.finishReason === 'length' || result?.finishReason === 'MAX_TOKENS') {
+                if (truncated) {
                     console.warn('⚠️ Rewrite hit token limit');
-                    alert('⚠️ The generation reached the token limit and may be incomplete. Any incomplete sentence at the end was removed.\n\nTip: Increase the target length in the toolbar above for longer responses.');
+                    alert('⚠️ The generation reached the token limit and may be incomplete. A short dangling ending was removed; longer incomplete passages were kept as-is so no content is lost.\n\nTip: Increase the target length in the toolbar above for longer responses.');
                 }
             } catch (e) {
                 console.error('performRewrite error', e);

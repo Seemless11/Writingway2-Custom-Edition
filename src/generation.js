@@ -21,8 +21,9 @@
 
     /**
      * Remove a trailing incomplete sentence from the last generated chunk.
-     * Fixes both the in-memory chunk (app.lastGenText) and the live scene
-     * content by removing exactly the trailing characters that got cut.
+     * Called only after a truncated generation; edits both the in-memory
+     * chunk (app.lastGenText) and the live scene content by removing exactly
+     * the trailing characters that got cut.
      * @param {Object} app - Alpine app instance
      * @param {string} targetSceneId - Scene the generation was targeting
      */
@@ -38,7 +39,7 @@
             // Only tail-remove when the generated chunk is still the exact suffix,
             // so text the user typed mid-generation is never touched.
             if (content.endsWith(original)) {
-                app.currentScene.content = content.slice(0, content.length - diff) + trimmed;
+                app.currentScene.content = content.slice(0, content.length - diff);
             }
         }
     }
@@ -181,7 +182,7 @@
         return result;
     }
 
-    async function streamGeneration(prompt, onToken, app, abortSignal) {
+    async function streamGeneration(prompt, onToken, app, abortSignal, opts = {}) {
         // Get AI settings from app if provided
         const aiMode = app?.aiMode || 'local';
         const aiProvider = app?.aiProvider || 'anthropic';
@@ -241,7 +242,7 @@
 
         if (aiMode === 'api') {
             // API Mode - use configured provider with messages
-            return await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams);
+            return await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams, opts);
         } else {
             // Local Mode - use llama-server with string prompt
             return await streamGenerationLocal(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams);
@@ -262,6 +263,66 @@
         }
         // Add assistant start tag for completion
         result += '<|im_start|>assistant\n';
+        return result;
+    }
+
+    const CONTINUE_INSTRUCTION = 'Continue writing from exactly where you left off. Do not repeat anything that has already been written. Finish the current sentence, then stop at a natural ending point.';
+
+    /**
+     * Build the prompt for a continuation stream after a truncated generation.
+     * The partial text is fed back as an assistant turn plus a short continue
+     * instruction, so the next stream finishes the sentence instead of
+     * starting over or repeating what is already written.
+     * @param {Object|Array|string} prompt - The original prompt passed to streamGeneration
+     * @param {string} partialText - The text generated so far (app.lastGenText)
+     * @returns {Object|Array|string} - A continuation prompt in the same shape
+     */
+    function buildContinuePrompt(prompt, partialText) {
+        let messages = null;
+        if (Array.isArray(prompt)) {
+            messages = prompt;
+        } else if (prompt && Array.isArray(prompt.messages)) {
+            messages = prompt.messages;
+        }
+        if (messages) {
+            const next = [
+                ...messages,
+                { role: 'assistant', content: partialText },
+                { role: 'user', content: CONTINUE_INSTRUCTION }
+            ];
+            if (prompt && !Array.isArray(prompt)) {
+                // Keep the buildPrompt() object shape so streamGeneration picks
+                // .messages for API and .asString() for local servers.
+                return { messages: next, asString: () => messagesToChatML(next) };
+            }
+            return next;
+        }
+        const str = typeof prompt === 'string' ? prompt : String(prompt);
+        return str + '<|im_end|>\n<|im_start|>user\n' + CONTINUE_INSTRUCTION + '<|im_end|>\n<|im_start|>assistant\n';
+    }
+
+    /**
+     * Stream a generation, automatically continuing (up to 2 extra streams)
+     * when the model hits the token limit mid-sentence. The partial text is
+     * fed back as an assistant turn so the next stream finishes the sentence,
+     * instead of trimming the dangling tail away and losing content.
+     * @param {Object|Array|string} prompt - The initial prompt
+     * @param {Object} app - Alpine app instance
+     * @param {Function} onToken - Token callback (same as streamGeneration)
+     * @returns {Promise<Object>} - Result of the final stream in the chain
+     */
+    async function streamGenerationWithResume(prompt, app, onToken) {
+        let currentPrompt = prompt;
+        let result;
+        let attempt = 0;
+        while (true) {
+            attempt++;
+            if (attempt > 3) break;
+            const signal = app.beatAbortController ? app.beatAbortController.signal : null;
+            result = await streamGeneration(currentPrompt, onToken, app, signal, { continuation: attempt > 1 });
+            if (!isTruncated(result) || !app.lastGenText) break;
+            currentPrompt = buildContinuePrompt(currentPrompt, app.lastGenText);
+        }
         return result;
     }
 
@@ -430,7 +491,7 @@
         return { finishReason: 'length' };
     }
 
-    async function streamGenerationAPI(prompt, onToken, provider, apiKey, model, customEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams = {}) {
+    async function streamGenerationAPI(prompt, onToken, provider, apiKey, model, customEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams = {}, opts = {}) {
         // API Mode - construct request based on provider
         let url, headers, body;
 
@@ -446,7 +507,10 @@
 
         const temp = temperature || 0.8;
         const rawWordTarget = maxTokens || 300;
-        const maxTok = Math.round(rawWordTarget * 2.0);
+        // Generous headroom over the "at least N words" instruction so the
+        // model isn't starved mid-sentence; continuations (opts.continuation)
+        // only need to finish the sentence, so no min_tokens floor is sent.
+        const maxTok = Math.round(rawWordTarget * 2.5);
 
         // Check if user has explicitly forced non-streaming mode
         const userForcedNonStreaming = app?.forceNonStreaming || false;
@@ -495,7 +559,7 @@
             };
             // Always send max_tokens — output length is a deliberate user choice
             body.max_tokens = maxTok;
-            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             // Only include other parameters if not using provider defaults
             if (!useProviderDefaults) {
                 body.temperature = temp;
@@ -518,7 +582,7 @@
             };
             // Anthropic requires max_tokens — always send it
             body.max_tokens = maxTok;
-            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -536,7 +600,7 @@
                 stream: !shouldDisableStreaming // Disable streaming for thinking models or if forced
             };
             body.max_tokens = maxTok;
-            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -575,7 +639,7 @@
                 stream: !shouldDisableStreaming
             };
             body.max_tokens = maxTok;
-            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -598,7 +662,7 @@
                 stream: true
             };
             body.max_tokens = maxTok;
-            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -618,7 +682,7 @@
                 stream: true
             };
             body.max_tokens = maxTok;
-            if (rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -1019,6 +1083,7 @@
             app.lastGenText = '';
             app.showGenActions = false;
             app.lastGenTruncated = false;
+            app.lastGenTrimmed = false;
             app.beatAbortController = new AbortController();
             app._genFollow = true;
             const ta = document.querySelector('.editor-textarea');
@@ -1029,7 +1094,7 @@
                 ta.addEventListener('scroll', onScroll);
                 app._genScrollCleanup = () => ta.removeEventListener('scroll', onScroll);
             }
-            const result = await streamGeneration(prompt, (token) => {
+            const result = await streamGenerationWithResume(prompt, app, (token) => {
                 app.lastGenText += token;
                 // Only stream into the live editor while the same scene is open;
                 // otherwise buffer and flush to the target scene on completion.
@@ -1040,12 +1105,21 @@
                         if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
                     });
                 }
-            }, app, app.beatAbortController.signal);
-            // Auto-remove an incomplete ending sentence so the story never stops mid-sentence
-            trimTrailingIncomplete(app, targetSceneId);
+            });
+            // Only ever trim an incomplete ending when the model actually hit the
+            // token limit; natural stops are never silently edited. Even then only
+            // a genuinely tiny dangling fragment is removed — anything bigger
+            // (e.g. an entire unwritten point) is kept so no content is lost.
             if (isTruncated(result)) {
                 app.lastGenTruncated = true;
-                console.warn('⚠️ Flow generation hit the token limit; incomplete ending trimmed');
+                const beforeTrim = app.lastGenText;
+                trimTrailingIncomplete(app, targetSceneId);
+                app.lastGenTrimmed = app.lastGenText !== beforeTrim;
+                if (app.lastGenTrimmed) {
+                    console.warn('⚠️ Flow generation hit the token limit; incomplete ending trimmed');
+                } else {
+                    console.warn('⚠️ Flow generation hit the token limit; incomplete ending kept as-is');
+                }
             }
             app.showGenActions = true;
             app.showGeneratedHighlight = true;
@@ -1191,6 +1265,7 @@
             app.lastGenText = '';
             app.showGenActions = false;
             app.lastGenTruncated = false;
+            app.lastGenTrimmed = false;
             // Create abort controller for this generation
             app.beatAbortController = new AbortController();
             // Set up scroll follow during streaming
@@ -1203,8 +1278,10 @@
                 ta.addEventListener('scroll', onScroll);
                 app._genScrollCleanup = () => ta.removeEventListener('scroll', onScroll);
             }
-            // Stream tokens and append into the current scene
-            const result = await streamGeneration(prompt, (token) => {
+            // Stream tokens and append into the current scene. If the model hits the
+            // token limit mid-sentence, the stream is resumed so the sentence
+            // gets finished instead of leaving a dangling tail.
+            const result = await streamGenerationWithResume(prompt, app, (token) => {
                 app.lastGenText += token;
                 // Only stream into the live editor while the same scene is open;
                 // otherwise buffer and flush to the target scene on completion.
@@ -1215,12 +1292,21 @@
                     const ta = document.querySelector('.editor-textarea');
                     if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
                 });
-            }, app, app.beatAbortController.signal);
-            // Auto-remove an incomplete ending sentence so the story never stops mid-sentence
-            trimTrailingIncomplete(app, targetSceneId);
+            });
+            // Only ever trim an incomplete ending when the model actually hit the
+            // token limit; natural stops are never silently edited. Even then only
+            // a genuinely tiny dangling fragment is removed — anything bigger
+            // (e.g. an entire unwritten point) is kept so no content is lost.
             if (isTruncated(result)) {
                 app.lastGenTruncated = true;
-                console.warn('⚠️ Generation hit the token limit; incomplete ending trimmed');
+                const beforeTrim = app.lastGenText;
+                trimTrailingIncomplete(app, targetSceneId);
+                app.lastGenTrimmed = app.lastGenText !== beforeTrim;
+                if (app.lastGenTrimmed) {
+                    console.warn('⚠️ Generation hit the token limit; incomplete ending trimmed');
+                } else {
+                    console.warn('⚠️ Generation hit the token limit; incomplete ending kept as-is');
+                }
             }
             // Generation complete — expose accept/retry/discard actions
             app.showGenActions = true;

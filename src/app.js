@@ -3919,6 +3919,7 @@ document.addEventListener('alpine:init', () => {
             this.lastGenText = '';
             this.lastBeat = '';
             this.lastGenTruncated = false;
+                this.lastGenTrimmed = false;
                 // ensure scene saved
                 await this.saveScene();
             },
@@ -3933,6 +3934,7 @@ document.addEventListener('alpine:init', () => {
                 this.showGenActions = false;
                 this.showGeneratedHighlight = false;
                 this.lastGenTruncated = false;
+                this.lastGenTrimmed = false;
                 // save removal
                 await this.saveScene();
 
@@ -3964,6 +3966,7 @@ document.addEventListener('alpine:init', () => {
                 this.lastGenText = '';
                 this.lastBeat = '';
                 this.lastGenTruncated = false;
+                this.lastGenTrimmed = false;
                 if (this.showMiniBeatInput) this.beatInput = '';
                 await this.saveScene();
             },
