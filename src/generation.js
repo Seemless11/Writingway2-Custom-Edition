@@ -192,8 +192,8 @@
         const useProviderDefaults = app?.useProviderDefaults || false;
         const hasPreset = aiModel && app?.modelPresets?.[aiModel];
         const preset = hasPreset ? app.modelPresets[aiModel] : {};
-        const temperature = opts.temperature ?? preset.temperature ?? app?.temperature ?? 0.8;
-        const maxTokens = opts.maxTokens ?? preset.maxTokens ?? app?.maxTokens ?? 300;
+        const temperature = preset.temperature ?? app?.temperature ?? 0.8;
+        const maxTokens = preset.maxTokens ?? app?.maxTokens ?? 300;
         const topP = preset.topP ?? app?.topP ?? 0.9;
         const topK = preset.topK ?? app?.topK ?? 40;
         const repetitionPenalty = preset.repetitionPenalty ?? app?.repetitionPenalty ?? 1.0;
@@ -505,7 +505,7 @@
             messages = [{ role: 'user', content: String(prompt) }];
         }
 
-        const temp = temperature ?? 0.8;
+        const temp = temperature || 0.8;
         const rawWordTarget = maxTokens || 300;
         // Generous headroom over the "at least N words" instruction so the
         // model isn't starved mid-sentence; continuations (opts.continuation)
@@ -533,12 +533,9 @@
             modelLower.includes('r1') && modelLower.includes('deepseek')
         );
 
-        const shouldDisableStreaming = userForcedNonStreaming || isThinkingModel || opts.nonStreaming === true;
+        const shouldDisableStreaming = userForcedNonStreaming || isThinkingModel;
 
         if (shouldDisableStreaming) {
-            if (opts.nonStreaming === true) {
-                console.log('📦 Non-streaming mode requested by caller (e.g. extraction)');
-            }
             if (userForcedNonStreaming) {
                 console.log('🔧 Non-streaming mode forced by user setting');
             }
@@ -562,13 +559,7 @@
             };
             // Always send max_tokens — output length is a deliberate user choice
             body.max_tokens = maxTok;
-            if (!opts.continuation && !opts.noMinTokens && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
-            // Callers like extraction can bound chain-of-thought via OpenRouter's
-            // reasoning controls so thinking never eats the whole output budget.
-            // exclude keeps reasoning out of the response entirely.
-            if (opts.reasoningCap && Number.isFinite(opts.reasoningCap)) {
-                body.reasoning = { max_tokens: opts.reasoningCap, exclude: true };
-            }
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             // Only include other parameters if not using provider defaults
             if (!useProviderDefaults) {
                 body.temperature = temp;
@@ -591,7 +582,7 @@
             };
             // Anthropic requires max_tokens — always send it
             body.max_tokens = maxTok;
-            if (!opts.continuation && !opts.noMinTokens && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -609,7 +600,7 @@
                 stream: !shouldDisableStreaming // Disable streaming for thinking models or if forced
             };
             body.max_tokens = maxTok;
-            if (!opts.continuation && !opts.noMinTokens && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -648,7 +639,7 @@
                 stream: !shouldDisableStreaming
             };
             body.max_tokens = maxTok;
-            if (!opts.continuation && !opts.noMinTokens && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -671,7 +662,7 @@
                 stream: true
             };
             body.max_tokens = maxTok;
-            if (!opts.continuation && !opts.noMinTokens && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -691,7 +682,7 @@
                 stream: true
             };
             body.max_tokens = maxTok;
-            if (!opts.continuation && !opts.noMinTokens && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -747,16 +738,7 @@
                     console.warn('   - Max tokens was hit during reasoning phase');
                     console.warn('   - Model never produced final answer');
                     console.warn('   - Try increasing max_tokens significantly (10000+) for thinking models');
-                    // Diagnostic detail goes into the message so users can report
-                    // the mechanism without opening devtools: how much thinking
-                    // came back (if any), the finish reason, and the budget sent.
-                    var _diagThinking = data.choices?.[0]?.message?.reasoning_content
-                        || data.choices?.[0]?.message?.reasoning || '';
-                    var _diagThinkingLen = typeof _diagThinking === 'string' ? _diagThinking.length : JSON.stringify(_diagThinking).length;
-                    throw new Error('Thinking model returned empty response (' + provider + '/' + (model || 'default model')
-                        + ', finish: ' + finishReason + ', budget: ' + maxTok + ' tokens'
-                        + ', thinking returned: ~' + _diagThinkingLen + ' chars'
-                        + '). The model likely hit max_tokens during its reasoning phase before generating an answer. Try increasing the target length to a higher value in AI Settings.');
+                    throw new Error('Thinking model returned empty response. The model likely hit max_tokens during its reasoning phase before generating an answer. Try increasing the target length to a higher value in AI Settings.');
                 }
             } else if (provider === 'anthropic') {
                 content = data.content?.[0]?.text;
@@ -808,7 +790,6 @@
                         console.log('🏁 Stream finished with [DONE]');
                         if (!hasReceivedContent) {
                             console.warn('⚠️ Stream ended without content - possible thinking model without streaming support');
-                            throw new Error(`Stream ended without any content from ${provider}${finishReason ? ` (finish reason: ${finishReason})` : ''}. The model may have blocked the request (safety filters), returned only reasoning tokens, or the endpoint errored mid-stream. Check the console 🔍 lines above for the raw chunks.`);
                         }
                         return { finishReason };
                     }
@@ -832,15 +813,8 @@
                         // We want to capture both reasoning and regular content
                         const delta = data.choices?.[0]?.delta;
                         if (delta) {
-                            // Try reasoning_content first (for thinking models),
-                            // then regular content, then the OpenRouter-normalized
-                            // reasoning field some providers use instead.
-                            // Callers that need only the final answer (extraction)
-                            // pass ignoreReasoning to flip the precedence so chain-
-                            // of-thought never pollutes the result.
-                            token = opts.ignoreReasoning
-                                ? (delta.content || delta.reasoning_content || delta.reasoning)
-                                : (delta.reasoning_content || delta.content || delta.reasoning);
+                            // Try reasoning_content first (for thinking models)
+                            token = delta.reasoning_content || delta.content;
 
                             if (!hasReceivedContent && delta) {
                                 console.log('🔍 Delta object:', JSON.stringify(delta, null, 2));
