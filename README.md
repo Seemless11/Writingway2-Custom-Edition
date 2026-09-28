@@ -24,7 +24,7 @@ It gives you:
 - **Scene summaries** — AI-generated synopses per scene
 - **Context panel** — persistent generation context with compendium entries, chapters, scenes, and tags
 - **Character Chat** — SillyTavern-style roleplay chat with character cards, session management, and persona support
-- **Character Creator** — AI-assisted character card creation with genre-adaptive templates, trait picker, and paste import
+- **Character Creator** — AI-assisted character card creation with genre-adaptive templates (22 presets including Fantasy, Sci-Fi, Mystery & Thriller, Dystopian, Urban Fantasy, Adventure, Space Opera, LitRPG, Slice of Life, Anime, Shonen, Isekai, Superpowers, Romance, Horror, etc.), trait picker, and paste import
 - **Workshop Chat** — AI brainstorming with session history and context controls
 - **Lorebook panel** — browse and manage imported lorebook entries with character_book embedding
 - **Multi-format import** — Writingway 1, Novelcrafter (.md/.zip), Character Cards (JSON/PNG), Lorebook JSON
@@ -45,7 +45,10 @@ It gives you:
   Full roleplay chat with imported character cards. Session management, multi-session sidebar, right-panel character info, persona switching, lorebook context, RP formatting tools, and per-chat temperature/output controls.
 
 - **AI-assisted Character Creator**
-  Genre-adaptive character templates (Fantasy, Sci-Fi, Romance, Horror, etc.) with per-category trait pickers, AI-generated fields, paste import from wiki articles, auto-save drafts, and image import with AI description.
+  Genre-adaptive character templates (22 presets — Fantasy, Sci-Fi, Mystery & Thriller, Dystopian, Urban Fantasy, Adventure, Space Opera, LitRPG, Slice of Life, Anime, Shonen, Isekai, Superpowers, Romance, Horror, etc.) with per-category trait pickers, AI-generated fields, paste import from wiki articles, auto-save drafts, and image import with AI description.
+
+- **Truncation-safe generation**
+  If the model hits the output limit mid-sentence, Writingway automatically resumes the stream (up to 3 continuations) so the sentence gets finished instead of cut off. When trimming does happen, only a tiny dangling fragment (≤60 chars) is removed — longer incomplete passages are kept as-is so no content is lost. The toolbar shows `⚠ cut off — trimmed` vs `⚠ cut off — incomplete ending kept` so you know which happened; rewrite mode only trims on actual token-limit hits, never on natural stops.
 
 - **Flexible AI setup**
   Use OpenRouter, Anthropic, OpenAI, Google AI, NanoGPT, LM Studio, custom OpenAI-compatible endpoints, or a local GGUF model via llama.cpp.
@@ -222,13 +225,13 @@ src/                       App source
   modules/                 Feature modules (project, scene, compendium, etc.)
   templates/               HTML template partials
   vendor/                  Vendored Alpine.js
-tests/                     Test suite (Playwright smoke/unit/UI)
+  tests/                     Local-only test suite (Playwright smoke/unit/UI, gitignored — not present on fresh clone)
 ```
 
 ## Development notes
 
-This repo includes a small test setup in `package.json`.
-Available scripts:
+This repo includes a small test setup in `package.json` (local-only — the `tests/` folder is gitignored and not committed).
+Available scripts (run from a checkout that has the local `tests/` folder):
 
 ```bash
 npm run smoke
@@ -247,6 +250,8 @@ What is working now:
 - POV character system (per scene, chapter, project)
 - Scene summaries with AI generation
 - Compendium/worldbuilding with genre-specific categories
+- 22 genre presets with tailored prose/rewrite/summary/workshop prompts and compendium categories
+- Truncation-safe generation with auto-resume and trimmed-vs-kept indicator
 - Compendium Vault (cross-project entry import)
 - Compendium token count display
 - Character Chat with session management, persona system, lorebook panel
