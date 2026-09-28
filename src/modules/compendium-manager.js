@@ -570,10 +570,19 @@
          * Import one or more SillyTavern character cards (JSON or PNG) into the compendium
          * Opens a multi-file picker, parses each card, and saves them as 'characters' entries
          * @param {Object} app - Alpine app instance
+         * @param {string} [source] - 'chat' for chat-roster imports (global library),
+         *                            anything else for story/compendium imports (current project).
+         *                            When omitted, falls back to app.showCharacterRoster for
+         *                            backwards compatibility with existing callers/tests.
          */
-        async importCharacterCard(app) {
-            // Use the current project ID or a sentinel for standalone chat mode
-            const pid = app.currentProject?.id || '__chat_global__';
+        async importCharacterCard(app, source) {
+            // Chat and story libraries are separate: chat imports always go to the
+            // global sentinel so they never pollute (or auto-select into) the last
+            // used story project's compendium. Story imports go to the project.
+            const isChatImport = source === 'chat' || (source === undefined && app?.showCharacterRoster === true);
+            const pid = isChatImport
+                ? '__chat_global__'
+                : (app.currentProject?.id || '__chat_global__');
 
             // Create a hidden multi-file input
             const input = document.createElement('input');
@@ -647,8 +656,10 @@
                         saved = await window.Compendium.import(pid, entries);
                     }
 
-                    // Embedded lorebooks: one combined confirmation, then batch import
-                    if (lorebooks.length > 0 && app.currentProject) {
+                    // Embedded lorebooks: one combined confirmation, then batch import.
+                    // Only for story imports — chat imports live in the global library
+                    // and must not write lore into the last used story project.
+                    if (lorebooks.length > 0 && !isChatImport && app.currentProject) {
                         const list = lorebooks.map(b => '• "' + b.bookName + '" (' + b.entries.length + ' entries, from ' + b.charName + ')').join('\n');
                         if (confirm('The following embedded lorebooks were found:\n\n' + list + '\n\nImport them into your compendium?')) {
                             let importedCount = 0;
@@ -672,9 +683,15 @@
                         }
                     }
 
-                    // Refresh UI once
+                    // Refresh UI once.
+                    // Chat imports only touch the chat roster/recent lists - never the
+                    // story compendium editor state (no auto-select into currentCompEntry).
                     if (saved.length > 0) {
-                        if (app.currentProject) {
+                        if (isChatImport) {
+                            if (window.ChatMode) {
+                                await window.ChatMode.loadCharacterRoster(app);
+                            }
+                        } else if (app.currentProject) {
                             if (!app.openCompCategories.includes('characters')) {
                                 app.openCompCategories.push('characters');
                             }
@@ -682,7 +699,7 @@
                             await this.loadCompendiumCounts(app);
                             await this._doSelectCompendiumEntry(app, saved[0].id);
                         } else {
-                            // If in chat mode with no project, refresh the roster
+                            // Standalone (no project, non-chat path): refresh the roster
                             if (window.ChatMode) {
                                 window.ChatMode.loadCharacterRoster(app);
                             }

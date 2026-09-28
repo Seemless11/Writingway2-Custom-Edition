@@ -1563,8 +1563,8 @@ document.addEventListener('alpine:init', () => {
             async createCompendiumEntry(category) {
                 await window.CompendiumManager.createCompendiumEntry(this, category);
             },
-            async importCharacterCard() {
-                await window.CompendiumManager.importCharacterCard(this);
+            async importCharacterCard(source) {
+                await window.CompendiumManager.importCharacterCard(this, source);
             },
 
             // ========== Lorebook Panel Methods ==========
