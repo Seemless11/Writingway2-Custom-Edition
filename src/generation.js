@@ -20,6 +20,25 @@
     }
 
     /**
+     * Pick the user-visible token from an OpenAI-compatible streamed delta.
+     * Chain-of-thought must never leak into visible prose: only final
+     * `content` is emitted. Reasoning fields (`reasoning_content` /
+     * `reasoning`, used by thinking models on OpenRouter and others) are
+     * deliberately ignored here - a thinking-only stream surfaces as an
+     * explicit "no content" error from the caller, never as novel text.
+     * @param {Object|null} delta - data.choices[0].delta of the SSE chunk
+     * @param {Object|null} message - data.choices[0].message (some models put
+     *                                the complete answer in the first chunk)
+     * @returns {string|null} - Token to emit, or null when the chunk carries
+     *                          no user-visible content
+     */
+    function extractChatDeltaToken(delta, message) {
+        if (delta?.content) return delta.content;
+        if (message?.content) return message.content;
+        return null;
+    }
+
+    /**
      * Remove a trailing incomplete sentence from the last generated chunk.
      * Called only after a truncated generation; edits both the in-memory
      * chunk (app.lastGenText) and the live scene content by removing exactly
@@ -828,29 +847,22 @@
                             finishReason = data.choices[0].finish_reason;
                         }
 
-                        // For thinking models (o1, o3, etc), reasoning is in a separate field
-                        // We want to capture both reasoning and regular content
+                        // For thinking models (o1, o3, DeepSeek-R1, QwQ, Gemini
+                        // thinking, etc.), chain-of-thought arrives in separate
+                        // reasoning fields. Only final content is user-visible:
+                        // reasoning must never leak into prose (beat, workshop,
+                        // chat). Thinking-only streams yield no token here and
+                        // surface as an explicit error below, never as text.
+                        // (opts.ignoreReasoning is still accepted for backwards
+                        // compatibility with older callers, but content-first
+                        // is now the unconditional default.)
                         const delta = data.choices?.[0]?.delta;
-                        if (delta) {
-                            // Try reasoning_content first (for thinking models),
-                            // then regular content, then the OpenRouter-normalized
-                            // reasoning field some providers use instead.
-                            // Callers that need only the final answer (extraction)
-                            // pass ignoreReasoning to flip the precedence so chain-
-                            // of-thought never pollutes the result.
-                            token = opts.ignoreReasoning
-                                ? (delta.content || delta.reasoning_content || delta.reasoning)
-                                : (delta.reasoning_content || delta.content || delta.reasoning);
+                        if (delta || data.choices?.[0]?.message) {
+                            token = extractChatDeltaToken(delta, data.choices?.[0]?.message);
 
                             if (!hasReceivedContent && delta) {
                                 console.log('🔍 Delta object:', JSON.stringify(delta, null, 2));
                             }
-                        }
-
-                        // Some models put the complete message in the first chunk
-                        if (!token && data.choices?.[0]?.message?.content) {
-                            token = data.choices[0].message.content;
-                            console.log('📝 Found complete message in chunk');
                         }
                     } else if (provider === 'anthropic') {
                         if (data.type === 'content_block_delta') {
@@ -1541,6 +1553,7 @@ Write ${lengthInstruction}, rich with specific details that fit the world.${titl
         loadPromptHistory,
         generateFromBeat,
         generateFlowFromBeat,
-        stopBeatGeneration
+        stopBeatGeneration,
+        extractChatDeltaToken
     };
 })();
