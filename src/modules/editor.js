@@ -24,11 +24,15 @@
 
         /**
          * Remove a trailing incomplete sentence from generated text.
-         * Endings that are treated as complete: sentence terminators (. ! ? …)
-         * optionally followed by a closing quote/bracket, ellipses, and em dashes.
-         * Otherwise the text is cut back to the last sentence terminator that
-         * begins a new sentence, keeping any attached closing quote. Falls back
-         * to the last paragraph break, then leaves the text untouched.
+         * Endings that are treated as complete: sentence terminators (. ! ? … — and
+         * their CJK equivalents 。 ！ ？) optionally followed by a closing quote or
+         * bracket (ASCII and CJK). Otherwise the text is cut back to the last
+         * terminator that begins a new sentence, keeping any attached closing quote.
+         * The dangling tail must be a genuinely tiny fragment — short (<= 60 chars)
+         * and still ending mid-word/letter — otherwise it is meaningful content
+         * (an entire unwritten point, emphasis, etc.) and is kept. CJK text is
+         * handled even though it does not use spaces between sentences. Falls back
+         * to leaving the text untouched.
          * @param {string} text - Generated text to trim
          * @returns {string} Text with any incomplete ending removed
          */
@@ -37,20 +41,22 @@
             // Ignore trailing whitespace/newlines: streamed output often ends
             // with one, and it must not hide a complete ending.
             let t = String(text).replace(/\s+$/, '');
-            // Complete if it ends with a sentence terminator / ellipsis / em dash
-            // (incl. CJK), optionally followed by a closing quote or bracket.
-            if (/[.!?…—。！？]["'”’)\]]?$/.test(t)) {
+            // Complete if it ends with a sentence terminator (incl. CJK),
+            // optionally followed by a closing quote/bracket (ASCII and CJK).
+            if (/[.!?…—。！？]["'”’)\]」』》）]?$/.test(t)) {
                 return t;
             }
-            // Cut back to the last terminator only when the trailing fragment is a
-            // genuinely tiny dangling tail: short (<= 60 chars) and still ending
-            // mid-word or mid-letter (ignoring trailing quotes/brackets). Longer
-            // fragments — an entire unwritten point or sentence — are meaningful
-            // content and must never be deleted, so they are kept.
-            const boundary = t.match(/^([\s\S]*[.!?…—。！？]["'”’)\]]?)\s+([^.!?…—。！？]+)$/);
+            // Boundary detection: find the last terminator (plus any attached
+            // closing quote) that starts a dangling tail. The tail is only cut
+            // when it is short (<= 60 chars) and still ends mid-word/letter;
+            // longer fragments — an entire unwritten point or sentence — are
+            // meaningful content and must never be deleted. The gap after the
+            // terminator may be whitespace, or empty when the next character is
+            // CJK (Han), which does not use spaces between sentences.
+            const boundary = t.match(/^([\s\S]*[.!?…—。！？]["'”’)\]」』》）]?)(?:\s+|(?=\p{Script=Han}))([^.!?…—。！？]+)$/u);
             if (boundary && boundary[2].length <= 60) {
-                const frag = boundary[2].replace(/["'”’)\]]+$/, '');
-                if (frag && /[A-Za-z0-9\u00C0-\uFFFF]$/.test(frag)) {
+                const frag = boundary[2].replace(/["'”’)\]」』》）]+$/, '');
+                if (frag && /[\p{L}\p{N}]$/u.test(frag)) {
                     return boundary[1];
                 }
             }

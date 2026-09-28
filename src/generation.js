@@ -20,6 +20,26 @@
     }
 
     /**
+     * Detect whether an OpenAI-compatible chunk's delta/message carries
+     * chain-of-thought. Reasoning arrives in provider-specific fields:
+     * reasoning_content (DeepSeek/QwQ), reasoning and reasoning_details
+     * (Together/DeepInfra), thinking (various). Providers frequently echo empty
+     * sentinels (reasoning: "" / reasoning_details: []) on normal content
+     * chunks, so empty strings and empty arrays must NOT count as reasoning.
+     * @param {Object|null} fields - data.choices[0].delta or .message
+     * @returns {boolean} True when the chunk contains real reasoning content
+     */
+    function hasReasoningFields(fields) {
+        if (!fields) return false;
+        if (fields.reasoning_content) return true;
+        if (fields.reasoning) return true;
+        if (fields.thinking) return true;
+        if (Array.isArray(fields.reasoning_details)) return fields.reasoning_details.length > 0;
+        if (fields.reasoning_details) return true;
+        return false;
+    }
+
+    /**
      * Remove a trailing incomplete sentence from the last generated chunk.
      * Called only after a truncated generation; edits both the in-memory
      * chunk (app.lastGenText) and the live scene content by removing exactly
@@ -333,6 +353,15 @@
             const signal = app.beatAbortController.signal;
             result = await streamGeneration(currentPrompt, onToken, app, signal, { continuation: attempt > 1 });
             if (!isTruncated(result) || !app.lastGenText) break;
+            // A reasoning model that hits the token cap has usually spent its
+            // budget on chain-of-thought, not on prose. Auto-resuming would just
+            // start another long thinking pass, so only continue when there is
+            // substantial visible prose to finish (a genuine mid-sentence cut).
+            const RESUME_MIN_WORDS = 60;
+            if (result?.sawReasoning && (app.lastGenText || '').trim().split(/\s+/).filter(Boolean).length < RESUME_MIN_WORDS) {
+                console.warn('⚠️ Reasoning model hit its token budget during thinking; skipping auto-resume.');
+                break;
+            }
             currentPrompt = buildContinuePrompt(currentPrompt, app.lastGenText);
         }
         return result;
@@ -522,15 +551,17 @@
         // Generous headroom over the "at least N words" instruction so the
         // model isn't starved mid-sentence; continuations (opts.continuation)
         // only need to finish the sentence, so no min_tokens floor is sent.
-        const maxTok = Math.round(rawWordTarget * 2.5);
+        let maxTok = Math.round(rawWordTarget * 2.5);
 
         // Check if user has explicitly forced non-streaming mode
         const userForcedNonStreaming = app?.forceNonStreaming || false;
 
-        // Detect thinking models that don't support streaming
-        // This includes known patterns and can be expanded as new models emerge
-        // TODO: Consider adding a user-facing "Force non-streaming" toggle in AI settings
-        // for models that aren't auto-detected but still need it
+        // Detect reasoning/thinking models. This is used to (a) add reasoning
+        // headroom to max_tokens so chain-of-thought doesn't starve the visible
+        // answer, and (b) skip pointless auto-resumes. It deliberately does NOT
+        // force non-streaming — reasoning models stream fine, and the
+        // JSON-content-type fallback below still handles providers that return a
+        // complete response regardless of stream:true.
         const modelLower = (model || '').toLowerCase();
         const isThinkingModel = model && (
             // OpenAI o-series (o1, o3, o4, etc.)
@@ -542,18 +573,29 @@
             // Known thinking model families
             modelLower.includes('deepseek-reasoner') ||
             modelLower.includes('qwq') ||
-            modelLower.includes('r1') && modelLower.includes('deepseek')
+            modelLower.includes('deepseek') && (
+                modelLower.includes('r1') ||
+                modelLower.includes('reasoner') ||
+                modelLower.includes('v4') ||
+                modelLower.includes('flash')
+            )
         );
 
-        const shouldDisableStreaming = userForcedNonStreaming || isThinkingModel;
+        // Reasoning tokens count against max_tokens, so a reasoning model can
+        // burn the whole budget thinking and get cut before writing any story.
+        // Add a modest, fixed headroom (max_tokens remains a firm ceiling so the
+        // flexible "at least N words" instruction cannot balloon into a rambling
+        // reply). // TODO(plan-b): optionally append a "keep reasoning brief"
+        // system-prompt hint for these models to shorten the silent phase.
+        const REASONING_HEADROOM = 1000;
+        if (isThinkingModel) maxTok += REASONING_HEADROOM;
+
+        const shouldDisableStreaming = userForcedNonStreaming;
 
         if (shouldDisableStreaming) {
-            if (userForcedNonStreaming) {
-                console.log('🔧 Non-streaming mode forced by user setting');
-            }
-            if (isThinkingModel) {
-                console.log('🧠 Thinking model detected:', model, '- will use non-streaming mode');
-            }
+            console.log('🔧 Non-streaming mode forced by user setting');
+        } else if (isThinkingModel) {
+            console.log('🧠 Reasoning model detected:', model, '- streaming with reasoning headroom');
         }
 
         if (provider === 'openrouter') {
@@ -739,9 +781,12 @@
             // Extract content and finish_reason from non-streaming response
             let content = null;
             let finishReason = null;
+            let sawReasoning = false;
             if (provider === 'openrouter' || provider === 'openai' || provider === 'nanogpt' || provider === 'lmstudio' || provider === 'custom') {
-                content = data.choices?.[0]?.message?.content;
+                const msg = data.choices?.[0]?.message;
+                content = msg?.content;
                 finishReason = data.choices?.[0]?.finish_reason;
+                sawReasoning = hasReasoningFields(msg);
 
                 // For thinking models (o1, o3, etc.) that return encrypted reasoning,
                 // check if content is empty but there's a finish_reason
@@ -774,14 +819,20 @@
                 console.error('❌ No content found in non-streaming response');
                 throw new Error('No content received from API');
             }
-            return { finishReason };
+            return { finishReason, sawReasoning };
         }
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
         let hasReceivedContent = false;
+        let sawReasoning = false;
         let finishReason = null;
+
+        // Only touch genStatus when we are the ones who set it, so a caller's
+        // status (e.g. "Hit token cap - continuing...") is never clobbered.
+        const setThinkingStatus = () => { if (app && !hasReceivedContent && app.genStatus !== 'Thinking…') app.genStatus = 'Thinking…'; };
+        const clearThinkingStatus = () => { if (app && app.genStatus === 'Thinking…') app.genStatus = ''; };
 
         while (true) {
             const { done, value } = await reader.read();
@@ -793,23 +844,31 @@
 
             for (const line of lines) {
                 if (!line.trim()) continue;
+                // SSE comment/control lines (": ...", "event:", "id:", "retry:")
+                // carry no payload and would fail JSON.parse — only "data:" lines
+                // do (e.g. OpenRouter sends ": OPENROUTER..." keep-alives).
+                if (!line.startsWith('data:')) continue;
 
                 try {
                     // Handle different streaming formats
-                    let jsonStr = line;
-                    if (line.startsWith('data: ')) jsonStr = line.slice(6);
+                    const jsonStr = line.slice(5).trim();
                     if (jsonStr === '[DONE]') {
                         console.log('🏁 Stream finished with [DONE]');
                         if (!hasReceivedContent) {
-                            console.warn('⚠️ Stream ended without content - possible thinking model without streaming support');
+                            if (sawReasoning) {
+                                console.warn('⚠️ Stream ended with only reasoning and no visible content - the model likely hit its token budget while thinking');
+                            } else {
+                                console.warn('⚠️ Stream ended without content - possible thinking model without streaming support');
+                            }
                         }
-                        return { finishReason };
+                        clearThinkingStatus();
+                        return { finishReason, sawReasoning };
                     }
 
                     const data = JSON.parse(jsonStr);
 
-                    // Debug: Log every chunk to see what we're receiving
-                    if (!hasReceivedContent) {
+                    // Debug: Log the first chunk to see what we're receiving
+                    if (!hasReceivedContent && !sawReasoning) {
                         console.log('🔍 First chunk received:', JSON.stringify(data, null, 2));
                     }
 
@@ -821,25 +880,41 @@
                             finishReason = data.choices[0].finish_reason;
                         }
 
-                        // For thinking models (o1, o3, etc), reasoning is in a separate field
-                        // We want to capture both reasoning and regular content
                         const delta = data.choices?.[0]?.delta;
+                        const message = data.choices?.[0]?.message;
+                        // Chain-of-thought arrives in provider-specific reasoning
+                        // fields (reasoning_content on DeepSeek/QwQ, reasoning and
+                        // reasoning_details on Together/DeepInfra, thinking on
+                        // others). It must NEVER leak into visible prose, so it is
+                        // only used to show a "Thinking…" status and to flag that
+                        // this stream spent its budget reasoning. Only
+                        // delta.content / message.content is emitted.
+                        const isReasoningChunk = hasReasoningFields(delta) || hasReasoningFields(message);
+                        if (isReasoningChunk) {
+                            sawReasoning = true;
+                            setThinkingStatus();
+                        }
                         if (delta) {
-                            // Try reasoning_content first (for thinking models)
-                            token = delta.reasoning_content || delta.content;
-
-                            if (!hasReceivedContent && delta) {
+                            token = delta.content || null;
+                            if (!hasReceivedContent && delta && !isReasoningChunk) {
                                 console.log('🔍 Delta object:', JSON.stringify(delta, null, 2));
                             }
                         }
 
                         // Some models put the complete message in the first chunk
-                        if (!token && data.choices?.[0]?.message?.content) {
-                            token = data.choices[0].message.content;
+                        if (!token && message && message.content) {
+                            token = message.content;
                             console.log('📝 Found complete message in chunk');
                         }
                     } else if (provider === 'anthropic') {
-                        if (data.type === 'content_block_delta') {
+                        if (data.type === 'content_block_start' && data.content_block?.type === 'thinking') {
+                            sawReasoning = true;
+                            setThinkingStatus();
+                        } else if (data.type === 'content_block_delta') {
+                            if (data.delta?.thinking) {
+                                sawReasoning = true;
+                                setThinkingStatus();
+                            }
                             token = data.delta?.text;
                         } else if (data.type === 'message_delta') {
                             finishReason = data.delta?.stop_reason;
@@ -853,8 +928,9 @@
 
                     if (token) {
                         hasReceivedContent = true;
+                        clearThinkingStatus();
                         onToken(token);
-                    } else if (!hasReceivedContent) {
+                    } else if (!hasReceivedContent && !sawReasoning) {
                         console.log('⚠️ No token extracted from chunk');
                     }
                 } catch (e) {
@@ -865,6 +941,11 @@
         }
 
         if (!hasReceivedContent) {
+            clearThinkingStatus();
+            if (sawReasoning) {
+                console.warn('⚠️ No visible content received - the model spent its budget reasoning');
+                throw new Error('The model only produced reasoning and no story text. It likely hit its token budget while thinking - increase the target length or reasoning budget in AI Settings.');
+            }
             console.error('⚠️ No content received from stream');
             console.error('This usually happens with thinking models that either:');
             console.error('1. Do not support streaming at all');
@@ -874,7 +955,7 @@
         }
 
         console.log('🏁 Final finish reason:', finishReason);
-        return { finishReason };
+        return { finishReason, sawReasoning };
     }
 
     /**
