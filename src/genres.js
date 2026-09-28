@@ -351,6 +351,358 @@
                     systemContent: ''
                 }
             }
+        },
+        {
+            id: 'mystery-thriller',
+            label: 'Mystery & Thriller',
+            icon: '🕵️',
+            promptDescriptor: 'suspense, secrets, red herrings, investigative logic, and danger that closes in as the truth gets nearer',
+            charDescription: 'This is a mystery and thriller setting — secrets, suspicion, and danger closing in. Every character may be hiding something. Descriptions should build atmosphere, tension, and the texture of clues.',
+            worldDescription: 'Build a world where nothing is quite what it seems — secrets hidden in ordinary places, institutions that protect their own, and truths buried under plausible lies. Describe settings that carry tension in their details.',
+            scenarioDescription: 'Frame a scenario around a crime, a secret, or a threat that must be uncovered before it is too late. Plant clues, red herrings, and suspects. Let the stakes rise as the truth gets closer.',
+            extraCompendiumCategories: ['Clues & Evidence', 'Suspects', 'Timeline', 'Locations'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Mystery & Thriller Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Let every detail carry potential meaning — sensory specifics, tells, and things noticed or hidden. Build tension through pacing, doubt, and what characters choose not to say. Write about {length}.',
+                    systemContent: 'You are a mystery and thriller co-author. Write prose that drips with atmosphere and controlled tension. Let clues, tells, and withheld information do the work.'
+                },
+                rewrite: {
+                    title: 'Mystery & Thriller Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its mystery and thriller voice. Tighten suspense, sharpen clues and red herrings, and make reveals feel earned. Keep the same plot and dialogue.',
+                    systemContent: 'You are a mystery and thriller editing assistant. Polish for suspense, pacing, and airtight logic.'
+                },
+                summary: {
+                    title: 'Mystery & Thriller Summary Prompt',
+                    content: 'Analyze this mystery and thriller scene. Examine planted clues and red herrings, how tension is built, the reliability of what characters believe, and how the scene advances the central question.',
+                    systemContent: 'You are a mystery and thriller literary analyst. Examine suspense mechanics and narrative logic.'
+                },
+                workshop: {
+                    title: 'Mystery & Thriller Workshop Prompt',
+                    content: 'You are a mystery and thriller writing workshop assistant. Help the author design airtight plots, plant fair clues, pace reveals, and build suspense that never cheats the reader.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'dystopian',
+            label: 'Dystopian',
+            icon: '🏚️',
+            promptDescriptor: 'oppressive societies, surveillance, institutional control, resistance, and the cost of conformity',
+            charDescription: 'This is a dystopian setting — an oppressive society that controls, monitors, and disciplines its citizens. Hope is rationed. Descriptions should feel controlled, watchful, and subtly or overtly brutal.',
+            worldDescription: 'Build an oppressive society — regimes that monitor, ration, and rewrite history, cities designed for control, and populations worn into compliance. Describe the machinery of control and the cracks where resistance lives.',
+            scenarioDescription: 'Frame a scenario of surveillance, control, and resistance. Let the stakes be survival and freedom against an institution that sees everything.',
+            extraCompendiumCategories: ['Regime & Governance', 'Surveillance', 'Resistance', 'Technology'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Dystopian Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Make the oppression feel structural, not theatrical — rationed comforts, watchful silences, and the small rebellions people permit themselves. Write about {length}.',
+                    systemContent: 'You are a dystopian co-author. Write prose that renders oppression through everyday detail — control as a texture of life, not a monologue.'
+                },
+                rewrite: {
+                    title: 'Dystopian Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its dystopian voice. Deepen the sense of surveillance and control, and make resistance feel costly and human. Keep the same plot and dialogue.',
+                    systemContent: 'You are a dystopian editing assistant. Polish for institutional menace and lived-in oppression.'
+                },
+                summary: {
+                    title: 'Dystopian Summary Prompt',
+                    content: 'Analyze this dystopian scene. Examine how the regime asserts control, the personal cost of conformity or resistance, and the social commentary woven into the narrative.',
+                    systemContent: 'You are a dystopian literary analyst. Examine power, control, and social critique.'
+                },
+                workshop: {
+                    title: 'Dystopian Workshop Prompt',
+                    content: 'You are a dystopian writing workshop assistant. Help the author build believable oppressive societies, plausible control systems, and resistance movements that feel earned.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'urban-fantasy',
+            label: 'Urban Fantasy',
+            icon: '🌆',
+            promptDescriptor: 'magic hidden in the modern world, supernatural communities, secret councils, and the collision of the ordinary and the occult',
+            charDescription: 'This is an urban fantasy setting — magic and the supernatural hidden just beneath the surface of the modern world. Descriptions should ground the fantastic in city streets, coffee shops, and commutes.',
+            worldDescription: 'Build a modern world with magic hiding in plain sight — supernatural communities in city shadows, secret councils, artifacts in thrift stores, and a masquerade that keeps the ordinary world unaware.',
+            scenarioDescription: 'Frame a scenario where the supernatural intrudes on the modern world — hidden factions, forbidden magic, or the breaking of the masquerade.',
+            extraCompendiumCategories: ['Hidden Factions', 'Supernatural Beings', 'Magic & Artifacts', 'Locations'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Urban Fantasy Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Ground the supernatural in the mundane — a spell cast on a bus, a vampire who owns a laundromat. The magic should feel domestic and dangerous at once. Write about {length}.',
+                    systemContent: 'You are an urban fantasy co-author. Write prose that keeps the fantastic firmly rooted in the modern world\'s textures and routines.'
+                },
+                rewrite: {
+                    title: 'Urban Fantasy Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its urban fantasy voice. Blend supernatural elements more tightly with everyday settings, and sharpen the hidden-world atmosphere. Keep the same plot and dialogue.',
+                    systemContent: 'You are an urban fantasy editing assistant. Polish for seamless blending of the magical and the mundane.'
+                },
+                summary: {
+                    title: 'Urban Fantasy Summary Prompt',
+                    content: 'Analyze this urban fantasy scene. Examine how magic intersects with the modern world, the rules of the hidden community, and the thematic weight of secrecy and belonging.',
+                    systemContent: 'You are an urban fantasy literary analyst. Examine the collision of worlds and the rules of hidden magic.'
+                },
+                workshop: {
+                    title: 'Urban Fantasy Workshop Prompt',
+                    content: 'You are an urban fantasy writing workshop assistant. Help the author build hidden supernatural communities, consistent magic rules, and modern settings that make the fantastic feel inevitable.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'adventure',
+            label: 'Adventure',
+            icon: '🧭',
+            promptDescriptor: 'expeditions, treasure, daring escapes, exotic locations, and the thrill of discovery',
+            charDescription: 'This is an adventure setting — expeditions, treasures, hazards, and the promise of the unknown. Descriptions should feel energetic, sweeping, and alive with possibility.',
+            worldDescription: 'Build a world of expeditions and discovery — lost temples, uncharted islands, mountain passes, and buried treasures. Describe landscapes that invite and endanger exploration.',
+            scenarioDescription: 'Frame a scenario driven by quests for treasure, rescue, or discovery. Let hazards, rival expeditions, and the environment itself raise the stakes.',
+            extraCompendiumCategories: ['Expeditions', 'Landmarks', 'Artifacts', 'Factions'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Adventure Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Keep the pace alive with movement, hazard, and discovery — describe terrain that demands effort and places that reward curiosity. Write about {length}.',
+                    systemContent: 'You are an adventure co-author. Write energetic prose that makes travel, danger, and discovery visceral and rewarding.'
+                },
+                rewrite: {
+                    title: 'Adventure Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its adventure voice. Punch up the sense of movement and hazard, and make discoveries feel earned and vivid. Keep the same plot and dialogue.',
+                    systemContent: 'You are an adventure editing assistant. Polish for momentum, atmosphere, and the thrill of the unknown.'
+                },
+                summary: {
+                    title: 'Adventure Summary Prompt',
+                    content: 'Analyze this adventure scene. Examine the challenges faced, how the setting itself acts on the characters, and how the scene builds toward discovery or payoff.',
+                    systemContent: 'You are an adventure literary analyst. Examine pacing, peril, and the promise of the unknown.'
+                },
+                workshop: {
+                    title: 'Adventure Workshop Prompt',
+                    content: 'You are an adventure writing workshop assistant. Help the author craft expeditions, set-pieces, and environments that create momentum and satisfying discovery.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'space-opera',
+            label: 'Space Opera',
+            icon: '🌌',
+            promptDescriptor: 'galactic empires, starship fleets, interstellar politics, dynasties, and battles across the void',
+            charDescription: 'This is a space opera setting — grand galactic conflict, starship fleets, alien dynasties, and interstellar politics. Descriptions should feel epic, cinematic, and vast.',
+            worldDescription: 'Build a galaxy of empires and intrigue — star systems under dynastic rule, alien civilizations with ancient grudges, space stations that never sleep, and wars fought across light-years.',
+            scenarioDescription: 'Frame a scenario of galactic stakes — imperial succession, fleet battles, first contact, or the fall of an empire. Let the fate of worlds hang in the balance.',
+            extraCompendiumCategories: ['Galactic Polities', 'Ships & Crews', 'Alien Races', 'Key Locations'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Space Opera Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Give the vast scale a human heartbeat — fleet movements felt through one bridge, dynastic politics through one family. Cinematic stakes, intimate cost. Write about {length}.',
+                    systemContent: 'You are a space opera co-author. Write epic, cinematic prose where personal stakes and galactic consequences are inseparable.'
+                },
+                rewrite: {
+                    title: 'Space Opera Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its space opera voice. Widen the sense of scale, heighten the drama of fleets and dynasties, and keep the human core intact. Keep the same plot and dialogue.',
+                    systemContent: 'You are a space opera editing assistant. Polish for epic sweep and interpersonal weight.'
+                },
+                summary: {
+                    title: 'Space Opera Summary Prompt',
+                    content: 'Analyze this space opera scene. Examine how personal conflict mirrors galactic stakes, the politics at play, and how the scene advances empire-spanning arcs.',
+                    systemContent: 'You are a space opera literary analyst. Examine epic structure and dynastic drama.'
+                },
+                workshop: {
+                    title: 'Space Opera Workshop Prompt',
+                    content: 'You are a space opera writing workshop assistant. Help the author build believable galactic polities, memorable crews, and conflicts that feel both epic and personal.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'litrpg',
+            label: 'LitRPG & GameLit',
+            icon: '🎮',
+            promptDescriptor: 'game mechanics, levels and stats, skills, quests, and characters who live inside a system',
+            charDescription: 'This is a LitRPG / GameLit setting — characters live inside game-like rules with levels, stats, skills, and quests. Descriptions should blend immersive fiction with the texture of game systems.',
+            worldDescription: 'Build a world governed by game systems — visible stats and levels, skill trees, classes, quests with rewards, and dungeons. Describe how the system shapes society, economy, and ambition.',
+            scenarioDescription: 'Frame a scenario driven by game mechanics — quests, leveling, raids, guild wars, or a system event that changes the world. Let progression and survival be woven together.',
+            extraCompendiumCategories: ['Systems & Stats', 'Classes & Skills', 'Quests', 'Guilds & Parties', 'Game Zones'],
+            defaultPrompts: {
+                prose: {
+                    title: 'LitRPG Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Weave system elements — level-ups, skill notifications, loot, cooldowns — naturally into the fiction so they matter to the story, not just the numbers. Write about {length}.',
+                    systemContent: 'You are a LitRPG co-author. Write prose where game mechanics are integral to the narrative, with numbers that serve emotion and stakes.'
+                },
+                rewrite: {
+                    title: 'LitRPG Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its LitRPG voice. Integrate system elements more seamlessly, make progression feel earned, and keep mechanical text punchy. Keep the same plot and dialogue.',
+                    systemContent: 'You are a LitRPG editing assistant. Polish for clean system integration and satisfying progression beats.'
+                },
+                summary: {
+                    title: 'LitRPG Summary Prompt',
+                    content: 'Analyze this LitRPG scene. Examine how the game system drives choices, the design of the progression beats, and how mechanics serve character and theme rather than the reverse.',
+                    systemContent: 'You are a LitRPG literary analyst. Examine system design and progression storytelling.'
+                },
+                workshop: {
+                    title: 'LitRPG Workshop Prompt',
+                    content: 'You are a LitRPG writing workshop assistant. Help the author design coherent systems, balanced progression curves, and quest structures that create real dramatic stakes.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'slice-of-life',
+            label: 'Slice of Life',
+            icon: '☕',
+            promptDescriptor: 'everyday moments, gentle conflict, quiet character growth, and the texture of ordinary life',
+            charDescription: 'This is a slice of life setting — ordinary people in everyday situations, with quiet growth and gentle conflict. Descriptions should feel warm, specific, and intimately observed.',
+            worldDescription: 'Build a world of everyday places — kitchens, schools, workplaces, cafés, and neighborhoods. Describe the small rituals and routines that give life its texture.',
+            scenarioDescription: 'Frame a scenario around everyday life — relationships, routines, small ambitions, and the quiet turning points of ordinary existence. Let the stakes be emotional and personal.',
+            extraCompendiumCategories: [],
+            defaultPrompts: {
+                prose: {
+                    title: 'Slice of Life Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Find the meaning in small moments — a shared meal, an unspoken apology, a habit changed. Conflict can be quiet; feelings should be loud. Write about {length}.',
+                    systemContent: 'You are a slice of life co-author. Write warm, observant prose that finds weight in ordinary moments and authentic interactions.'
+                },
+                rewrite: {
+                    title: 'Slice of Life Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its slice of life voice. Deepen the everyday texture, make dialogue more natural, and let emotions surface through small actions. Keep the same plot and dialogue.',
+                    systemContent: 'You are a slice of life editing assistant. Polish for authenticity, warmth, and emotional specificity.'
+                },
+                summary: {
+                    title: 'Slice of Life Summary Prompt',
+                    content: 'Analyze this slice of life scene. Examine the quiet character growth, the meaning carried by small details, and how the scene deepens relationships or self-understanding.',
+                    systemContent: 'You are a slice of life literary analyst. Examine quiet conflict and emotional truth.'
+                },
+                workshop: {
+                    title: 'Slice of Life Workshop Prompt',
+                    content: 'You are a slice of life writing workshop assistant. Help the author craft authentic daily routines, natural dialogue, and gentle arcs that still carry real emotional stakes.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'anime',
+            label: 'Anime',
+            icon: '🎌',
+            promptDescriptor: 'anime and manga storytelling conventions, expressive emotion, dramatic beats, and larger-than-life character dynamics',
+            charDescription: 'This is an anime and manga style setting — expressive emotions, dramatic beats, exaggerated reactions, and bold character dynamics. Descriptions should feel vivid, dynamic, and stylish.',
+            worldDescription: 'Build a world in the anime and manga tradition — colorful settings, expressive characters, dramatic schools, mysterious organizations, and styles that make emotion visible.',
+            scenarioDescription: 'Frame a scenario with anime conventions in mind — tournaments, rivalries, supernatural clubs, life-or-death friendships, or world-changing ambitions. Let drama be loud and heartfelt.',
+            extraCompendiumCategories: ['Character Archetypes', 'Tropes & Conventions', 'Clubs & Groups', 'Settings'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Anime Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Render emotion with anime expressiveness — body language, internal monologue, and dramatic beats that land like panels. Keep the heart under the exaggeration. Write about {length}.',
+                    systemContent: 'You are an anime-style co-author. Write vivid, expressive prose that captures anime\'s emotional boldness and dramatic rhythm.'
+                },
+                rewrite: {
+                    title: 'Anime Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its anime voice. Amplify emotional expressiveness and dramatic beats, sharpen character dynamics, and keep reactions bigger than life but true. Keep the same plot and dialogue.',
+                    systemContent: 'You are an anime-style editing assistant. Polish for expressive drama and dynamic character moments.'
+                },
+                summary: {
+                    title: 'Anime Summary Prompt',
+                    content: 'Analyze this anime-style scene. Examine the character dynamics, the dramatic structure, and the emotional arc as it might play out across episodes.',
+                    systemContent: 'You are an anime-style literary analyst. Examine tropes, dynamics, and emotional staging.'
+                },
+                workshop: {
+                    title: 'Anime Workshop Prompt',
+                    content: 'You are an anime-style writing workshop assistant. Help the author craft memorable archetypes, dramatic beats, and character dynamics that feel alive on the page and on the screen.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'shonen',
+            label: 'Shonen',
+            icon: '💥',
+            promptDescriptor: 'rivalries, tournaments, training arcs, power-ups, friendship that forges strength, and battles of will',
+            charDescription: 'This is a shonen setting — rivals, tournaments, training, power-ups, and battles that test will as much as strength. Descriptions should feel energetic, escalating, and charged with ambition.',
+            worldDescription: 'Build a world shaped by strength and ambition — martial schools, tournaments, leagues, and organizations that define power. Describe an arena culture where rising through the ranks means everything.',
+            scenarioDescription: 'Frame a scenario of rivalry and escalation — tournaments, mentor trials, threats that demand a new power level, or the ultimate showdown. Let growth through effort be a core value.',
+            extraCompendiumCategories: ['Power Systems', 'Tournaments', 'Rivalries', 'Organizations'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Shonen Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Make escalation visible — training that costs something, techniques that demand everything, and fights that turn on willpower as much as skill. Write about {length}.',
+                    systemContent: 'You are a shonen co-author. Write energetic prose with climbing stakes, earned power-ups, and battles that are as much about resolve as strength.'
+                },
+                rewrite: {
+                    title: 'Shonen Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its shonen voice. Heighten the escalation, make training and technique descriptions land harder, and deepen rival dynamics. Keep the same plot and dialogue.',
+                    systemContent: 'You are a shonen editing assistant. Polish for momentum, escalation, and hard-fought growth.'
+                },
+                summary: {
+                    title: 'Shonen Summary Prompt',
+                    content: 'Analyze this shonen scene. Examine the escalation of stakes, the character growth through effort and adversity, and the rival or mentor dynamics at play.',
+                    systemContent: 'You are a shonen literary analyst. Examine growth arcs, rivalry, and the spirit of the fight.'
+                },
+                workshop: {
+                    title: 'Shonen Workshop Prompt',
+                    content: 'You are a shonen writing workshop assistant. Help the author design training arcs, power systems, tournaments, and rivalries that make growth feel earned and battles unforgettable.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'isekai',
+            label: 'Isekai',
+            icon: '🌀',
+            promptDescriptor: 'characters transported or reborn into another world, cheat abilities, new rules, and the clash of worlds',
+            charDescription: 'This is an isekai setting — a character from the real world transported or reborn into another world, often with unique abilities. Descriptions should capture wonder, adaptation, and the clash of expectations.',
+            worldDescription: 'Build another world worth being pulled into — magic systems, kingdoms, dungeons, and rules that differ from the real world. Describe how an outsider would see and misunderstand it.',
+            scenarioDescription: 'Frame a scenario of arrival and adaptation — a hero from another world navigating new rules, a reincarnated soul with knowledge of the future, or a world that resists the outsider. Let the stakes grow as the character does.',
+            extraCompendiumCategories: ['Other World Systems', 'Cheats & Abilities', 'Regions & Kingdoms', 'Factions'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Isekai Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Keep the outsider\'s perspective alive — wonder at what is familiar, shock at what is not, and knowledge from the old world used in new ways. Write about {length}.',
+                    systemContent: 'You are an isekai co-author. Write prose rich with the wonder and friction of a character from one world adapting to another.'
+                },
+                rewrite: {
+                    title: 'Isekai Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its isekai voice. Deepen the outsider perspective, make the other world feel strange and real, and integrate any special abilities naturally. Keep the same plot and dialogue.',
+                    systemContent: 'You are an isekai editing assistant. Polish for wonder, adaptation, and the clash of worldviews.'
+                },
+                summary: {
+                    title: 'Isekai Summary Prompt',
+                    content: 'Analyze this isekai scene. Examine how the other world\'s rules differ from the protagonist\'s origin, how knowledge or abilities are leveraged, and the character\'s growing place in the new world.',
+                    systemContent: 'You are an isekai literary analyst. Examine world clash, adaptation, and power dynamics.'
+                },
+                workshop: {
+                    title: 'Isekai Workshop Prompt',
+                    content: 'You are an isekai writing workshop assistant. Help the author craft another world that feels worth entering, balanced cheat abilities, and the outsider perspective that makes it fresh.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'superpowers',
+            label: 'Superpowers',
+            icon: '⚡',
+            promptDescriptor: 'awakened abilities, power classifications, academies, rankings, and the price of being extraordinary',
+            charDescription: 'This is a superpowers setting — awakened abilities, power classifications, academies, and rankings. Descriptions should make each power feel specific, tactile, and costly.',
+            worldDescription: 'Build a world where abilities manifest — awakening events, academies that train and rank the gifted, organizations that regulate powers, and people defined by their classifications.',
+            scenarioDescription: 'Frame a scenario of power and consequence — awakening events, academy rivalries, classification disputes, or powers outgrowing their limits. Let ability always come with a price.',
+            extraCompendiumCategories: ['Power Classifications', 'Academies & Organizations', 'Awakening Events', 'Rankings'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Superpowers Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Make each ability feel lived-in — its limits, its costs, the muscle memory of using it. Power should be specific, tactile, and never free. Write about {length}.',
+                    systemContent: 'You are a superpowers co-author. Write prose where abilities have texture, limits, and consequences — powers that cost as much as they grant.'
+                },
+                rewrite: {
+                    title: 'Superpowers Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its superpowers voice. Make ability use more visceral and mechanical, sharpen the costs and limits, and deepen the power-society dynamics. Keep the same plot and dialogue.',
+                    systemContent: 'You are a superpowers editing assistant. Polish for power specificity, cost, and worldbuilding depth.'
+                },
+                summary: {
+                    title: 'Superpowers Summary Prompt',
+                    content: 'Analyze this superpowers scene. Examine how abilities define identity and status, the cost or limit imposed, and what the scene reveals about the power system and its society.',
+                    systemContent: 'You are a superpowers literary analyst. Examine ability design, cost, and social structure.'
+                },
+                workshop: {
+                    title: 'Superpowers Workshop Prompt',
+                    content: 'You are a superpowers writing workshop assistant. Help the author design memorable powers with real limits, classification systems, academies, and the social consequences of being extraordinary.',
+                    systemContent: ''
+                }
+            }
         }
     ];
 
