@@ -3243,9 +3243,24 @@ document.addEventListener('alpine:init', () => {
                 const ids = Object.keys(this.vaultSelected);
                 if (ids.length === 0 || !this.currentProject) return;
                 const entries = this.vaultEntries
-                    .filter(e => ids.includes(e.id))
-                    .map(e => JSON.parse(JSON.stringify(e)));
-                if (entries.length === 0) return;
+                    .filter(e => ids.includes(e.id) && e.projectId !== this.currentProject.id)
+                    .map(e => {
+                        const copy = JSON.parse(JSON.stringify(e));
+                        // Copy, don't move: drop the original id/timestamps so
+                        // Compendium.import() generates a fresh id, and strip
+                        // UI-only fields so they aren't persisted on the clone.
+                        delete copy.id;
+                        delete copy.created;
+                        delete copy.modified;
+                        delete copy.projectName;
+                        delete copy.isCurrentProject;
+                        return copy;
+                    });
+                if (entries.length === 0) {
+                    // Only entries already in this project were selected - nothing to copy.
+                    this.closeCompendiumVault();
+                    return;
+                }
                 try {
                     await window.Compendium.import(this.currentProject.id, entries);
                     const cat = this.vaultCategory;
