@@ -7,7 +7,7 @@
     const SAVE_ALL_ENDPOINT = '/api/save-all';
     const LIST_SNAPSHOTS_ENDPOINT = '/api/list-snapshots';
     const GET_SNAPSHOT_ENDPOINT = '/api/get-snapshot';
-    const SNAPSHOT_INTERVAL = 3 * 60 * 1000;
+    const SNAPSHOT_INTERVAL = 30 * 60 * 1000;
     const INITIAL_SNAPSHOT_DELAY = 8000;
     const DISMISS_KEY = 'writingway:snapshotRestoreDismissed';
 
@@ -117,7 +117,7 @@
 
     async function getSnapshot(snapshotId) {
         const query = new URLSearchParams({ id: String(snapshotId) });
-        const response = await fetch(`${GET_SNAPSHOT_ENDPOINT}?${query.toString()}`, { signal: AbortSignal.timeout(10000) });
+        const response = await fetch(`${GET_SNAPSHOT_ENDPOINT}?${query.toString()}`, { signal: AbortSignal.timeout(120000) });
         const result = await response.json().catch(() => ({}));
         if (!response.ok || !result.ok) {
             throw new Error(result.error || `HTTP ${response.status}`);
@@ -154,12 +154,15 @@
         return await restoreSnapshotData(app, snapshot);
     }
 
-    // Called on startup. Only acts when the projects table is empty (browser
-    // storage was cleared) and a disk snapshot exists.
+    // Called on startup. Restores from the disk snapshot that contains MORE
+    // projects than the current database, so both a fully wiped browser
+    // (0 projects) and a partially lost one (fewer projects than the backup)
+    // recover automatically. Project counts come from the server's snapshot
+    // index metadata, so no large snapshot files are downloaded during boot.
     async function maybeAutoRestore(app) {
+        let currentCount = 0;
         try {
-            const count = await db.projects.count();
-            if (count > 0) return false;
+            currentCount = await db.projects.count();
         } catch (e) {
             return false;
         }
@@ -167,26 +170,49 @@
         const snapshots = await listSnapshots();
         if (!snapshots.length) return false;
 
-        const latest = snapshots[0];
+        // Newest first; pick the snapshot with the most projects, but only if
+        // it has more than the current database.
+        let best = null;
+        for (const snap of snapshots) {
+            const count = Number(snap.projectCount || 0);
+            if (count > currentCount && (!best || count > best.count)) {
+                best = { id: snap.id, timestamp: snap.timestamp, count };
+            }
+        }
+
+        // Fallback (counts unknown / no richer snapshot): if the database is
+        // empty, offer the newest snapshot so recovery still works.
+        if (!best && currentCount === 0) {
+            best = { id: snapshots[0].id, timestamp: snapshots[0].timestamp, count: snapshots[0].projectCount || 0 };
+        }
+        if (!best) return false;
+
+        const label = best.count > 0
+            ? `A local snapshot from ${best.timestamp} with ${best.count} projects was found (you currently have ${currentCount}).`
+            : `A local snapshot from ${best.timestamp} was found (your database is currently empty).`;
+
         try {
             const dismissed = JSON.parse(localStorage.getItem(DISMISS_KEY) || '{}');
-            if (dismissed.id === latest.id) return false;
+            if (dismissed.id === best.id) return false;
         } catch (e) { /* ignore */ }
 
         const confirmed = confirm(
-            'Writingway detected that your browser data was cleared.\n\n' +
-            `A local snapshot from ${latest.timestamp} was found.\n\n` +
+            'Writingway detected that your projects may be missing or incomplete.\n\n' +
+            label + '\n\n' +
             'Click OK to restore your projects, chapters, scenes, compendium, and chats.\n' +
-            'Click Cancel to start with an empty database.'
+            'Click Cancel to keep the current database.'
         );
         if (!confirmed) {
-            try { localStorage.setItem(DISMISS_KEY, JSON.stringify({ id: latest.id })); } catch (e) { /* ignore */ }
+            try { localStorage.setItem(DISMISS_KEY, JSON.stringify({ id: best.id })); } catch (e) { /* ignore */ }
             return false;
         }
 
         try { localStorage.removeItem(DISMISS_KEY); } catch (e) { /* ignore */ }
-        await restoreSnapshot(app, latest.id);
-        console.log(`[DbSnapshot] restored from ${latest.id}`);
+        await restoreSnapshot(app, best.id);
+        if (app && typeof app.loadProjects === 'function') {
+            try { await app.loadProjects(); } catch (e) { /* ignore */ }
+        }
+        console.log(`[DbSnapshot] restored from ${best.id} (${best.count} projects)`);
         return true;
     }
 

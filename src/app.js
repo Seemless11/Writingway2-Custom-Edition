@@ -264,7 +264,19 @@ document.addEventListener('alpine:init', () => {
                 // Deferred so the user sees the picker without delay
                 try { await this.migrateMissingSceneProjectIds(); } catch (e) { /* ignore */ }
 
-                // Auto-restore: if browser storage was wiped, recover from the newest disk snapshot
+                // Folder-first sync: load anything missing from the local folder and
+                // set up write-through so the folder is always the source of truth.
+                this.updateLoadingScreen(22, 'Syncing projects from local folder...', 'Checking project files...');
+                try {
+                    if (window.StoreSync && typeof window.StoreSync.initStoreSync === 'function') {
+                        await window.StoreSync.initStoreSync(this);
+                    }
+                } catch (e) {
+                    console.warn('Folder sync failed:', e);
+                }
+
+                // Auto-restore: only a last-resort fallback when neither the folder
+                // nor the browser has any projects (recovers from old disk snapshots).
                 try {
                     if (window.DbSnapshot && typeof window.DbSnapshot.maybeAutoRestore === 'function') {
                         await window.DbSnapshot.maybeAutoRestore(this);
@@ -486,14 +498,9 @@ document.addEventListener('alpine:init', () => {
                     console.error('Failed to load backup settings:', e);
                 }
 
-                // Start periodic full-database snapshots to disk (durable recovery)
-                if (window.DbSnapshot && typeof window.DbSnapshot.startAutoSave === 'function') {
-                    try {
-                        window.DbSnapshot.startAutoSave(this);
-                    } catch (e) {
-                        console.warn('Failed to start database snapshots:', e);
-                    }
-                }
+                // Full-database snapshots are no longer written: the folder-based
+                // store-sync (write-through) is the source of truth. Old snapshots
+                // remain readable as a last-resort fallback.
 
                 // Final step: mark initialization complete
                 setTimeout(() => {
@@ -4216,6 +4223,67 @@ document.addEventListener('alpine:init', () => {
             async closeRestoreModal() {
                 this.showRestoreModal = false;
                 this.backupList = [];
+            },
+
+            async restoreBestLocalSnapshot() {
+                if (!window.DbSnapshot || typeof window.DbSnapshot.listSnapshots !== 'function') {
+                    alert('Local snapshot support is not available.');
+                    return;
+                }
+
+                this.backupStatus = 'Looking for local snapshots...';
+                let snapshots = [];
+                try {
+                    snapshots = await window.DbSnapshot.listSnapshots();
+                } catch (e) {
+                    this.backupStatus = 'Failed to load snapshots';
+                    alert('Could not reach the local server. Make sure Writingway was started with start.bat.');
+                    return;
+                }
+
+                if (!snapshots.length) {
+                    this.backupStatus = 'No local snapshots found';
+                    alert('No local snapshots found on disk. Make sure the Writingway server is running.');
+                    return;
+                }
+
+                let best = null;
+                for (const snap of snapshots) {
+                    const count = Number(snap.projectCount || 0);
+                    if (count > 0 && (!best || count > best.count || (count === best.count && (snap.timestamp || '') > (best.timestamp || '')))) {
+                        best = { id: snap.id, timestamp: snap.timestamp, count };
+                    }
+                }
+                if (!best && snapshots.length) {
+                    best = { id: snapshots[0].id, timestamp: snapshots[0].timestamp, count: snapshots[0].projectCount || 0 };
+                }
+
+                if (!best) {
+                    this.backupStatus = 'Failed to read snapshots';
+                    alert('Could not read any snapshot from disk.');
+                    return;
+                }
+
+                const when = best.timestamp ? new Date(best.timestamp).toLocaleString() : 'unknown time';
+                if (!confirm(
+                    `Restore ${best.count > 0 ? best.count + ' projects' : 'your projects'} from a local snapshot saved ${when}?\n\n` +
+                    'This will REPLACE all current browser data (projects, chapters, scenes, compendium, chats) with the snapshot contents.\n\n' +
+                    'Continue?'
+                )) {
+                    return;
+                }
+
+                this.backupStatus = 'Restoring from local snapshot...';
+                try {
+                    await window.DbSnapshot.restoreSnapshot(this, best.id);
+                    await this.loadProjects();
+                    this.backupStatus = 'Restored from local snapshot';
+                    alert(`Restored ${best.count} projects from the local snapshot. Reloading...`);
+                    setTimeout(() => window.location.reload(), 800);
+                } catch (e) {
+                    this.backupStatus = 'Restore failed';
+                    alert('Restore failed: ' + (e.message || e));
+                }
             },
 
             async restoreBackup(backupRef) {

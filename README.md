@@ -62,8 +62,11 @@ It gives you:
 - **Backups**
   GitHub Gist backup with 5-minute auto-backup timer, or local versioned backups through the app server. OneDrive and Google Drive are listed in the UI but are not implemented yet.
 
-- **Automatic database snapshots (recommended)**
-  Every 3 minutes (plus on startup and when you close the app), the full database is written to `project-backups/all/`. If your browser clears site data — incognito mode, "clear on exit", disk cleanup — Writingway detects the empty database on the next launch and offers to restore from the newest snapshot. Keep the `project-backups` folder; it is your safety net.
+- **Folder-first storage (recommended)**
+  Your work is saved as files in the local `projects/` folder — one JSON file per project (`<name>--<id>.json`). Every change writes through to disk automatically (a couple of seconds after you stop editing, plus on tab close), and embedded images are stored separately in `images/`. On startup the app reads the folder and rebuilds the browser's working data from it, so a cleared browser (incognito, "clear on exit", cleanup tools) no longer means lost work — just launch the app again. The browser only keeps a disposable working copy; the folder is the source of truth. Keep the `projects/` and `images/` folders; they are your save files.
+
+- **Legacy snapshot history**
+  Older full-database snapshots under `project-backups/all/` are no longer written. Any that exist remain readable for manual restore from the backup settings panel.
 
 - **In-app update staging**
   Writingway can detect newer builds on GitHub, download an update, stage it locally, and apply it the next time you restart from the launcher.

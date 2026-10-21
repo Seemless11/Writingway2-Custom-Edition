@@ -32,7 +32,11 @@ ROOT = Path(__file__).resolve().parent.parent
 PROJECTS_DIR = ROOT / "projects"
 BACKUPS_DIR = ROOT / "project-backups"
 SNAPSHOTS_DIR = BACKUPS_DIR / "all"
-MAX_SNAPSHOTS = 50
+SNAPSHOT_INDEX_PATH = SNAPSHOTS_DIR / "index.json"
+MAX_SNAPSHOTS = 2
+IMAGES_DIR = ROOT / "images"
+SAFE_PROJECT_ID = re.compile(r"^[A-Za-z0-9_-]{1,200}$")
+SAFE_IMAGE_NAME = re.compile(r"^[A-Za-z0-9._-]{1,200}$")
 MODELS_DIR = ROOT / "models"
 LLAMA_DIR = ROOT / "llama"
 LLAMA_RELEASE_API = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
@@ -63,6 +67,48 @@ def project_filename(project: dict) -> str:
 def project_backup_dir(project_id: str) -> Path:
     safe_project_id = sanitize_filename(project_id)
     return BACKUPS_DIR / safe_project_id
+
+
+def parse_project_file_name(filename: str) -> tuple[str, str] | None:
+    """Parses a '<name>--<id>.json' project file into (name, id)."""
+    if not filename.endswith(".json"):
+        return None
+    stem = filename[: -len(".json")]
+    parts = stem.rsplit("--", 1)
+    if len(parts) != 2:
+        return None
+    name, project_id = parts
+    if not SAFE_PROJECT_ID.match(project_id):
+        return None
+    return name, project_id
+
+
+def read_json_with_fallback(path: Path) -> dict | None:
+    """Reads a JSON file, falling back to its .bak sibling when read fails."""
+    for candidate in (path, Path(str(path) + ".bak")):
+        try:
+            with candidate.open("r", encoding="utf-8") as f:
+                return json.load(f)
+        except OSError:
+            continue
+        except ValueError:
+            continue
+    return None
+
+
+def write_json_atomic(target: Path, payload: dict) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        "w",
+        encoding="utf-8",
+        dir=str(target.parent),
+        delete=False,
+        suffix=".tmp",
+    ) as tmp_file:
+        json.dump(payload, tmp_file, ensure_ascii=False, indent=2)
+        tmp_file.write("\n")
+        temp_name = tmp_file.name
+    os.replace(temp_name, target)
 
 
 def runtime_platform() -> tuple[str, str]:
@@ -153,6 +199,38 @@ def snapshot_filename() -> str:
     timestamp = datetime.now(timezone.utc).isoformat()
     timestamp = timestamp.replace("+00:00", "Z").replace(":", "-").replace(".", "-")
     return f"{timestamp}--all.json"
+
+
+def load_snapshot_index() -> dict:
+    try:
+        with SNAPSHOT_INDEX_PATH.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_snapshot_index(index: dict) -> None:
+    try:
+        with tempfile.NamedTemporaryFile(
+            "w", encoding="utf-8", dir=str(SNAPSHOTS_DIR), delete=False, suffix=".tmp"
+        ) as tmp_file:
+            json.dump(index, tmp_file, ensure_ascii=False, indent=2)
+            tmp_file.write("\n")
+            temp_name = tmp_file.name
+        os.replace(temp_name, SNAPSHOT_INDEX_PATH)
+    except OSError:
+        pass
+
+
+def snapshot_project_count(filename: str, index: dict) -> int:
+    entry = index.get(filename)
+    if isinstance(entry, dict):
+        try:
+            return int(entry.get("projects", 0))
+        except (TypeError, ValueError):
+            return 0
+    return 0
 
 
 def github_json(url: str) -> dict:
@@ -356,6 +434,15 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/get-snapshot":
             self.handle_get_snapshot(parsed.query)
             return
+        if parsed.path == "/api/library":
+            self.handle_library()
+            return
+        if parsed.path == "/api/load-project":
+            self.handle_load_project(parsed.query)
+            return
+        if parsed.path.startswith("/api/images/"):
+            self.handle_get_image(parsed.path[len("/api/images/") :])
+            return
         super().do_GET()
 
     def do_POST(self):
@@ -374,7 +461,170 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         if self.path == "/api/shutdown":
             self.handle_shutdown()
             return
+        if self.path == "/api/project/delete":
+            self.handle_delete_project()
+            return
+        if self.path.startswith("/api/upload-image"):
+            self.handle_upload_image(urlparse(self.path).query)
+            return
         self.respond_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
+
+    def handle_library(self):
+        """Manifests every project id with its best available file on disk."""
+        try:
+            PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
+            BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+            entries: dict[str, dict] = {}
+
+            for file in PROJECTS_DIR.glob("*.json"):
+                parsed = parse_project_file_name(file.name)
+                if not parsed:
+                    continue
+                name, project_id = parsed
+                stat = file.stat()
+                entries[project_id] = {
+                    "id": project_id,
+                    "name": name,
+                    "file": file.name,
+                    "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                    "size": stat.st_size,
+                    "source": "live",
+                }
+
+            for dir_path in BACKUPS_DIR.glob("*/"):
+                if not dir_path.is_dir():
+                    continue
+                project_id = dir_path.name
+                if project_id == "all":
+                    continue
+                if not SAFE_PROJECT_ID.match(project_id):
+                    continue
+                # Already covered by a live file.
+                if project_id in entries:
+                    continue
+                backups = sorted(dir_path.glob("*.json"), reverse=True)
+                if not backups:
+                    continue
+                stat = backups[0].stat()
+                name = parse_project_file_name(backups[0].name)
+                entries[project_id] = {
+                    "id": project_id,
+                    "name": name[0] if name else project_id,
+                    "file": backups[0].name,
+                    "modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                    "size": stat.st_size,
+                    "source": "backup",
+                }
+
+            projects = sorted(entries.values(), key=lambda e: e["modified"], reverse=True)
+            self.respond_json(HTTPStatus.OK, {"ok": True, "projects": projects})
+        except Exception as exc:
+            self.respond_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+
+    def handle_load_project(self, query: str):
+        """Returns the newest on-disk file for a project (live file first)."""
+        params = parse_qs(query or "")
+        project_id = (params.get("id") or [""])[0].strip()
+        if not project_id or not SAFE_PROJECT_ID.match(project_id):
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid project id"})
+            return
+        try:
+            live = sorted(PROJECTS_DIR.glob(f"*--{project_id}.json"))
+            if live:
+                payload = read_json_with_fallback(live[0])
+                if payload:
+                    self.respond_json(HTTPStatus.OK, {"ok": True, "project": payload})
+                    return
+            backups = sorted(project_backup_dir(project_id).glob("*.json"), reverse=True)
+            if backups:
+                payload = read_json_with_fallback(backups[0])
+                if payload:
+                    self.respond_json(HTTPStatus.OK, {"ok": True, "project": payload})
+                    return
+            self.respond_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Project not found"})
+        except Exception as exc:
+            self.respond_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+
+    def handle_delete_project(self):
+        payload = self.read_json_payload()
+        if not isinstance(payload, dict):
+            return
+        project_id = str(payload.get("id") or "").strip()
+        if not project_id or not SAFE_PROJECT_ID.match(project_id):
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid project id"})
+            return
+        try:
+            count = 0
+            for file in PROJECTS_DIR.glob(f"*--{project_id}.json"):
+                try:
+                    file.unlink()
+                    count += 1
+                except OSError:
+                    pass
+            self.respond_json(HTTPStatus.OK, {"ok": True, "deleted": count})
+        except Exception as exc:
+            self.respond_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+
+    def handle_upload_image(self, query: str):
+        params = parse_qs(query or "")
+        name = (params.get("name") or [""])[0].strip()
+        if not name or not SAFE_IMAGE_NAME.match(name):
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid image name"})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid Content-Length"})
+            return
+        if length <= 0:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "No image data"})
+            return
+        try:
+            data = self.rfile.read(length)
+            IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+            target = IMAGES_DIR / name
+            with tempfile.NamedTemporaryFile(
+                "wb", dir=str(IMAGES_DIR), delete=False, suffix=".tmp"
+            ) as tmp_file:
+                tmp_file.write(data)
+                temp_name = tmp_file.name
+            os.replace(temp_name, target)
+            self.respond_json(
+                HTTPStatus.OK,
+                {"ok": True, "url": f"/api/images/{name}", "name": name},
+            )
+        except Exception as exc:
+            self.respond_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+
+    def handle_get_image(self, name: str):
+        name = name.split("?")[0]
+        if not name or not SAFE_IMAGE_NAME.match(name):
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid image name"})
+            return
+        try:
+            target = IMAGES_DIR / name
+            if not target.exists() or not target.is_file():
+                self.respond_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Image not found"})
+                return
+            ext = Path(name).suffix.lower().lstrip(".")
+            mime = {
+                "png": "image/png",
+                "jpg": "image/jpeg",
+                "jpeg": "image/jpeg",
+                "gif": "image/gif",
+                "webp": "image/webp",
+                "svg": "image/svg+xml",
+                "bmp": "image/bmp",
+                "avif": "image/avif",
+            }.get(ext, "application/octet-stream")
+            data = target.read_bytes()
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", mime)
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(data)
+        except Exception as exc:
+            self.respond_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
 
     def handle_save_project(self):
         try:
@@ -621,13 +871,35 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
 
             os.replace(temp_name, target)
 
-            # Enforce a rolling cap so snapshots don't grow without bound.
+            # Keep the newest snapshot plus the most-complete older snapshot,
+            # so a low-project snapshot can never evict a full backup.
+            index = load_snapshot_index()
+            index[filename] = {
+                "projects": len(tables.get("projects") or []),
+                "savedAt": payload["snapshotSavedAt"],
+            }
+
             snapshots = sorted(SNAPSHOTS_DIR.glob("*--all.json"), reverse=True)
-            for old in snapshots[MAX_SNAPSHOTS:]:
-                try:
-                    old.unlink()
-                except OSError:
-                    pass
+            keep = set()
+            if snapshots:
+                keep.add(snapshots[0].name)  # newest always
+                rest = snapshots[1:]
+                rest.sort(
+                    key=lambda p: (snapshot_project_count(p.name, index), p.name),
+                    reverse=True,
+                )
+                for extra in rest[: max(0, MAX_SNAPSHOTS - 1)]:
+                    keep.add(extra.name)
+
+            for old in snapshots:
+                if old.name not in keep:
+                    try:
+                        old.unlink()
+                    except OSError:
+                        pass
+                    index.pop(old.name, None)
+
+            save_snapshot_index(index)
 
             self.respond_json(
                 HTTPStatus.OK,
@@ -648,6 +920,7 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         try:
             snapshots = []
             if SNAPSHOTS_DIR.exists():
+                index = load_snapshot_index()
                 for snap_file in sorted(SNAPSHOTS_DIR.glob("*--all.json"), reverse=True):
                     stat = snap_file.stat()
                     snapshots.append(
@@ -656,6 +929,7 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
                             "timestamp": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
                             "path": str(snap_file.relative_to(ROOT)),
                             "size": stat.st_size,
+                            "projectCount": snapshot_project_count(snap_file.name, index),
                         }
                     )
 

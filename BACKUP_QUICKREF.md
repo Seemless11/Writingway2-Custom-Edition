@@ -1,22 +1,30 @@
 # ☁️ Cloud Backup - Quick Reference
 
-## Automatic Local Snapshots (On by Default)
+## Folder-First Storage (the new source of truth)
 
-Writingway automatically saves a full copy of your database every 3 minutes
-(and when you close the app) to:
+Writingway now saves your work directly into the local folder as JSON files:
 
 ```
-project-backups/all/
+projects/<name>--<id>.json   <-- one file per project (your save)
+images/                      <-- images extracted out of the data
 ```
 
-These snapshots are independent of your browser. If the browser ever clears
-your site data (incognito, "clear on exit", cleanup tools), the next launch
-will ask: **"Your browser data was cleared — restore from snapshot?"**
+- **Auto-save:** every change is written to the folder automatically (about 2
+  seconds after you stop editing, and again when you close the app / switch tabs).
+  No "Save" button needed.
+- **Auto-restore:** on the next launch the app reads the folder and rebuilds
+  anything the browser lost. If your browser clears its data (incognito,
+  "clear on exit", cleanup tools), your work is not lost — just start the app
+  again and it reloads from `projects/`.
+- The browser only keeps a disposable working copy; **the folder is your save.**
 
-Click **OK** and your projects, chapters, scenes, compendium, and chats come back.
-The newest 50 snapshots are kept automatically.
+> ⚠️ Do not delete the `projects/` and `images/` folders — they are your data.
 
-> ⚠️ Do not delete the `project-backups` folder — it is your data's safety net.
+## Legacy Snapshot History
+
+Older full-database snapshots in `project-backups/all/` are no longer written.
+Any that already exist can still be restored manually from the backup settings
+panel under **♻️ Restore from Local Snapshot**.
 
 ## Setup (One-time)
 

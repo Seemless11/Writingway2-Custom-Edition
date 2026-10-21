@@ -39,6 +39,7 @@
     <script defer src="src/modules/filesystem-save.js"></script>
     <script defer src="src/modules/tab-sync.js"></script>
     <script defer src="src/modules/db-snapshot.js"></script>
+    <script defer src="src/modules/store-sync.js"></script>
     <script defer src="src/template-loader.js"></script>
     <script defer src="src/workshop.js"></script>
     <script defer src="src/modules/workshop.js"></script>
@@ -2423,6 +2424,13 @@
                         style="width:100%;">
                         📥 Restore from Backup
                     </button>
+                    <button class="btn btn-secondary" @click="restoreBestLocalSnapshot()" style="width:100%;margin-top:10px;">
+                        ♻️ Restore from Local Snapshot (all projects)
+                    </button>
+                    <p style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+                        Recovers every project from the newest disk snapshot in <code>project-backups/all/</code>.
+                        This replaces all current browser data.
+                    </p>
                 </div>
 
                 <div x-show="backupProvider === 'github'"

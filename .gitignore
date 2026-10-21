@@ -28,6 +28,7 @@ node_modules/
 .claude/
 projects/
 project-backups/
+images/
 REFACTORING.md
 backups/
 updater-server.log
