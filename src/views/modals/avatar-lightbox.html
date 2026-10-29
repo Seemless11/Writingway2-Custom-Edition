@@ -1,0 +1,34 @@
+    <!-- Avatar Lightbox -->
+    <template x-if="showAvatarLightbox && avatarLightboxEntry?.imageUrl">
+        <div class="modal-overlay" @click.self="window.ChatMode.closeAvatarLightbox($data)"
+            @keydown.escape.window="window.ChatMode.closeAvatarLightbox($data)" style="z-index:9900;">
+            <div class="avatar-lightbox">
+                <div class="avatar-lightbox-header">
+                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                        <div class="character-card-avatar" style="width:40px;"
+                            :style="`background-image:url('${avatarLightboxEntry.imageUrl}')`"></div>
+                        <div style="min-width:0;">
+                            <div class="avatar-lightbox-title" x-text="avatarLightboxEntry.title || 'Character'"></div>
+                            <div class="avatar-lightbox-subtitle">
+                                <span x-show="avatarLightboxEntry.tags?.includes('imported') && avatarLightboxEntry.tags?.includes('sillytavern')">Imported character card</span>
+                                <span x-show="!avatarLightboxEntry.tags?.includes('imported') || !avatarLightboxEntry.tags?.includes('sillytavern')">Character card</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        <button x-show="avatarLightboxEntry.id === chatCharacterId"
+                            @click="window.ChatMode.closeAvatarLightbox($data); window.ChatMode.showCharacterInfo($data)"
+                            style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);padding:6px 10px;display:inline-flex;align-items:center;gap:5px;font-size:12px;"
+                            title="Edit character">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg> Edit
+                        </button>
+                        <button class="btn btn-secondary" @click="window.ChatMode.closeAvatarLightbox($data)" style="font-size:12px;padding:6px 14px;">Done</button>
+                    </div>
+                </div>
+                <div class="avatar-lightbox-body">
+                    <div class="avatar-lightbox-image" :style="`background-image:url('${avatarLightboxEntry.imageUrl}')`"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+

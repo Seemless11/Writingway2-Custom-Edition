@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Writingway 2.0</title>
+    <!-- Note: This file should be named main.html and opened via start.bat -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/dexie@3.2.4/dist/dexie.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- Phase 1 Refactoring: Database and test helpers extracted -->
+    <script defer src="src/db.js"></script>
+    <script defer src="src/test-helpers.js"></script>
+    <script defer src="src/genres.js"></script>
+    <script defer src="src/prompt-packs.js"></script>
+    <!-- Phase 2 Refactoring: State management extracted -->
+    <script defer src="src/state/app-state.js"></script>
+    <script defer src="src/state/watchers.js"></script>
+    <!-- Phase 3 Refactoring: Editor functionality extracted -->
+    <script defer src="src/modules/editor.js"></script>
+    <!-- Phase 4 Refactoring: Context panel extracted -->
+    <script defer src="src/modules/context-panel.js"></script>
+    <script defer src="src/macro-utils.js"></script>
+    <script defer src="src/generation.js"></script>
+    <script defer src="src/prompts.js"></script>
+    <script defer src="src/ai.js"></script>
+    <script defer src="src/save-utils.js"></script>
+    <script defer src="src/modules/project-manager.js"></script>
+    <script defer src="src/modules/chapter-manager.js"></script>
+    <script defer src="src/modules/scene-manager.js"></script>
+    <script defer src="src/modules/beat-mentions.js"></script>
+    <script defer src="src/modules/compendium-manager.js"></script>
+    <script defer src="src/lorebook-importer.js"></script>
+    <script defer src="src/modules/lorebook-manager.js"></script>
+    <script defer src="src/modules/ai-settings.js"></script>
+    <script defer src="src/modules/github-backup.js"></script>
+    <script defer src="src/modules/filesystem-save.js"></script>
+    <script defer src="src/modules/tab-sync.js"></script>
+    <script defer src="src/modules/db-snapshot.js"></script>
+    <script defer src="src/modules/store-sync.js"></script>
+    <script defer src="src/template-loader.js"></script>
+    <script defer src="src/workshop.js"></script>
+    <script defer src="src/modules/workshop.js"></script>
+    <script defer src="src/update-checker.js"></script>
+    <script defer src="src/w1-importer.js"></script>
+    <script defer src="src/novelcrafter-importer.js"></script>
+    <script defer src="src/character-card-importer.js"></script>
+    <script defer src="src/character-creator.js"></script>
+    <script defer src="src/world-creator.js"></script>
+    <script defer src="src/scenario-creator.js"></script>
+    <script defer src="src/app/core.js"></script>
+<script defer src="src/app/rewrite.js"></script>
+<script defer src="src/app/ai.js"></script>
+<script defer src="src/app/summaries.js"></script>
+<script defer src="src/app/context-panel.js"></script>
+<script defer src="src/app/projects.js"></script>
+<script defer src="src/app/compendium.js"></script>
+<script defer src="src/app/lorebook.js"></script>
+<script defer src="src/app/paste-import.js"></script>
+<script defer src="src/app/character-creator.js"></script>
+<script defer src="src/app/world-creator.js"></script>
+<script defer src="src/app/scenario-creator.js"></script>
+<script defer src="src/app/workshop.js"></script>
+<script defer src="src/app/prompts.js"></script>
+<script defer src="src/app/scenes.js"></script>
+<script defer src="src/app/editor.js"></script>
+<script defer src="src/app/generation.js"></script>
+<script defer src="src/app/backup.js"></script>
+<script defer src="src/app.js"></script>
+    <script defer src="src/compendium.js"></script>
+    <script defer src="src/image-describer.js"></script>
+    <script defer src="src/chat-mode.js"></script>
+    <!-- Alpine loads after app scripts so Alpine.data('app') registers before init -->
+    <script defer src="src/vendor/alpine.min.js"></script>
+
+    <link rel="stylesheet" href="src/styles.css">
+    <!-- Early theme loader to prevent flash -->
+    <script>
+        (function() {
+            if (localStorage.getItem('writingway:lightMode') === 'true') {
+                document.documentElement.classList.add('light-mode');
+            }
+        })();
+    </script>
+</head>
+
+<body>

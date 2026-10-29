@@ -1,0 +1,51 @@
+    <!-- Compendium Image Lightbox -->
+    <template x-if="showCompendiumImageLightbox && compendiumImageLightboxEntry?.imageUrl">
+        <div class="modal-overlay" @click.self="window.ChatMode.closeCompendiumImageLightbox($data)"
+            @keydown.escape.window="window.ChatMode.closeCompendiumImageLightbox($data)" style="z-index:9900;">
+            <div class="image-lightbox">
+                <div class="image-lightbox-header">
+                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                        <div style="min-width:0;">
+                            <div class="image-lightbox-title" x-text="compendiumImageLightboxEntry.title || 'Image'"></div>
+                            <div class="image-lightbox-subtitle" style="font-size:11px;color:var(--text-secondary);">
+                                <span x-show="compendiumImageLightboxEntry.tags?.includes('imported') && compendiumImageLightboxEntry.tags?.includes('sillytavern')">Imported</span>
+                                <span x-show="!compendiumImageLightboxEntry.tags?.includes('imported') || !compendiumImageLightboxEntry.tags?.includes('sillytavern')">Character</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        <button class="btn btn-secondary" @click="window.ChatMode.compendiumImageZoomIn($data)" title="Zoom in" style="font-size:12px;padding:6px 10px;">+</button>
+                        <button class="btn btn-secondary" @click="window.ChatMode.compendiumImageZoomOut($data)" title="Zoom out" style="font-size:12px;padding:6px 10px;">-</button>
+                        <span class="btn btn-secondary" style="font-size:12px;padding:6px 10px;cursor:default;">
+                            <span x-text="'Zoom: ' + Math.round(compendiumImageZoom * 100) + '%'"></span>
+                        </span>
+                        <button class="btn btn-primary" style="font-size:11px;padding:4px 8px;" @click="window.ChatMode.useCurrentImageForEntry($data)">Use Image</button>
+                        <button class="btn btn-secondary" @click="window.ChatMode.closeCompendiumImageLightbox($data)" style="font-size:12px;padding:6px 14px;">Done</button>
+                    </div>
+                </div>
+                <div class="image-lightbox-body">
+                    <div class="image-lightbox-image-container">
+                        <img :src="compendiumImageLightboxEntry.imageUrl" :alt="compendiumImageLightboxEntry.title || 'Image'"
+                            class="image-lightbox-img"
+                            :style="`transform: scale(${compendiumImageZoom}) translate(${compendiumImagePanX}px, ${compendiumImagePanY}px); object-fit: contain; object-position: center; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); cursor: grab;`"
+                            @wheel.prevent="compendiumImageZoom = Math.max(0.5, Math.min(4, compendiumImageZoom + ($event.deltaY > 0 ? -0.1 : 0.1)))"
+                            @mousedown.prevent="compendiumImageIsDragging = true; compendiumImageDragStartX = $event.clientX; compendiumImageDragStartY = $event.clientY"
+                            @mousemove.prevent="if (compendiumImageIsDragging) { compendiumImagePanX += ($event.clientX - compendiumImageDragStartX) / compendiumImageZoom; compendiumImagePanY += ($event.clientY - compendiumImageDragStartY) / compendiumImageZoom; compendiumImageDragStartX = $event.clientX; compendiumImageDragStartY = $event.clientY; }"
+                            @mouseup.prevent="compendiumImageIsDragging = false"
+                            @mouseleave.prevent="compendiumImageIsDragging = false" />
+                    </div>
+                    <div style="text-align:center;color:var(--text-secondary);padding:8px;font-size:12px;">
+                        <span x-text="'Zoom: ' + Math.round(compendiumImageZoom * 100) + '%' + (compendiumImageZoom > 1 ? ' • Drag to pan' : '')"></span>
+                    </div>
+                </div>
+                <div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;">
+                    <div style="font-size:12px;color:var(--text-primary);margin-bottom:6px;">Preview in compendium entry (240×360):</div>
+                    <div style="width:240px;height:360px;background:var(--bg-tertiary);border-radius:6px;overflow:hidden;margin:0 auto;position:relative;">
+                        <img :src="compendiumImageLightboxEntry.imageUrl" :style="`transform: scale(${compendiumImageZoom}) translate(${compendiumImagePanX}px, ${compendiumImagePanY}px); object-fit: contain; object-position: center; display: block; max-width: 100%; max-height: 100%;`" />
+                    </div>
+                    <div style="text-align:center;font-size:10px;color:var(--text-secondary);margin-top:4px;">Aspect ratio preserved, padded to square</div>
+                </div>
+            </div>
+        </div>
+    </template>
+

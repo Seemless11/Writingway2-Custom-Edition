@@ -1,0 +1,9 @@
+
+                <!-- Main Content Area (wrapper for banner + editor) -->
+                <div class="main-content-area">
+                    <!-- Auto-Backup Warning Banner (non-dismissable) -->
+                    <div x-show="backupNeedsAttention()" x-cloak class="backup-warning-banner">
+                        <span x-text="backupWarningMessage()"></span>
+                    </div>
+
+                    <!-- Editor -->

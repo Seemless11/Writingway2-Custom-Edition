@@ -1,0 +1,347 @@
+        <!-- AI Settings Panel -->
+        <div class="slide-panel-right ai-settings-panel" :class="{ 'open': showAISettings }" x-cloak
+            style="width:600px;border-left:1px solid rgba(217,119,6,0.08);">
+            <div class="slide-panel-header">
+                <h3 style="margin:0;">AI Configuration</h3>
+                <button class="btn btn-secondary" @click="showAISettings = false">Close</button>
+            </div>
+            <div class="slide-panel-body" style="overflow-y:auto;">
+                <!-- Mode Selection -->
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-weight:600;margin-bottom:8px;color:var(--text-primary);">AI
+                        Mode</label>
+                    <div style="display:flex;gap:12px;">
+                        <button class="btn" :class="aiMode === 'api' ? 'btn-primary' : 'btn-secondary'"
+                            @click="aiMode = 'api'; if (aiProvider === 'openrouter' && !aiModel) aiModel = 'google/gemini-2.5-flash';"
+                            :style="hasLocalAIAvailable() ? 'flex:1;display:flex;flex-direction:column;align-items:center;padding:12px;' : 'width:100%;display:flex;flex-direction:column;align-items:center;padding:12px;'">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:4px;"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+                            <div style="font-weight:600;text-align:center;">API / Local API</div>
+                            <div style="font-size:10px;opacity:0.7;text-align:center;">(LM Studio, KoboldCpp, Ollama, etc.)</div>
+                        </button>
+                        <button x-show="hasLocalAIAvailable()" class="btn" :class="aiMode === 'local' ? 'btn-primary' : 'btn-secondary'"
+                            @click="aiMode = 'local'; if (availableLocalModels.length > 0 && !aiModel) aiModel = availableLocalModels[0]; scanLocalModels();"
+                            style="flex:1;display:flex;flex-direction:column;align-items:center;padding:12px;">
+                            <div style="font-size:20px;margin-bottom:4px;">💻</div>
+                            <div style="font-weight:600;text-align:center;">Local GGUF Model</div>
+                            <div style="font-size:10px;opacity:0.7;text-align:center;">(llama.cpp backend)</div>
+                        </button>
+                    </div>
+
+                    <div x-show="needsLlamaInstall()" style="margin-top:12px;padding:12px;background:rgba(255,193,7,0.08);border:1px solid rgba(255,193,7,0.22);border-radius:8px;">
+                        <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.6;">
+                            A GGUF model was found in <code>models/</code>, but llama.cpp is not installed yet.
+                            Install it from the setup wizard to enable Local GGUF mode.
+                        </p>
+                        <button class="btn btn-secondary" @click="openLlamaSetupWizard()" style="margin-top:10px;">
+                            Open Setup Wizard
+                        </button>
+                    </div>
+
+                    <!-- Helper text for API mode -->
+                    <div x-show="aiMode === 'api'" style="margin-top:12px;padding:10px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.2);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:0;line-height:1.5;">
+                            Use this when connecting to LM Studio, KoboldCpp, Ollama, Groq, or any OpenAI-compatible server endpoint.<br>
+                            Works for both remote and local APIs via HTTP.
+                        </p>
+                    </div>
+
+                    <!-- Helper text for Local GGUF mode -->
+                    <div x-show="aiMode === 'local' && hasLocalAIAvailable()" style="margin-top:12px;padding:10px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.2);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:0;line-height:1.5;">
+                            Use this ONLY for loading GGUF models placed in /models, running via built-in llama-server backend.<br>
+                            Does NOT support LM Studio / API-based local inference.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- API Mode Settings -->
+                <div x-show="aiMode === 'api'" style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 12px 0;">API Provider Settings</h4>
+
+                    <div style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">Provider</label>
+                        <select x-model="aiProvider"
+                            @change="aiModel = (providerModels[aiProvider] && providerModels[aiProvider].length > 0) ? providerModels[aiProvider].find(m => m.recommended)?.id || providerModels[aiProvider][0].id : ''; modelsFetched = false; if (aiProvider === 'lmstudio') { aiEndpoint = aiEndpoint || 'http://localhost:1234'; fetchProviderModels(); } if (aiProvider === 'koboldcpp') { aiEndpoint = aiEndpoint || 'http://localhost:5001'; fetchProviderModels(); } if (aiProvider === 'nanogpt') { aiEndpoint = aiEndpoint || 'https://nano-gpt.com/api'; }"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                            <option value="openrouter">OpenRouter (Multi-model, has free options)</option>
+                            <option value="anthropic">Anthropic (Claude)</option>
+                            <option value="openai">OpenAI (GPT)</option>
+                            <option value="google">Google AI (Gemini)</option>
+                            <option value="nanogpt">NanoGPT (nano-gpt.com)</option>
+                            <option value="lmstudio">LM Studio (Local Server)</option>
+                            <option value="koboldcpp">KoboldCpp (Local Server)</option>
+                            <option value="custom">Custom API Endpoint</option>
+                        </select>
+                    </div>
+
+                    <div x-show="aiProvider !== 'lmstudio' && aiProvider !== 'koboldcpp'" style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">API
+                            Key</label>
+                        <input type="password" x-model="aiApiKey" placeholder="Enter your API key"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
+                            <template x-if="aiProvider === 'openrouter'">Get a free key at <a
+                                    href="https://openrouter.ai/keys" target="_blank"
+                                    style="color:var(--accent);">openrouter.ai/keys</a></template>
+                            <template x-if="aiProvider === 'anthropic'">Get your key at <a
+                                    href="https://console.anthropic.com/" target="_blank"
+                                    style="color:var(--accent);">console.anthropic.com</a></template>
+                            <template x-if="aiProvider === 'openai'">Get your key at <a
+                                    href="https://platform.openai.com/api-keys" target="_blank"
+                                    style="color:var(--accent);">platform.openai.com/api-keys</a></template>
+                            <template x-if="aiProvider === 'google'">Get your key at <a
+                                    href="https://makersuite.google.com/app/apikey" target="_blank"
+                                    style="color:var(--accent);">Google AI Studio</a></template>
+                            <template x-if="aiProvider === 'nanogpt'">Get your key at <a
+                                    href="https://nano-gpt.com/api" target="_blank"
+                                    style="color:var(--accent);">nano-gpt.com/api</a></template>
+                        </p>
+                    </div>
+
+                    <!-- LM Studio info box -->
+                    <div x-show="aiProvider === 'lmstudio'" style="margin-bottom:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:12px;">
+                        <p style="margin:0;font-size:13px;color:var(--text-primary);">
+                            <strong>🖥️ LM Studio Setup</strong>
+                        </p>
+                        <p style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+                            1. Open LM Studio and load a model<br>
+                            2. Start the local server (Local Server tab → Start Server)<br>
+                            3. Click "Refresh" below to fetch available models<br>
+                            No API key needed!
+                        </p>
+                    </div>
+
+                    <!-- KoboldCpp info box -->
+                    <div x-show="aiProvider === 'koboldcpp'" style="margin-bottom:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:12px;">
+                        <p style="margin:0;font-size:13px;color:var(--text-primary);">
+                            <strong>🦍 KoboldCpp Setup</strong>
+                        </p>
+                        <p style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+                            1. Launch KoboldCpp and load a GGUF model<br>
+                            2. Keep it running on its default port (5001)<br>
+                            3. Click "Refresh" below to detect the loaded model<br>
+                            No API key needed!
+                        </p>
+                    </div>
+
+                    <div style="margin-bottom:16px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <label
+                                style="display:block;font-size:13px;font-weight:600;color:var(--text-primary);">Model</label>
+                            <button class="btn btn-secondary" @click="fetchProviderModels()"
+                                x-show="aiProvider !== 'nanogpt' && aiProvider !== 'custom'"
+                                :disabled="((aiProvider !== 'lmstudio' && aiProvider !== 'koboldcpp') && !aiApiKey) || fetchingModels" style="font-size:11px;padding:4px 8px;"
+                                title="Refresh available models from provider">
+                                <span x-show="!fetchingModels" style="display:flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg> Refresh</span>
+                                <span x-show="fetchingModels" style="display:flex;align-items:center;gap:4px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Loading...</span>
+                            </button>
+                        </div>
+                        <!-- Model dropdown for providers with auto-discovery -->
+                        <select x-model="aiModel"
+                            x-show="aiProvider !== 'nanogpt' && aiProvider !== 'custom'"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                            <option value="" disabled>Select a model...</option>
+                            <template x-for="model in providerModels[aiProvider] || []" :key="model.id">
+                                <option :value="model.id" x-text="model.name + (model.recommended ? ' ⭐' : '')">
+                                </option>
+                            </template>
+                            <!-- Show current model if not in list -->
+                            <option x-show="aiModel && !(providerModels[aiProvider] || []).find(m => m.id === aiModel)"
+                                :value="aiModel" x-text="aiModel"></option>
+                        </select>
+                        <!-- Text input for NanoGPT and custom providers -->
+                        <input type="text" x-model="aiModel"
+                            x-show="aiProvider === 'nanogpt' || aiProvider === 'custom'"
+                            placeholder="Enter model name (e.g., gpt-4o, claude-3-5-sonnet)"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-show="modelsFetched && aiMode === 'api' && aiProvider !== 'nanogpt' && aiProvider !== 'custom'">
+                            ✓ Model list updated from provider
+                        </p>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-show="!aiApiKey && aiMode === 'api' && aiProvider !== 'lmstudio' && aiProvider !== 'koboldcpp' && aiProvider !== 'nanogpt' && aiProvider !== 'custom'">
+                            ℹ️ Enter API key above to see available models
+                        </p>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-show="aiProvider === 'lmstudio' && !modelsFetched && providerModels.lmstudio.length === 0">
+                            ℹ️ Click Refresh to fetch models from LM Studio
+                        </p>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-show="aiProvider === 'koboldcpp' && !modelsFetched && providerModels.koboldcpp.length === 0">
+                            ℹ️ Click Refresh to detect the model loaded in KoboldCpp
+                        </p>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-show="aiProvider === 'nanogpt'">
+                            ℹ️ Type the model name exactly as shown in NanoGPT documentation
+                        </p>
+                    </div>
+
+                    <!-- Force Non-Streaming Toggle (for API mode only) -->
+                    <div x-show="aiMode === 'api'" style="margin-bottom:16px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" x-model="forceNonStreaming" @change="saveGenerationParams()"
+                                style="width:16px;height:16px;cursor:pointer;">
+                            <span style="font-size:13px;color:var(--text-primary);">
+                                Force non-streaming mode
+                            </span>
+                        </label>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;padding-left:24px;">
+                            Enable this if your model doesn't support streaming or returns empty responses. Most
+                            thinking models (o1, o3, reasoning models) are auto-detected, but use this for any others
+                            that need it.
+                        </p>
+                    </div>
+
+                    <div x-show="aiProvider === 'lmstudio'" style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">LM Studio Server URL</label>
+                        <input type="text" x-model="aiEndpoint"
+                            placeholder="http://localhost:1234"
+                            @change="fetchProviderModels()"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
+                            Just the base URL (e.g., http://localhost:1234 or http://192.168.1.164:1234). Don't include /v1/models.
+                        </p>
+                    </div>
+
+                    <div x-show="aiProvider === 'koboldcpp'" style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">KoboldCpp Server URL</label>
+                        <input type="text" x-model="aiEndpoint"
+                            placeholder="http://localhost:5001"
+                            @change="fetchProviderModels()"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
+                            Just the base URL (e.g., http://localhost:5001 or http://192.168.1.164:5001). Don't include /api/v1.
+                        </p>
+                    </div>
+
+                    <div x-show="aiProvider === 'custom'" style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">Custom
+                            Endpoint URL</label>
+                        <input type="text" x-model="aiEndpoint"
+                            placeholder="https://api.example.com/v1/chat/completions"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                    </div>
+
+                    <!-- NanoGPT info box and endpoint -->
+                    <div x-show="aiProvider === 'nanogpt'" style="margin-bottom:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:12px;">
+                        <p style="margin:0;font-size:13px;color:var(--text-primary);">
+                            <strong>🌐 NanoGPT Setup</strong>
+                        </p>
+                        <p style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+                            NanoGPT provides access to multiple LLM models via an OpenAI-compatible API.<br>
+                            Enter your API key above and type the model name manually below.
+                        </p>
+                    </div>
+
+                    <div x-show="aiProvider === 'nanogpt'" style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">NanoGPT
+                            Base URL</label>
+                        <input type="text" x-model="aiEndpoint"
+                            placeholder="https://nano-gpt.com/api"
+                            x-init="if (aiProvider === 'nanogpt' && !aiEndpoint) aiEndpoint = 'https://nano-gpt.com/api'"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
+                            Default: https://nano-gpt.com/api (change only if using a different endpoint)
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Local GGUF Mode Settings -->
+                <div x-show="aiMode === 'local'" style="margin-bottom:20px;">
+                    <h4 style="margin:0 0 12px 0;">Local GGUF Model Settings</h4>
+
+                    <div
+                        style="background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.2);border-radius:6px;padding:12px;margin-bottom:16px;">
+                        <p style="font-size:12px;color:var(--text-secondary);margin:0;">📁 Place your GGUF model
+                            files in the <code
+                                style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">/models</code>
+                            folder, then click "Scan for Models" below.</p>
+                    </div>
+
+                    <button class="btn btn-secondary" @click="scanLocalModels()" style="margin-bottom:16px;display:flex;align-items:center;gap:6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Scan for Models</button>
+
+                    <div style="margin-bottom:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">Local
+                            Model Status</label>
+                        <div
+                            style="padding:12px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:6px;">
+                            <p style="font-size:12px;color:var(--text-secondary);margin:0;">
+                                ✓ Model loaded by llama-server (started via start.bat)<br>
+                                <span style="font-size:11px;opacity:0.8;">The actual model file is whichever .gguf file
+                                    start.bat found in your /models folder</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        style="margin-top:12px;padding:10px;background:rgba(33,150,243,0.1);border:1px solid rgba(33,150,243,0.3);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:0;line-height:1.5;">
+                            💡 <strong>Note:</strong> To change models, close Writingway, replace the .gguf file in
+                            /models folder, and run start.bat again
+                        </p>
+                    </div>
+
+                    <div style="margin-top:16px;">
+                        <label
+                            style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">Server
+                            URL</label>
+                        <input type="text" x-model="aiEndpoint" value="http://localhost:8080"
+                            placeholder="http://localhost:8080"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">The llama-server
+                            endpoint (usually localhost:8080)</p>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div style="display:flex;gap:8px;padding-top:16px;border-top:1px solid var(--border);">
+                    <button class="btn btn-primary" @click="saveAISettings()" style="display:flex;align-items:center;gap:8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg> Save & Test Connection</button>
+                    <button class="btn btn-secondary" @click="showAISettings = false">Cancel</button>
+                </div>
+
+                <!-- Accessibility Settings Section -->
+                <div style="margin-top:32px;padding-top:24px;border-top:2px solid var(--border);">
+                    <h4 style="margin:0 0 16px 0;color:var(--text-primary);">♿ Accessibility</h4>
+
+                    <div style="margin-bottom:16px;">
+                        <label style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:12px;background:var(--bg-tertiary);border-radius:8px;transition:background 0.2s;"
+                            @mouseenter="$el.style.background='var(--bg-primary)'"
+                            @mouseleave="$el.style.background='var(--bg-tertiary)'">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <span style="font-size:24px;" x-text="lightMode ? '☀️' : '🌙'"></span>
+                                <div>
+                                    <span style="font-size:14px;font-weight:600;color:var(--text-primary);">Light Mode</span>
+                                    <p style="font-size:12px;color:var(--text-secondary);margin:4px 0 0 0;">
+                                        Switch to a brighter theme for better visibility
+                                    </p>
+                                </div>
+                            </div>
+                            <!-- Toggle Switch -->
+                            <div style="position:relative;width:52px;height:28px;flex-shrink:0;">
+                                <input type="checkbox" x-model="lightMode" @change="toggleLightMode()"
+                                    style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer;z-index:1;">
+                                <div style="position:absolute;top:0;left:0;right:0;bottom:0;border-radius:14px;transition:background 0.3s;"
+                                    :style="lightMode ? 'background:var(--accent)' : 'background:var(--border)'">
+                                </div>
+                                <div style="position:absolute;top:2px;width:24px;height:24px;background:white;border-radius:50%;transition:transform 0.3s;box-shadow:0 2px 4px rgba(0,0,0,0.2);"
+                                    :style="lightMode ? 'transform:translateX(26px)' : 'transform:translateX(2px)'">
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <p style="font-size:11px;color:var(--text-tertiary);margin:0;line-height:1.5;">
+                        Your theme preference is saved automatically and will persist across sessions.
+                    </p>
+                </div>
+            </div>
+        </div>
+

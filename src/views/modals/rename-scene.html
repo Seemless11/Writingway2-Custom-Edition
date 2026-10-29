@@ -1,0 +1,14 @@
+        <!-- Rename Scene Modal -->
+        <template x-if="showRenameSceneModal">
+            <div class="modal-overlay" @click.self="showRenameSceneModal = false">
+                <div class="modal">
+                    <h3>Rename Scene</h3>
+                    <input type="text" x-model="renameSceneName" placeholder="Scene name" @keydown.enter="renameScene">
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" @click="showRenameSceneModal = false">Cancel</button>
+                        <button class="btn btn-primary" @click="renameScene">Rename</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

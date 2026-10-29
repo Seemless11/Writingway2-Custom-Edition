@@ -1,0 +1,6 @@
+        <!-- Sidebar toggle tab (always visible) -->
+        <button class="sidebar-toggle-tab" @click="toggleSidebar()" :title="sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'" x-cloak>
+            <span x-show="!sidebarCollapsed">◀</span>
+            <span x-show="sidebarCollapsed">▶</span>
+        </button>
+

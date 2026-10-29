@@ -1,0 +1,519 @@
+
+                    <!-- Editor/Workshop Split Container -->
+                    <div x-show="writingMode === 'editor'" class="editor-workshop-split" x-data="{ isDragging: false }"
+                        @mouseup.window="isDragging = false" @mousemove.window="if (isDragging) { 
+                            const container = $el;
+                            const rect = container.getBoundingClientRect();
+                            const x = $event.clientX - rect.left;
+                            workshopSplitterPosition = Math.max(30, Math.min(70, (x / rect.width) * 100));
+                        }">
+
+                        <!-- Editor Content -->
+                        <div class="editor-workshop-content"
+                            :style="showEmbeddedWorkshop ? `width: ${workshopSplitterPosition}%` : 'width: 100%'">
+                            <div class="editor-main" style="height: 100%;">
+                                <!-- Export Reminder Banner -->
+                                <template x-if="showExportReminder && !exportReminderDismissed">
+                                    <div
+                                        style="background:linear-gradient(135deg, rgba(255,193,7,0.15), rgba(255,152,0,0.1));border-bottom:2px solid rgba(255,193,7,0.4);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
+                                        <div style="display:flex;align-items:center;gap:12px;flex:1;">
+                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></svg>
+                                            <div>
+                                                <div
+                                                    style="font-weight:600;color:var(--text-primary);margin-bottom:4px;">
+                                                    Don't forget to backup your work!
+                                                </div>
+                                                <div
+                                                    style="font-size:12px;color:var(--text-secondary);line-height:1.4;">
+                                                    Your project is saved in your browser. Export it regularly to keep a
+                                                    backup
+                                                    on your computer.
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="display:flex;gap:8px;align-items:center;">
+                                            <button class="btn btn-primary" @click="exportProject()"
+                                                style="padding:8px 16px;font-size:13px;white-space:nowrap;">
+                                                📦 Export Now
+                                            </button>
+                                            <button class="btn btn-secondary" @click="dismissExportReminder()"
+                                                style="padding:8px 12px;font-size:13px;">
+                                                Dismiss
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <template x-if="currentScene">
+                                    <div style="position:relative;height:100%;display:flex;flex-direction:column;">
+                                        <!-- Edit Mode: Textarea -->
+                                        <textarea x-show="!showMarkdownPreview" class="editor-textarea"
+                                            :class="{ 'has-generated-text': showGeneratedHighlight }"
+                                            @input="onBeatInput($event); onEditorChange($event); handleAutoReplace($event)"
+                                            @keydown="onBeatKey($event)"
+                                            @keydown.ctrl.enter.prevent="if (getCurrentBeat() && !isGenerating && aiStatus === 'ready') generateFromBeat()"
+                                            @keydown.meta.enter.prevent="if (getCurrentBeat() && !isGenerating && aiStatus === 'ready') generateFromBeat()"
+                                            @paste="handlePaste" x-model="currentScene.content"
+                                            style="outline:none;direction:ltr;resize:none;" dir="ltr"
+                                            placeholder="Start writing your scene here... Use ## for scene beats. Use @name for compendium entries, #scene for scenes."></textarea>
+
+                                        <!-- Mention Autocomplete Dropdowns (@ compendium, # scene) -->
+                                        <div class="quick-search-dropdown" x-show="showQuickSearch && !showMiniBeatInput" x-cloak
+                                            style="position:absolute;bottom:0;left:30px;right:30px;z-index:5000;pointer-events:none;">
+                                            <div
+                                                style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
+                                                <template x-for="(m,mi) in quickSearchMatches" :key="m.id">
+                                                    <div class="quick-search-item"
+                                                        :class="{ 'active': mi === quickSearchSelectedIndex }"
+                                                        @click="selectQuickMatch(m)"
+                                                        style="padding:6px;border-radius:4px;cursor:pointer;">
+                                                        <div style="font-weight:600" x-text="m.title"></div>
+                                                        <div style="font-size:12px;color:var(--text-secondary);"
+                                                            x-text="(m.category || '')"></div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <div class="scene-search-dropdown" x-show="showSceneSearch && !showMiniBeatInput" x-cloak
+                                            style="position:absolute;bottom:0;left:30px;right:30px;z-index:5000;pointer-events:none;">
+                                            <div
+                                                style="pointer-events:auto;background:var(--bg-primary);border:1px solid var(--accent-amber,var(--color-accent));border-radius:6px;padding:6px;max-height:240px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);margin-bottom:8px;">
+                                                <template x-for="(scene,si) in sceneSearchMatches" :key="scene.id">
+                                                    <div class="scene-search-item"
+                                                        :class="{ 'active': si === sceneSearchSelectedIndex }"
+                                                        @click="selectSceneMatch(scene)"
+                                                        style="padding:6px;border-radius:4px;cursor:pointer;">
+                                                        <div style="display:flex;align-items:center;gap:6px;">
+                                                            <span
+                                                                x-text="scene.hasSummary ? (scene.summaryStale ? '⚠️' : '✅') : '❌'"
+                                                                :title="scene.hasSummary ? (scene.summaryStale ? 'Summary is outdated' : 'Summary available') : 'No summary'"></span>
+                                                            <span style="font-weight:600" x-text="scene.title"></span>
+                                                        </div>
+                                                        <div style="font-size:12px;color:var(--text-secondary);"
+                                                            x-text="scene.chapterName || 'Unknown Chapter'"></div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </div>
+
+                                        <!-- Floating Beat Control Bar (default mode) -->
+                                        <div x-show="!showMarkdownPreview && currentScene && !showMiniBeatInput"
+                                            class="floating-beat-bar">
+                                            <div class="floating-beat-bar-inner">
+                                                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                                    <div class="beat-length-presets" style="display:flex;gap:3px;align-items:center;">
+                                                        <template x-for="len in [{w:200,p:'2-3 ¶'},{w:400,p:'3-4 ¶'},{w:600,p:'4-6 ¶'}]" :key="len.w">
+                                                            <button class="btn btn-secondary" type="button"
+                                                                @click="maxTokens = len.w; saveGenerationParams()"
+                                                                :style="'font-size:11px;padding:3px 7px;' + (maxTokens === len.w ? 'border-color:var(--accent);color:var(--accent);' : '')"
+                                                                :title="'Target ~' + len.w + ' words (~' + len.p + ') of output'"
+                                                                x-text="len.w + ' (' + len.p + ')'"></button>
+                                                        </template>
+                                                        <input type="number" x-model.number="maxTokens"
+                                                            @input="saveGenerationParams()" min="1" max="20000" step="50"
+                                                            style="width:50px;font-size:11px;padding:3px 5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;"
+                                                            title="Custom target length in words">
+                                                    </div>
+
+                                                    <span style="font-size:10px;color:var(--text-secondary);white-space:nowrap;">Prompt:</span>
+                                                    <select x-model="selectedProsePromptId"
+                                                        @change="saveSelectedProsePrompt(selectedProsePromptId)"
+                                                        style="padding:3px 6px;font-size:11px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);max-width:140px;"
+                                                        title="Select prose prompt for generation">
+                                                        <option value="">Default</option>
+                                                        <template x-for="pr in prompts.filter(p => p.category === 'prose')" :key="pr.id">
+                                                            <option :value="pr.id" x-text="pr.title"></option>
+                                                        </template>
+                                                    </select>
+
+                                                    <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
+                                                        title="Context Panel" style="font-size:12px;padding:3px 7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></button>
+                                                    <button class="btn btn-secondary" @click="openCompendium()"
+                                                        title="Compendium" style="font-size:12px;padding:3px 7px;">📖</button>
+                                                    <button class="btn btn-secondary" @click="showEmbeddedWorkshop = !showEmbeddedWorkshop; if (showEmbeddedWorkshop && (!workshopSessions || workshopSessions.length === 0)) { workshopSessions = [window.workshopChat.createNewSession($data)]; saveWorkshopSessions(); }"
+                                                        :style="showEmbeddedWorkshop ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5); font-size:12px; padding:3px 7px;' : 'font-size:12px; padding:3px 7px;'"
+                                                        title="Toggle Workshop Chat"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+                                                    <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
+                                                        title="Prompt History" style="font-size:12px;padding:3px 7px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
+                                                    <button class="btn btn-secondary" @click="previewPrompt"
+                                                        :disabled="!getCurrentBeat() || aiStatus !== 'ready'"
+                                                        title="Preview Prompt" style="font-size:12px;padding:3px 7px;">👁️</button>
+
+                                                    <button class="btn btn-primary" @click="generateFromBeat"
+                                                        x-show="!isGenerating"
+                                                        :disabled="!getCurrentBeat() || aiStatus !== 'ready'"
+                                                        title="Generate Text" style="font-size:12px;padding:3px 10px;">
+                                                        ✨ Gen
+                                                    </button>
+                                                    <button class="btn btn-secondary" @click="generateFlowFromBeat"
+                                                        x-show="!isGenerating"
+                                                        :disabled="aiStatus !== 'ready'"
+                                                        title="Generate flowing narrative prose — continues naturally with or without a beat direction"
+                                                        style="font-size:12px;padding:3px 10px;">
+                                                        🌊 Flow
+                                                    </button>
+                                                    <span x-show="isGenerating && genStatus" x-text="genStatus" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;"></span>
+                                                    <button class="btn btn-danger" @click="stopBeatGeneration"
+                                                        x-show="isGenerating"
+                                                        title="Stop generation" style="font-size:12px;padding:3px 10px;">
+                                                        ⏹ Stop
+                                                    </button>
+
+                                                    <button class="btn btn-secondary" @click="showSceneOptions = true"
+                                                        title="Scene model settings" style="font-size:12px;padding:3px 7px;">
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                                                    </button>
+                                                    <button class="btn btn-secondary" @click="toggleBeatMode()"
+                                                        title="Switch to legacy beat input panel" style="font-size:12px;padding:3px 7px;">
+                                                        ⌨️
+                                                    </button>
+
+                                                    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;"
+                                                         x-show="showGenActions" x-cloak>
+                                                        <span x-show="lastGenTruncated && lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the short incomplete ending at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
+                                                        <span x-show="lastGenTruncated && !lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the ending may be incomplete. The text was kept as-is so no content was lost — use Flow or Retry to finish it.">⚠ cut off — incomplete ending kept</span>
+                                                        <button class="btn btn-primary" @click="acceptGeneration" style="font-size:12px;padding:4px 12px;">Accept</button>
+                                                        <button class="btn btn-secondary" @click="retryGeneration" style="font-size:12px;padding:4px 12px;">Retry</button>
+                                                        <button class="btn btn-secondary" @click="discardGeneration" style="font-size:12px;padding:4px 12px;">Discard</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Legacy Beat Panel -->
+                                        <div x-show="!showMarkdownPreview && showMiniBeatInput" class="legacy-beat-panel">
+                                            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;">
+                                                <h3 style="margin:0;font-size:12px;color:var(--accent);text-transform:uppercase;letter-spacing:1px;font-weight:700;">Beat Input</h3>
+                                                <button class="btn btn-secondary" @click="toggleBeatMode()"
+                                                    title="Switch to floating bar mode" style="font-size:11px;padding:2px 6px;">
+                                                    ⌨️ Floating Bar
+                                                </button>
+                                            </div>
+                                            <div style="display:flex;gap:8px;margin-bottom:8px;">
+                                                <textarea class="beat-input" x-model="beatInput" @input="onBeatInput($event)"
+                                                    @keydown="onBeatKey($event)"
+                                                    @keydown.ctrl.enter.prevent="if (beatInput && !isGenerating && aiStatus === 'ready') generateFromBeat()"
+                                                    @keydown.meta.enter.prevent="if (beatInput && !isGenerating && aiStatus === 'ready') generateFromBeat()"
+                                                    placeholder="Describe what happens next... Use @name for compendium, #scene for scenes."
+                                                    spellcheck="true" rows="1"
+                                                    style="flex:1;padding:8px;background:rgba(58,58,58,0.6);border:1px solid rgba(217,119,6,0.2);border-radius:6px;color:var(--text-primary);font-size:13px;font-family:inherit;resize:none;min-height:36px;"></textarea>
+                                                <button class="btn btn-primary" @click="generateFromBeat"
+                                                    x-show="!isGenerating"
+                                                    :disabled="!beatInput || aiStatus !== 'ready'"
+                                                    style="font-size:12px;padding:4px 12px;white-space:nowrap;">✨ Generate</button>
+                                                <button class="btn btn-secondary" @click="generateFlowFromBeat"
+                                                    x-show="!isGenerating"
+                                                    :disabled="aiStatus !== 'ready'"
+                                                    style="font-size:12px;padding:4px 12px;white-space:nowrap;">🌊 Flow</button>
+                                                <span x-show="isGenerating && genStatus" x-text="genStatus" style="font-size:11px;color:var(--text-secondary);white-space:nowrap;"></span>
+                                                <button class="btn btn-danger" @click="stopBeatGeneration"
+                                                    x-show="isGenerating"
+                                                    style="font-size:12px;padding:4px 12px;white-space:nowrap;">⏹ Stop</button>
+                                            </div>
+                                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                                <div class="beat-length-presets" style="display:flex;gap:3px;align-items:center;">
+                                                    <template x-for="len in [{w:200,p:'2-3 ¶'},{w:400,p:'3-4 ¶'},{w:600,p:'4-6 ¶'}]" :key="len.w">
+                                                        <button class="btn btn-secondary" type="button"
+                                                            @click="maxTokens = len.w; saveGenerationParams()"
+                                                            :style="'font-size:11px;padding:2px 6px;' + (maxTokens === len.w ? 'border-color:var(--accent);color:var(--accent);' : '')"
+                                                            x-text="len.w + ' (' + len.p + ')'"></button>
+                                                    </template>
+                                                    <input type="number" x-model.number="maxTokens"
+                                                        @input="saveGenerationParams()" min="1" max="20000" step="50"
+                                                        style="width:48px;font-size:11px;padding:2px 4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;">
+                                                </div>
+                                                <span style="font-size:10px;color:var(--text-secondary);">Prompt:</span>
+                                                <select x-model="selectedProsePromptId"
+                                                    @change="saveSelectedProsePrompt(selectedProsePromptId)"
+                                                    style="padding:2px 6px;font-size:11px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);max-width:140px;">
+                                                    <option value="">Default</option>
+                                                    <template x-for="pr in prompts.filter(p => p.category === 'prose')" :key="pr.id">
+                                                        <option :value="pr.id" x-text="pr.title"></option>
+                                                    </template>
+                                                </select>
+                                                <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
+                                                    title="Context Panel" style="font-size:11px;padding:2px 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></button>
+                                                <button class="btn btn-secondary" @click="showSceneOptions = !showSceneOptions"
+                                                    title="Scene options" style="font-size:11px;padding:2px 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+                                                <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
+                                                    title="Prompt History" style="font-size:11px;padding:2px 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></button>
+                                                <button class="btn btn-secondary" @click="previewPrompt"
+                                                    :disabled="!beatInput || aiStatus !== 'ready'"
+                                                    title="Preview Prompt" style="font-size:11px;padding:2px 6px;">👁️</button>
+                                            </div>
+                                            <!-- Generation actions inside legacy panel -->
+                                            <div x-show="showGenActions" x-cloak style="display:flex;gap:8px;justify-content:flex-end;margin-top:6px;">
+                                                <span x-show="lastGenTruncated && lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the short incomplete ending at the end was removed. Increase the target length for longer output.">⚠ cut off — trimmed</span>
+                                                        <span x-show="lastGenTruncated && !lastGenTrimmed" style="font-size:11px;color:var(--accent-amber,var(--color-accent));white-space:nowrap;" title="The model hit the output limit, so the ending may be incomplete. The text was kept as-is so no content was lost — use Flow or Retry to finish it.">⚠ cut off — incomplete ending kept</span>
+                                                <button class="btn btn-primary" @click="acceptGeneration" style="font-size:11px;padding:3px 10px;">Accept</button>
+                                                <button class="btn btn-secondary" @click="retryGeneration" style="font-size:11px;padding:3px 10px;">Retry</button>
+                                                <button class="btn btn-secondary" @click="discardGeneration" style="font-size:11px;padding:3px 10px;">Discard</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Preview Mode: Rendered HTML -->
+                                        <div x-show="showMarkdownPreview" class="editor-preview"
+                                            x-html="markdownToHtml(currentScene.content)"
+                                            style="flex:1;padding:50px 60px;background:var(--bg-primary);overflow-y:auto;direction:ltr;font-family:'Georgia',serif;font-size:17px;line-height:2.0;color:#e8e8e8;">
+                                        </div>
+                                    </div>
+                                </template>
+                                <template x-if="!currentScene">
+                                    <!-- Inline project picker when no project loaded -->
+                                    <template x-if="!currentProject">
+                                        <div class="welcome-screen">
+                                            <div class="welcome-content">
+                                                <h2>Welcome to Writingway 2.0</h2>
+                                                <p>Select a project to begin writing</p>
+                                                <template x-if="projects.length === 0">
+                                                    <div style="text-align:center;">
+                                                        <p style="color:var(--text-secondary);margin-bottom:16px;">No projects yet</p>
+                                                        <button class="btn btn-primary" @click="showNewProjectModal = true">
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Create Your First Project
+                                                        </button>
+                                                    </div>
+                                                </template>
+                                                 <template x-if="projects.length > 0">
+                                                      <div style="width:100%;max-width:500px;margin:0 auto;">
+                                                          <div style="display:flex;gap:8px;margin-bottom:12px;">
+                                                              <button class="btn btn-primary" @click="showNewProjectModal = true" style="flex:1;display:flex;align-items:center;gap:6px;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New Project</button>
+                                                               <button class="btn btn-secondary" @click="showW1ImportModal = true" title="Import from Writingway 1" style="display:flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
+                                                               <button class="btn btn-secondary" @click="showNovelcrafterImportModal = true" title="Import from Novelcrafter" style="display:flex;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Import NC</button>
+                                                         </div>
+                                                      <div class="project-list">
+                                                      <template x-for="project in projects" :key="project.id">
+                                                              <div class="project-picker-card" @click="openProject(project.id)"
+                                                                  style="display:flex;align-items:center;gap:16px;padding:16px 20px;margin-bottom:8px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.2s;"
+                                                                  @mouseenter="$el.style.borderColor='rgba(74,158,255,0.5)';$el.style.background='rgba(217,119,6,0.08)'"
+                                                                  @mouseleave="$el.style.borderColor='var(--border)';$el.style.background='var(--bg-secondary)'">
+                                                                   <div style="font-size:32px;flex-shrink:0;display:flex;align-items:center;justify-content:center;width:40px;height:40px;"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></div>
+                                                                  <div style="flex:1;min-width:0;text-align:left;">
+                                                                      <div style="font-weight:600;font-size:16px;color:var(--text-primary);" x-text="project.name"></div>
+                                                                      <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;" x-text="'Last modified: ' + new Date(project.modified).toLocaleDateString()"></div>
+                                                                  </div>
+                                                                    <button @click.stop="
+                                                                            renameProjectTargetId = project.id;
+                                                                            renameProjectName = project.name;
+                                                                            renameProjectPov = project.pov || '3rd person limited';
+                                                                            renameProjectTense = project.tense || 'past';
+                                                                            renameProjectLanguage = project.language || 'English';
+                                                                             renameProjectPovCharacter = project.povCharacter || '';
+                                                                             renameProjectGenres = [...(project.genres || [])];
+                                                                            showRenameProjectModal = true" title="Edit project"
+                                                                           style="background:none;border:none;font-size:16px;cursor:pointer;color:var(--text-secondary);padding:4px 6px;border-radius:6px;flex-shrink:0;"
+                                                                           @mouseenter="$el.style.color='var(--accent)'"
+                                                                            @mouseleave="$el.style.color='var(--text-secondary)'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></button>
+                                                                    <button @click.stop="deleteProject(project.id)" title="Delete project"
+                                                                            style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--text-secondary);padding:4px 8px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;"
+                                                                            @mouseenter="$el.style.color='var(--danger,#ef4444)'"
+                                                                            @mouseleave="$el.style.color='var(--text-secondary)'"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                                                                    <div style="font-size:18px;color:var(--text-secondary);display:flex;align-items:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></div>
+                                                              </div>
+                                                           </template>
+                                                      </div>
+                                                     </div>
+                                                 </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <!-- Loading project -->
+                                    <template x-if="currentProject && projectLoading">
+                                        <div class="welcome-screen">
+                                            <div class="welcome-content">
+                                                <h2>Loading Project</h2>
+                                                <div class="loading-bar" style="margin:20px auto;max-width:300px;">
+                                                    <div class="loading-bar-fill" style="width:60%;"></div>
+                                                </div>
+                                                <p style="color:var(--text-secondary);">Loading scenes and content...</p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    <!-- Ready to write when project loaded but no scene selected -->
+                                    <template x-if="currentProject && !projectLoading">
+                                        <div class="welcome-screen">
+                                            <div class="welcome-content">
+                                                <h2>Ready to Write</h2>
+                                                <p>Select a scene from the sidebar or create a new one to get started.</p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Splitter -->
+                        <div x-show="showEmbeddedWorkshop" class="workshop-splitter" @mousedown="isDragging = true">
+                        </div>
+
+                        <!-- Embedded Workshop Panel -->
+                        <div x-show="showEmbeddedWorkshop"
+                            class="embedded-workshop-panel" :style="`width: ${100 - workshopSplitterPosition}%`">
+
+                            <!-- Workshop Header -->
+                            <div class="embedded-workshop-header">
+                                <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;flex-wrap:wrap;">
+                                    <span style="font-size:14px;font-weight:600;white-space:nowrap;">Workshop</span>
+                                    <select x-model="currentWorkshopSessionIndex" class="workshop-select"
+                                        style="flex:1;min-width:60px;font-size:12px;">
+                                        <template x-for="(session, idx) in workshopSessions" :key="session.id">
+                                            <option :value="idx" x-text="session.name"></option>
+                                        </template>
+                                    </select>
+                                    <select x-model="aiModel" @change="saveGenerationParams()" class="workshop-select"
+                                        style="font-size:12px;min-width:90px;"
+                                        title="AI Model for this chat"
+                                        x-show="aiMode === 'api' || availableLocalModels.length > 0">
+                                        <template x-for="model in (aiMode === 'api' ? (providerModels[aiProvider] || []) : [])" :key="model.id">
+                                            <option :value="model.id" x-text="model.name + (model.recommended ? ' ⭐' : '')"></option>
+                                        </template>
+                                        <template x-for="modelName in (aiMode === 'local' ? availableLocalModels : [])" :key="modelName">
+                                            <option :value="modelName" x-text="modelName"></option>
+                                        </template>
+                                        <option x-show="aiModel && ((aiMode === 'api' && !(providerModels[aiProvider] || []).find(m => m.id === aiModel)) || (aiMode === 'local' && !availableLocalModels.includes(aiModel)))"
+                                            :value="aiModel" x-text="aiModel"></option>
+                                    </select>
+                                    <span x-show="aiMode === 'local' && availableLocalModels.length === 0"
+                                        style="padding:3px 8px;background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:4px;font-size:11px;white-space:nowrap;">
+                                        ✓ Local
+                                    </span>
+                                    <select x-model="selectedWorkshopPromptId" @change="saveSelectedWorkshopPrompt()" class="workshop-select"
+                                        style="font-size:12px;min-width:80px;">
+                                        <option value="">Default Prompt</option>
+                                        <template x-for="p in prompts.filter(p => p.category === 'workshop')" :key="p.id">
+                                            <option :value="p.id" x-text="p.title"></option>
+                                        </template>
+                                    </select>
+                                    <select x-model="workshopFidelityMode" class="workshop-select"
+                                        style="font-size:12px;min-width:64px;"
+                                        title="Controls how much conversation history to include in AI requests">
+                                        <option value="high">Fidelity: High</option>
+                                        <option value="balanced">Fidelity: Balanced</option>
+                                        <option value="compressed">Fidelity: Compressed</option>
+                                    </select>
+                                    <input type="number" x-model.number="maxTokens" min="1" max="20000" step="50"
+                                        style="width:60px;font-size:11px;padding:3px 5px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);text-align:center;"
+                                        title="Target length in words">
+                                </div>
+                                <button class="btn btn-secondary btn-sm" @click="createWorkshopSession"
+                                    title="New Chat">+</button>
+                            </div>
+
+                            <!-- Workshop Messages -->
+                            <div class="embedded-workshop-messages">
+                                <template
+                                    x-if="workshopSessions[currentWorkshopSessionIndex] && workshopSessions[currentWorkshopSessionIndex].messages.length === 0">
+                                    <div
+                                        style="text-align:center;color:var(--text-secondary);font-size:13px;padding:20px;">
+                                        Start a conversation with the AI to brainstorm ideas...
+                                    </div>
+                                </template>
+                                <template x-if="workshopSessions[currentWorkshopSessionIndex]">
+                                    <template
+                                        x-for="(msg, idx) in workshopSessions[currentWorkshopSessionIndex].messages"
+                                        :key="idx">
+                                        <div class="workshop-message" :class="`workshop-message-${msg.role}` + (msg.isError ? ' workshop-message-error' : '')">
+                                            <div x-show="workshopEditingIdx !== idx" style="display:flex;align-items:flex-start;gap:4px;">
+                                                <div class="workshop-message-content" style="flex:1;min-width:0;"
+                                                    x-html="markdownToHtml(msg.content || '')"></div>
+                                                <div style="display:flex;gap:2px;flex-shrink:0;opacity:0;transition:opacity 0.15s;"
+                                                    x-show="msg.content && workshopEditingIdx !== idx"
+                                                    @mouseover="$el.style.opacity='1'" @mouseout="$el.style.opacity='0'"
+                                                    @mouseenter="$el.style.opacity='1'" @mouseleave="$el.style.opacity='0'">
+                                                    <template x-if="msg.role === 'assistant' && !msg.isError">
+                                                        <button class="btn-icon-sm" @click="Workshop.editMessage($data, currentWorkshopSessionIndex, idx)" title="Edit" style="font-size:12px;padding:1px 4px;">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                                        </button>
+                                                    </template>
+                                                    <template x-if="msg.role === 'assistant' && !msg.isError">
+                                                        <button class="btn-icon-sm" @click="Workshop.retryMessage($data, currentWorkshopSessionIndex, idx)" title="Retry" style="font-size:12px;padding:1px 4px;">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+                                                        </button>
+                                                    </template>
+                                                    <template x-if="msg.role === 'user'">
+                                                        <button class="btn-icon-sm" @click="Workshop.retryMessage($data, currentWorkshopSessionIndex, idx)" title="Edit" style="font-size:12px;padding:1px 4px;">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+                                                        </button>
+                                                    </template>
+                                                    <button class="btn-icon-sm" @click="Workshop.deleteMessage($data, currentWorkshopSessionIndex, idx)" title="Delete" style="font-size:12px;padding:1px 4px;">
+                                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <template x-if="workshopEditingIdx === idx">
+                                                <div style="padding:4px 0;">
+                                                    <textarea x-model="workshopEditingBuffer"
+                                                        style="width:100%;min-height:60px;padding:6px 8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);font-size:12px;resize:vertical;box-sizing:border-box;font-family:inherit;"></textarea>
+                                                    <div style="display:flex;gap:4px;margin-top:4px;">
+                                                        <button class="btn btn-primary" style="font-size:10px;padding:3px 10px;" @click="Workshop.saveEdit($data, currentWorkshopSessionIndex)">Save</button>
+                                                        <button class="btn btn-secondary" style="font-size:10px;padding:3px 10px;" @click="Workshop.cancelEdit($data)">Cancel</button>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </template>
+                            </div>
+
+                            <!-- Workshop Input -->
+                            <div class="embedded-workshop-input-area">
+                                <div style="position:relative;">
+                                    <textarea class="embedded-workshop-textarea workshop-textarea" x-model="workshopInput"
+                                        @input="window.workshopChat.onWorkshopInput($data, $event)"
+                                        @keydown="window.workshopChat.handleWorkshopKeydown($data, $event); if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); window.workshopChat.sendMessage($data, workshopInput); }"
+                                        placeholder="Type your message... Use @name for compendium entries, #scene for scenes."
+                                        :disabled="workshopIsGenerating"></textarea>
+                                    <!-- Compendium Quick Search Dropdown -->
+                                    <div x-show="showWorkshopQuickSearch" x-cloak class="quick-search-dropdown"
+                                        style="position:absolute;bottom:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:4px;margin-bottom:4px;z-index:9999;">
+                                        <template x-for="(item, idx) in workshopQuickSearchMatches" :key="item.id">
+                                            <div class="quick-search-item"
+                                                @click="window.workshopChat.selectWorkshopQuickMatch($data, item)"
+                                                :class="{ 'active': idx === workshopQuickSearchSelectedIndex }"
+                                                style="padding:8px;cursor:pointer;font-size:13px;">
+                                                <div style="font-weight:600;" x-text="item.title"></div>
+                                                <div style="font-size:11px;color:var(--text-secondary);" x-text="item.category"></div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <!-- Scene Search Dropdown -->
+                                    <div x-show="showWorkshopSceneSearch" x-cloak class="scene-search-dropdown"
+                                        style="position:absolute;bottom:100%;left:0;right:0;max-height:200px;overflow-y:auto;background:var(--bg-primary);border:1px solid var(--border-primary);border-radius:4px;margin-bottom:4px;z-index:9999;">
+                                        <template x-for="(scene, idx) in workshopSceneSearchMatches" :key="scene.id">
+                                            <div class="scene-search-item"
+                                                @click="window.workshopChat.selectWorkshopSceneMatch($data, scene)"
+                                                :class="{ 'active': idx === workshopSceneSearchSelectedIndex }"
+                                                style="padding:8px;cursor:pointer;font-size:13px;">
+                                                <div style="font-weight:600;" x-text="scene.title"></div>
+                                                <div style="font-size:11px;color:var(--text-secondary);">
+                                                    <template x-if="scene.summary">
+                                                        <span x-text="scene.summary.substring(0, 60) + '...'"></span>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                                <div style="display:flex;gap:8px;align-items:center;margin-top:8px;">
+                                    <button class="btn btn-secondary btn-sm"
+                                        @click="useWorkshopContextPanel = true; showContextPanel = true"
+                                        :style="useWorkshopContextPanel ? 'background: rgba(76,175,80,0.2); border-color: rgba(76,175,80,0.5);' : ''"
+                                        title="Open Context Panel (used in this chat)">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg>
+                                    </button>
+                                    <button class="btn btn-secondary btn-sm"
+                                        x-show="useWorkshopContextPanel"
+                                        @click="useWorkshopContextPanel = false"
+                                        title="Stop using Context Panel for this chat"
+                                        style="padding:4px 8px;">
+                                        ✕
+                                    </button>
+                                    <button class="btn btn-primary btn-sm"
+                                        @click="window.workshopChat.sendMessage($data, workshopInput)"
+                                        :disabled="false" style="flex:1;">
+                                        <span x-show="!workshopIsGenerating">Send</span>
+                                        <span x-show="workshopIsGenerating">Stop</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>

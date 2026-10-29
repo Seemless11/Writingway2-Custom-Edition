@@ -1,0 +1,14 @@
+        <!-- New Scene Modal -->
+        <template x-if="showNewSceneModal">
+            <div class="modal-overlay" @click.self="showNewSceneModal = false">
+                <div class="modal">
+                    <h3>New Scene</h3>
+                    <input type="text" x-model="newSceneName" placeholder="Scene name (e.g., 'Opening')"
+                        @keydown.enter="createScene">
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" @click="showNewSceneModal = false">Cancel</button>
+                        <button class="btn btn-primary" @click="createScene">Create</button>
+                    </div>
+                </div>
+            </div>
+        </template>

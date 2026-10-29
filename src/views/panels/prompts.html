@@ -1,0 +1,150 @@
+        <!-- Prompts Slide Panel (Resizable) -->
+        <div class="slide-panel-right prompts-panel" 
+            :class="{ 'open': showPromptsPanel }" 
+            :style="'width:' + promptsPanelWidth + 'px'"
+            x-cloak aria-hidden="true">
+            <!-- Resize handle on left edge -->
+            <div class="prompts-resize-handle"
+                @mousedown.prevent="$event.target.classList.add('active'); 
+                    const startX = $event.clientX; 
+                    const startW = promptsPanelWidth;
+                    const onMove = e => { promptsPanelWidth = Math.max(500, Math.min(1200, startW - (e.clientX - startX))); };
+                    const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.querySelector('.prompts-resize-handle')?.classList.remove('active'); };
+                    document.addEventListener('mousemove', onMove);
+                    document.addEventListener('mouseup', onUp);">
+            </div>
+            <div class="slide-panel-header">
+                <h3 style="margin:0;">Prompts</h3>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button class="btn btn-secondary" @click="exportPrompts()" title="Export prompts to JSON">Export</button>
+                    <label class="btn btn-secondary" style="margin:0;cursor:pointer;" title="Import prompts from JSON">
+                        Import
+                        <input type="file" accept=".json" @change="importPrompts($event.target)" style="display:none;">
+                    </label>
+                    <button class="btn btn-secondary" @click="showPromptsPanel = false">Close</button>
+                </div>
+            </div>
+            <div class="slide-panel-body">
+                <div style="display:flex;gap:12px;height:100%;">
+                    <div style="width:220px;min-width:180px;overflow:auto;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <strong style="color:var(--text-primary);">Categories</strong>
+                        </div>
+
+                        <template x-for="cat in promptCategories" :key="cat">
+                            <div style="margin-bottom:12px;">
+                                <div class="comp-category" :class="{ 'active': promptCollapsed[cat] === false }"
+                                    tabindex="0" role="button" @click="promptCollapsed[cat] = !promptCollapsed[cat]">
+                                    <div class="comp-category-label" style="text-transform:capitalize;" x-text="cat">
+                                    </div>
+                                    <div style="display:flex;align-items:center;gap:6px;">
+                                        <div class="comp-category-count"
+                                            style="font-size:12px;color:var(--text-secondary);"
+                                            x-text="(prompts.filter(p => p.category === cat) || []).length"></div>
+                                        <button class="btn btn-secondary" style="padding:2px 8px;font-size:14px;"
+                                            @click.stop="createPrompt(cat)">+</button>
+                                    </div>
+                                </div>
+
+                                <div x-show="!promptCollapsed[cat]" x-cloak style="margin-top:6px;">
+                                    <template x-for="pr in prompts.filter(p => p.category === cat)" :key="pr.id">
+                                        <div class="comp-entry"
+                                            :class="{ 'active': currentPrompt && currentPrompt.id === pr.id }"
+                                            tabindex="0">
+                                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                                <div style="flex:1;cursor:pointer;" @click.stop="openPrompt(pr.id)">
+                                                    <div class="comp-entry-title">
+                                                        <span x-text="pr.title"></span>
+                                                        <span x-show="pr.projectId === '__global__'" title="Global — available in all projects" style="margin-left:4px;font-size:11px;">🌐</span>
+                                                    </div>
+                                                    <div class="comp-entry-meta"
+                                                        style="font-size:11px;color:var(--text-secondary);"
+                                                        x-text="new Date(pr.modified).toLocaleString()"></div>
+                                                </div>
+
+                                                <div class="item-actions" style="margin-left:8px;"
+                                                    x-data="{ openMenu:false }">
+                                                    <button class="menu-button" @click.stop="openMenu = !openMenu"
+                                                        title="More">⋯</button>
+                                                    <div x-show="openMenu" x-cloak @click.away="openMenu = false"
+                                                        x-transition class="action-menu">
+                                                        <button @click.stop="movePromptUp(pr.id); openMenu=false">Move
+                                                            up</button>
+                                                        <button @click.stop="movePromptDown(pr.id); openMenu=false">Move
+                                                            down</button>
+                                                        <button
+                                                            @click.stop="renamePrompt(pr.id); openMenu=false">Rename</button>
+                                                        <button
+                                                            @click.stop="toggleGlobal(pr.id); openMenu=false"
+                                                            x-text="pr.projectId === '__global__' ? 'Make project-only' : 'Make global 🌐'"></button>
+                                                        <button
+                                                            @click.stop="deletePrompt(pr.id); openMenu=false">Delete</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div style="flex:1;display:flex;flex-direction:column;overflow:auto;">
+                        <div style="flex:0 0 auto;margin-bottom:6px;">
+                            <div x-show="!currentPrompt" style="color:var(--text-secondary);">Select a prompt or create
+                                a new one.</div>
+                            <div x-show="currentPrompt">
+                                <input type="text" x-model="currentPrompt.title"
+                                    style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;margin-bottom:6px;">
+                                <div style="margin-bottom:6px;">
+                                    <label
+                                        style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:4px;">Category</label>
+                                    <select x-model="currentPrompt.category"
+                                        style="width:100%;padding:6px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                                        <template x-for="cat in promptCategories" :key="cat">
+                                            <option :value="cat" x-text="cat" style="text-transform:capitalize;">
+                                            </option>
+                                        </template>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- System Message (for prose category prompts) -->
+                        <div x-show="currentPrompt && currentPrompt.category === 'prose'" style="flex:0 0 auto;margin-bottom:12px;">
+                            <label style="font-size:12px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                                <span style="background:var(--accent);color:white;padding:2px 6px;border-radius:4px;font-size:10px;text-transform:uppercase;">System</span>
+                                System Message
+                            </label>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">
+                                Sets the AI's role, personality, and constraints. Use placeholders: <code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">{povName}</code>, <code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">{tense}</code>, <code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;">{pov}</code>
+                            </div>
+                            <textarea x-model="promptEditorSystemContent"
+                                placeholder="e.g., You are a creative writing assistant. Write in {tense}, from {povName}'s perspective using {pov}..."
+                                style="width:100%;height:120px;padding:8px;border:1px solid var(--accent);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;resize:vertical;font-family:inherit;font-size:13px;"></textarea>
+                        </div>
+                        
+                        <!-- User Message -->
+                        <div style="flex:1;display:flex;flex-direction:column;min-height:0;">
+                            <label x-show="currentPrompt" style="font-size:12px;font-weight:600;color:var(--text-primary);display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                                <span style="background:var(--text-secondary);color:var(--bg-primary);padding:2px 6px;border-radius:4px;font-size:10px;text-transform:uppercase;">User</span>
+                                <span x-text="currentPrompt && currentPrompt.category === 'prose' ? 'User Message (Task Instructions)' : 'Prompt Content'"></span>
+                            </label>
+                            <div x-show="currentPrompt && currentPrompt.category === 'prose'" style="font-size:11px;color:var(--text-secondary);margin-bottom:6px;">
+                                Task-specific instructions for beat expansion, worldbuilding notes, style guidance, etc.
+                            </div>
+                            <textarea x-model="promptEditorContent"
+                                :placeholder="currentPrompt && currentPrompt.category === 'prose' ? 'e.g., Expand the beat into 2-3 paragraphs. Use sensory details. Show, don’t tell...' : 'Enter prompt content...'"
+                                style="width:100%;flex:1;padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;resize:none;font-family:inherit;font-size:13px;"></textarea>
+                        </div>
+                        
+                        <div style="flex:0 0 auto;display:flex;gap:8px;margin-top:12px;">
+                            <button class="btn btn-primary" @click="savePrompt" :disabled="!currentPrompt">Save</button>
+                            <button class="btn btn-secondary" @click="deletePrompt(currentPrompt.id)"
+                                x-show="currentPrompt">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+

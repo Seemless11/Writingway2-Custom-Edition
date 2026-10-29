@@ -1,0 +1,110 @@
+        <!-- Lorebook Slide Panel -->
+        <div id="lorebook-panel" class="slide-panel-right lorebook-panel" :class="{ 'open': showLorebookPanel }" x-cloak :aria-hidden="!showLorebookPanel">
+            <div class="slide-panel-header">
+                <h3 style="margin:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Lorebook Imports</h3>
+                <div style="display:flex;align-items:center;gap:12px;">
+                    <span x-show="lorebookDirty" x-cloak style="font-size:12px;color:var(--warning);">Unsaved changes</span>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;" @click="importLorebook()" title="Import a SillyTavern lorebook JSON">📥 Import</button>
+                    <button class="btn btn-secondary" @click="closeLorebookPanel()">Close</button>
+                </div>
+            </div>
+            <div class="slide-panel-body">
+                <div style="display:flex;gap:12px;height:100%;">
+                    <!-- Left: Lorebook group list -->
+                    <div style="width:40%;overflow:auto;">
+                        <div style="margin-bottom:12px;">
+                            <input type="text" x-model="lorebookSearchQuery" placeholder="🔍 Search entries..."
+                                style="width:100%;padding:8px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                        </div>
+                        <template x-for="(entries, sourceTag) in lorebookSources" :key="sourceTag">
+                            <div style="margin-bottom:12px;">
+                                <div class="comp-category" :class="{ 'active': openLorebookSources.includes(sourceTag) }"
+                                    tabindex="0" role="button"
+                                    @click="openLorebookSources.includes(sourceTag) ? openLorebookSources = openLorebookSources.filter(s => s !== sourceTag) : openLorebookSources.push(sourceTag)"
+                                    @keydown.enter="openLorebookSources.includes(sourceTag) ? openLorebookSources = openLorebookSources.filter(s => s !== sourceTag) : openLorebookSources.push(sourceTag)">
+                                    <div class="comp-category-label" style="font-weight:700;color:var(--text-primary);" x-text="sourceTag.replace('ST:', '')"></div>
+                                    <div style="display:flex;align-items:center;gap:6px;">
+                                        <div class="comp-category-count" style="font-size:12px;color:var(--text-secondary);" x-text="entries.length"></div>
+                                        <label style="display:flex;align-items:center;gap:4px;cursor:pointer;"
+                                            :title="(entries.length > 0 && entries.every(e => e.alwaysInContext)) ? 'All entries always in chat context - click to disable for all' : 'Toggle always include in chat context for all entries'">
+                                            <input type="checkbox"
+                                                :checked="entries.length > 0 && entries.every(e => e.alwaysInContext)"
+                                                x-effect="$el.indeterminate = (entries.length > 0 && entries.some(e => e.alwaysInContext) && !entries.every(e => e.alwaysInContext))"
+                                                @click.stop
+                                                @change="setLorebookSourceAlwaysInContext(sourceTag, $event.target.checked)"
+                                                style="cursor:pointer;"
+                                                :aria-label="'Toggle always include in chat context for ' + sourceTag.replace('ST:', '') + ' entries'">
+                                            <span style="font-size:11px;color:var(--text-secondary);">Always in ctx</span>
+                                        </label>
+                                        <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;" @click.stop="deleteLorebookSource(sourceTag)" :title="'Delete all ' + sourceTag.replace('ST:', '') + ' entries'">🗑️</button>
+                                    </div>
+                                </div>
+                                <div x-show="openLorebookSources.includes(sourceTag) || lorebookSearchQuery" x-cloak style="margin-top:6px;">
+                                    <template x-for="e in (entries.filter(x => !lorebookSearchQuery || (x.title || '').toLowerCase().includes(lorebookSearchQuery.toLowerCase()) || (x.body || '').toLowerCase().includes(lorebookSearchQuery.toLowerCase())))" :key="e.id">
+                                        <div class="comp-entry" :class="{ 'active': currentLorebookEntry && currentLorebookEntry.id === e.id }" tabindex="0">
+                                            <div style="cursor:pointer;" @click="selectLorebookEntry(e.id)" @keydown.enter="selectLorebookEntry(e.id)">
+                                                <div class="comp-entry-title" x-text="e.title"></div>
+                                                <div class="comp-entry-meta" style="font-size:11px;color:var(--text-secondary);" x-text="'~' + Math.ceil((e.body || '').length / 4) + ' tokens'"></div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                        <div x-show="Object.keys(lorebookSources).length === 0" style="color:var(--text-secondary);padding:20px;text-align:center;">
+                            No lorebooks imported yet. Click "Import" to add one.
+                        </div>
+                    </div>
+                    <!-- Right: Lorebook entry editor -->
+                    <div style="flex:1;display:flex;flex-direction:column;">
+                        <template x-if="!currentLorebookEntry">
+                            <div style="color:var(--text-secondary);">Select an entry to view and edit.</div>
+                        </template>
+                        <template x-if="currentLorebookEntry">
+                            <div style="display:flex;flex-direction:column;height:100%;">
+                                <div style="flex:0 0 auto;margin-bottom:6px;">
+                                    <input type="text" x-model="currentLorebookEntry.title" placeholder="Entry title"
+                                        @input="updateLorebookDirtyFlag()"
+                                        style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;margin-bottom:6px;box-sizing:border-box;">
+                                </div>
+                                <div style="flex:1;overflow:auto;min-height:0;">
+                                    <textarea x-model="currentLorebookEntry.body" placeholder="Entry content..."
+                                        @input="updateLorebookDirtyFlag()"
+                                        style="width:100%;height:100%;min-height:200px;padding:12px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;resize:none;font-family:inherit;line-height:1.6;box-sizing:border-box;"></textarea>
+                                    <div style="text-align:right;font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                                        ~<span x-text="Math.ceil((currentLorebookEntry.body || '').length / 4)"></span> tokens
+                                    </div>
+                                </div>
+                                <div style="flex:0 0 auto;margin-top:8px;">
+                                    <div class="comp-tags">
+                                        <div class="tag-list">
+                                            <template x-for="(t,ti) in (currentLorebookEntry.tags || [])" :key="ti">
+                                                <span class="tag-chip" @click.stop="removeLorebookTag(ti)" title="Remove tag" x-text="t" :style="t.startsWith('ST:') ? 'background:var(--accent);color:white;' : ''"></span>
+                                            </template>
+                                        </div>
+                                        <input class="tag-input" x-model="newLorebookTag" placeholder="Add tag and press Enter" @keydown.enter.prevent="addLorebookTag()">
+                                    </div>
+                                </div>
+                                <div style="flex:0 0 auto;margin-top:8px;padding:8px;background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.2);border-radius:6px;">
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                        <input type="checkbox" x-model="currentLorebookEntry.alwaysInContext"
+                                            @change="updateLorebookDirtyFlag()"
+                                            style="cursor:pointer;">
+                                        <span style="font-size:13px;color:rgba(255,255,255,0.9);">Always include in chat context</span>
+                                    </label>
+                                    <p style="margin:4px 0 0 26px;font-size:11px;color:rgba(255,255,255,0.4);line-height:1.3;">
+                                        When enabled, this entry will be automatically included in all chat generation prompts.
+                                    </p>
+                                </div>
+                                <div style="flex:0 0 auto;display:flex;gap:8px;margin-top:8px;align-items:center;">
+                                    <button class="btn btn-primary" @click="saveLorebookEntry()" :disabled="!lorebookDirty">Save</button>
+                                    <button class="btn btn-danger" @click="deleteLorebookEntry(currentLorebookEntry.id)">Delete</button>
+                                    <span x-show="lorebookSaveStatus" style="font-size:12px;color:var(--text-secondary);" x-text="lorebookSaveStatus"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+

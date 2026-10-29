@@ -1,0 +1,469 @@
+{
+  "modules": [
+    {
+      "name": "core",
+      "description": "Startup, loading screen, theme, writing mode, sidebar.",
+      "members": [
+        "updateLoadingScreen",
+        "hideLoadingScreen",
+        "setAccentColor",
+        "init",
+        "checkForUpdates",
+        "toggleLightMode",
+        "loadLightModePreference",
+        "getCurrentBeat",
+        "switchWritingMode",
+        "toggleBeatMode",
+        "toggleSidebar",
+        "loadLastProject"
+      ]
+    },
+    {
+      "name": "rewrite",
+      "description": "Inline selection rewrite flow.",
+      "members": [
+        "_getTextareaSelectionCoords",
+        "handleRewriteButtonClick",
+        "buildRewritePrompt",
+        "performRewrite",
+        "acceptRewrite",
+        "retryRewrite",
+        "discardRewrite"
+      ]
+    },
+    {
+      "name": "ai",
+      "description": "AI provider settings, model discovery, local llama setup.",
+      "members": [
+        "fetchRuntimeInfo",
+        "hasLocalAIAvailable",
+        "hasGGUFModels",
+        "needsLlamaInstall",
+        "shouldOfferLlamaSetup",
+        "openLlamaSetupWizard",
+        "dismissLlamaSetupWizard",
+        "installLlamaCpp",
+        "shutdownForRestart",
+        "fetchProviderModels",
+        "scanLocalModels",
+        "saveGenerationParams",
+        "savePresetParam",
+        "switchModelPreset",
+        "clearModelPreset",
+        "saveAISettings",
+        "loadAISettings"
+      ]
+    },
+    {
+      "name": "summaries",
+      "description": "Scene and chapter summary generation.",
+      "members": [
+        "openSceneSummary",
+        "openChapterSummary",
+        "summarizeScene",
+        "saveSceneSummary",
+        "summarizeChapter",
+        "saveChapterSummary"
+      ]
+    },
+    {
+      "name": "context-panel",
+      "description": "Context panel state and tag toggles.",
+      "members": [
+        "getAllTags",
+        "getCompendiumTags",
+        "toggleContextCompendium",
+        "setContextChapter",
+        "setContextScene",
+        "toggleContextTag",
+        "toggleContextCompendiumTag",
+        "saveContextPanel",
+        "loadContextPanel"
+      ]
+    },
+    {
+      "name": "projects",
+      "description": "Project CRUD, import and export.",
+      "members": [
+        "createProject",
+        "createDefaultScene",
+        "loadProjects",
+        "migrateMissingSceneProjectIds",
+        "selectProject",
+        "openProject",
+        "backToProjects",
+        "deleteProject",
+        "renameProject",
+        "updateProjectCover",
+        "removeProjectCover",
+        "importFromW1",
+        "importFromNovelcrafter",
+        "loadSelectedProsePrompt",
+        "saveSelectedProsePrompt",
+        "renameCurrentProject",
+        "exportProject",
+        "saveProjectToDisk",
+        "confirmExport",
+        "checkExportReminder",
+        "dismissExportReminder",
+        "importProject",
+        "loadPrompts"
+      ]
+    },
+    {
+      "name": "compendium",
+      "description": "Compendium entries and the project vault.",
+      "members": [
+        "openCompendium",
+        "loadCompendiumCounts",
+        "loadCompendiumCategory",
+        "getAllCompendiumEntries",
+        "createCompendiumEntry",
+        "importCharacterCard",
+        "selectCompendiumEntry",
+        "saveCompendiumEntry",
+        "addCompTag",
+        "removeCompTag",
+        "setCompImageFromFile",
+        "confirmRemoveCompImage",
+        "deleteCompendiumEntry",
+        "moveCompendiumEntryUp",
+        "moveCompendiumEntryDown",
+        "moveCompendiumEntryToCategory",
+        "closeCompendium",
+        "saveAndProceedCompendium",
+        "discardAndProceedCompendium",
+        "cancelCompendiumAction",
+        "updateCompendiumDirtyFlag",
+        "generateCompendiumEntry",
+        "acceptCompendiumGen",
+        "retryCompendiumGen",
+        "discardCompendiumGen",
+        "stopCompendiumGeneration",
+        "onCompBodyInput",
+        "onCompBodyKey",
+        "selectCompBodyMatch",
+        "createCompendiumEntryFromSelection",
+        "openCompendiumVault",
+        "closeCompendiumVault",
+        "loadCompendiumVault",
+        "setVaultCategory",
+        "toggleVaultEntry",
+        "toggleAllVaultEntries",
+        "getFilteredVaultEntries",
+        "vaultSelectedCount",
+        "importSelectedVaultEntries"
+      ]
+    },
+    {
+      "name": "lorebook",
+      "description": "Lorebook panel.",
+      "members": [
+        "openLorebookPanel",
+        "selectLorebookEntry",
+        "saveLorebookEntry",
+        "deleteLorebookEntry",
+        "deleteLorebookSource",
+        "setLorebookSourceAlwaysInContext",
+        "addLorebookTag",
+        "removeLorebookTag",
+        "updateLorebookDirtyFlag",
+        "closeLorebookPanel",
+        "cancelLorebookAction",
+        "closeLorebookImport",
+        "confirmLorebookImport",
+        "importLorebook",
+        "saveAndProceedLorebook",
+        "discardAndProceedLorebook"
+      ]
+    },
+    {
+      "name": "paste-import",
+      "description": "Paste import and image description.",
+      "members": [
+        "openPasteImport",
+        "closePasteImport",
+        "runPasteImport",
+        "adoptPasteImport",
+        "triggerPasteImportImageUpload",
+        "onPasteImportImageSelected",
+        "removePasteImportImage",
+        "describePasteImportImage",
+        "mergeImageDescriptionIntoResult"
+      ]
+    },
+    {
+      "name": "character-creator",
+      "description": "Character creator.",
+      "members": [
+        "triggerCharCreatorImageUpload",
+        "onCharCreatorImageSelected",
+        "removeCharCreatorImage",
+        "describeCharCreatorImage",
+        "getFilteredCharCreatorCategories",
+        "openCharacterCreator",
+        "closeCharacterCreator",
+        "saveCharCreatorDraft",
+        "discardCharCreatorDraft",
+        "restoreCharCreatorDraft",
+        "editCharacterInCreator",
+        "openAllCharacterCreatorCategories",
+        "toggleCharCreatorGenre",
+        "toggleCharCreatorCategory",
+        "toggleCharCreatorTrait",
+        "randomizeCharCreator",
+        "clearCharCreatorTraits",
+        "openAddTraitForm",
+        "closeAddTraitForm",
+        "submitAddTraitForm",
+        "removeCustomTrait",
+        "sendCharCreatorMessage",
+        "deleteCharCreatorMessage",
+        "stopCharCreatorGeneration",
+        "sendCharCreatorInstruction",
+        "getCharCreatorTraitPickerItems",
+        "openCharCreatorTraitPicker",
+        "toggleCharCreatorTraitPickerTrait",
+        "confirmCharCreatorTraitPicker",
+        "cancelCharCreatorTraitPicker",
+        "toggleTemplateCategory",
+        "openInstructionEditor",
+        "closeInstructionEditor",
+        "addInstructionTemplate",
+        "deleteInstructionTemplate",
+        "resetInstructionTemplates",
+        "resetCharCreatorSystemPrompt",
+        "previewCharCreatorEntry",
+        "adoptCharCreatorEntry"
+      ]
+    },
+    {
+      "name": "world-creator",
+      "description": "World creator.",
+      "members": [
+        "openWorldCreator",
+        "closeWorldCreator",
+        "saveWorldCreatorDraft",
+        "discardWorldCreatorDraft",
+        "restoreWorldCreatorDraft",
+        "editWorldInCreator",
+        "openAllWorldCreatorCategories",
+        "toggleWorldCreatorGenre",
+        "toggleWorldCreatorCategory",
+        "toggleWorldCreatorTrait",
+        "randomizeWorldCreator",
+        "clearWorldCreatorTraits",
+        "getFilteredWorldCreatorCategories",
+        "openWorldCreatorAddTraitForm",
+        "closeWorldCreatorAddTraitForm",
+        "submitWorldCreatorAddTraitForm",
+        "removeWorldCreatorCustomTrait",
+        "sendWorldCreatorMessage",
+        "stopWorldCreatorGeneration",
+        "deleteWorldCreatorMessage",
+        "sendWorldCreatorInstruction",
+        "previewWorldCreatorEntry",
+        "adoptWorldCreatorEntry",
+        "triggerWorldCreatorImageUpload",
+        "onWorldCreatorImageSelected",
+        "removeWorldCreatorImage",
+        "describeWorldCreatorImage",
+        "openWorldCreatorInstructionEditor",
+        "closeWorldCreatorInstructionEditor",
+        "addWorldCreatorInstructionTemplate",
+        "deleteWorldCreatorInstructionTemplate",
+        "resetWorldCreatorInstructionTemplates",
+        "resetWorldCreatorSystemPrompt"
+      ]
+    },
+    {
+      "name": "scenario-creator",
+      "description": "Scenario creator.",
+      "members": [
+        "openScenarioCreator",
+        "closeScenarioCreator",
+        "saveScenarioCreatorDraft",
+        "discardScenarioCreatorDraft",
+        "restoreScenarioCreatorDraft",
+        "editScenarioInCreator",
+        "openAllScenarioCreatorCategories",
+        "toggleScenarioCreatorGenre",
+        "toggleScenarioCreatorCategory",
+        "toggleScenarioCreatorTrait",
+        "randomizeScenarioCreator",
+        "clearScenarioCreatorTraits",
+        "getFilteredScenarioCreatorCategories",
+        "openScenarioCreatorAddTraitForm",
+        "closeScenarioCreatorAddTraitForm",
+        "submitScenarioCreatorAddTraitForm",
+        "removeScenarioCreatorCustomTrait",
+        "sendScenarioCreatorMessage",
+        "stopScenarioCreatorGeneration",
+        "deleteScenarioCreatorMessage",
+        "sendScenarioCreatorInstruction",
+        "previewScenarioCreatorEntry",
+        "adoptScenarioCreatorEntry",
+        "openScenarioCreatorInstructionEditor",
+        "closeScenarioCreatorInstructionEditor",
+        "addScenarioCreatorInstructionTemplate",
+        "deleteScenarioCreatorInstructionTemplate",
+        "resetScenarioCreatorInstructionTemplates",
+        "resetScenarioCreatorSystemPrompt"
+      ]
+    },
+    {
+      "name": "workshop",
+      "description": "Workshop chat sessions.",
+      "members": [
+        "loadWorkshopSessions",
+        "saveWorkshopSessions",
+        "createWorkshopSession",
+        "renameWorkshopSession",
+        "clearWorkshopSession",
+        "exportWorkshopSession",
+        "deleteWorkshopSession",
+        "loadSelectedWorkshopPrompt",
+        "saveSelectedWorkshopPrompt"
+      ]
+    },
+    {
+      "name": "prompts",
+      "description": "Prompt library CRUD.",
+      "members": [
+        "createPrompt",
+        "openPrompt",
+        "savePrompt",
+        "deletePrompt",
+        "movePromptUp",
+        "movePromptDown",
+        "renamePrompt",
+        "exportPrompts",
+        "importPrompts",
+        "toggleGlobal"
+      ]
+    },
+    {
+      "name": "scenes",
+      "description": "Chapters and scenes.",
+      "members": [
+        "loadChapters",
+        "createScene",
+        "openNewSceneModal",
+        "openNewChapterModal",
+        "createChapter",
+        "loadScene",
+        "moveSceneToChapter",
+        "moveSceneUp",
+        "moveSceneDown",
+        "deleteScene",
+        "moveChapterUp",
+        "moveChapterDown",
+        "deleteChapter",
+        "openRenameChapterModal",
+        "renameChapter",
+        "openRenameSceneModal",
+        "renameScene"
+      ]
+    },
+    {
+      "name": "editor",
+      "description": "Editor input, formatting and beat input.",
+      "members": [
+        "onEditorChange",
+        "handlePaste",
+        "applyFormatting",
+        "onBeatInput",
+        "handleSceneSearch",
+        "onBeatKey",
+        "selectQuickMatch",
+        "selectSceneMatch"
+      ]
+    },
+    {
+      "name": "generation",
+      "description": "Beat generation, prompt preview, scene saving.",
+      "members": [
+        "stopBeatGeneration",
+        "resolveCompendiumEntriesFromBeat",
+        "resolveSceneSummariesFromBeat",
+        "previewPrompt",
+        "resolveProsePromptText",
+        "resolveProsePromptInfo",
+        "saveScene",
+        "acceptGeneration",
+        "retryGeneration",
+        "discardGeneration",
+        "reuseBeat",
+        "countWords",
+        "insertSpecialChar",
+        "handleAutoReplace",
+        "loadPromptHistory",
+        "buildContextFromPanel",
+        "generateFromBeat",
+        "generateFlowFromBeat",
+        "normalizeAllOrders"
+      ]
+    },
+    {
+      "name": "backup",
+      "description": "Backups and restore.",
+      "members": [
+        "backupProviderName",
+        "backupProviderIsAvailable",
+        "backupProviderRequiresGitHubToken",
+        "backupNeedsAttention",
+        "backupWarningMessage",
+        "openBackupSettings",
+        "closeBackupSettings",
+        "saveBackupSettings",
+        "backupNow",
+        "openRestoreModal",
+        "closeRestoreModal",
+        "restoreBestLocalSnapshot",
+        "restoreBackup"
+      ]
+    }
+  ],
+  "retained": [
+    {
+      "name": "currentSceneWords",
+      "kind": "get",
+      "line": 123
+    },
+    {
+      "name": "totalWords",
+      "kind": "get",
+      "line": 128
+    },
+    {
+      "name": "sortedProjects",
+      "kind": "get",
+      "line": 140
+    },
+    {
+      "name": "compendiumCategories",
+      "kind": "get",
+      "line": 156
+    },
+    {
+      "name": "hasWorkshopSessions",
+      "kind": "get",
+      "line": 165
+    },
+    {
+      "name": "worldCreatorCompendiumEntries",
+      "kind": "get",
+      "line": 3104
+    },
+    {
+      "name": "scenarioCreatorCompendiumEntries",
+      "kind": "get",
+      "line": 3107
+    },
+    {
+      "name": "markdownToHtml",
+      "kind": "method",
+      "line": 3593
+    }
+  ]
+}

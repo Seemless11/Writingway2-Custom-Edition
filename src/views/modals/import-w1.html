@@ -1,0 +1,36 @@
+        <!-- Import from Writingway 1 Modal -->
+        <template x-if="showW1ImportModal">
+            <div class="modal-overlay" @click.self="showW1ImportModal = false">
+                <div class="modal" style="max-width:600px;">
+                    <h3>Import from Writingway 1</h3>
+                    <div
+                        style="background:rgba(255,200,100,0.1);border:1px solid rgba(255,200,100,0.3);border-radius:8px;padding:16px;margin:16px 0;line-height:1.6;">
+                        <p style="margin:0 0 12px 0;font-weight:600;color:#ffcc66;">⚠️ Import Notes:</p>
+                        <p style="margin:0 0 8px 0;font-size:14px;"><strong>What will be imported:</strong></p>
+                        <ul style="margin:0 0 12px 0;padding-left:24px;font-size:13px;">
+                            <li>Project structure (Acts flattened to Chapters)</li>
+                            <li>Scene content (latest backup used)</li>
+                            <li>Chapter and scene summaries</li>
+                            <li>Basic compendium entries (name + content)</li>
+                            <li>Prompts</li>
+                        </ul>
+                        <p style="margin:0 0 8px 0;font-size:14px;"><strong>What will NOT be imported:</strong></p>
+                        <ul style="margin:0 0 0 0;padding-left:24px;font-size:13px;">
+                            <li>Compendium relationships, templates, custom fields</li>
+                            <li>Compendium images (must be re-uploaded)</li>
+                            <li>Scene status markers (To Do, In Progress, etc.)</li>
+                            <li>Project cover images (must be re-uploaded)</li>
+                        </ul>
+                    </div>
+                    <p style="margin:16px 0 8px 0;font-size:14px;color:rgba(255,255,255,0.8);">Select your Writingway 1
+                        project folder:</p>
+                    <input type="file" webkitdirectory directory multiple @change="importFromW1($event)"
+                        style="margin:8px 0;padding:8px;background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:4px;color:inherit;width:100%;">
+                    <div class="modal-buttons" style="margin-top:20px;">
+                        <button class="btn btn-secondary" @click="showW1ImportModal = false"
+                            :disabled="w1ImportInProgress">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

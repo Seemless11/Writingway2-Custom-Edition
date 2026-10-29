@@ -1,0 +1,74 @@
+        <!-- Edit Project Modal -->
+        <template x-if="showRenameProjectModal">
+            <div class="modal-overlay" @click.self="showRenameProjectModal = false">
+                <div class="modal">
+                    <h3>Edit Project</h3>
+
+                    <label style="font-size:13px;color:var(--text-secondary);">Project Name</label>
+                    <input type="text" x-model="renameProjectName" placeholder="Project name"
+                        @keydown.enter="renameCurrentProject">
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">POV</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <template x-for="p in (window.GenreDefs?.POVS || [])" :key="p.id">
+                            <span class="tag-chip"
+                                :class="{ 'tag-chip-active': renameProjectPov === p.id }"
+                                @click="renameProjectPov = p.id"
+                                x-text="p.label">
+                            </span>
+                        </template>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">Tense</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <template x-for="t in (window.GenreDefs?.TENSES || [])" :key="t.id">
+                            <span class="tag-chip"
+                                :class="{ 'tag-chip-active': renameProjectTense === t.id }"
+                                @click="renameProjectTense = t.id"
+                                x-text="t.label">
+                            </span>
+                        </template>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">Language</label>
+                    <div style="margin-top:6px;">
+                        <select x-model="renameProjectLanguage"
+                            style="width:100%;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <template x-for="lang in (window.GenreDefs?.LANGUAGES || [])" :key="lang.id">
+                                <option :value="lang.id" x-text="lang.label"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">POV Character (optional)</label>
+                    <div style="margin-top:6px;">
+                        <input type="text" x-model="renameProjectPovCharacter" placeholder="e.g., Alice"
+                            list="edit-project-pov-list"
+                            style="width:100%;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                        <datalist id="edit-project-pov-list">
+                            <template x-for="char in (compendiumLists['characters'] || []).filter(c => c.isPovCharacter)"
+                                :key="char.id">
+                                <option :value="char.title"></option>
+                            </template>
+                        </datalist>
+                    </div>
+
+                    <label style="font-size:13px;color:var(--text-secondary);display:block;margin-top:16px;">Genres</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+                        <template x-for="g in (window.GenreDefs?.GENRES || [])" :key="g.id">
+                            <span class="tag-chip"
+                                :class="{ 'tag-chip-active': renameProjectGenres.includes(g.id) }"
+                                @click="renameProjectGenres = renameProjectGenres.includes(g.id) ? renameProjectGenres.filter(x => x !== g.id) : [...renameProjectGenres, g.id]"
+                                x-text="g.icon + ' ' + g.label">
+                            </span>
+                        </template>
+                    </div>
+
+                    <div class="modal-buttons" style="margin-top:20px;">
+                        <button class="btn btn-secondary" @click="showRenameProjectModal = false">Cancel</button>
+                        <button class="btn btn-primary" @click="renameCurrentProject">Save</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

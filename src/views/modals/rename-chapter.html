@@ -1,0 +1,15 @@
+        <!-- Rename Chapter Modal -->
+        <template x-if="showRenameChapterModal">
+            <div class="modal-overlay" @click.self="showRenameChapterModal = false">
+                <div class="modal">
+                    <h3>Rename Chapter</h3>
+                    <input type="text" x-model="renameChapterName" placeholder="Chapter name"
+                        @keydown.enter="renameChapter">
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" @click="showRenameChapterModal = false">Cancel</button>
+                        <button class="btn btn-primary" @click="renameChapter">Rename</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

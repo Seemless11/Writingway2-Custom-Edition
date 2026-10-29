@@ -1,0 +1,79 @@
+        <!-- Scene Actions Modal -->
+        <template x-if="showSceneActionsModal && sceneActionsTarget">
+            <div class="modal-overlay" @click.self="showSceneActionsModal = false" @keydown.escape.window="showSceneActionsModal = false">
+                <div class="modal" style="max-width:360px;">
+                    <h3 style="margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:20px;">📄</span>
+                        <span x-text="sceneActionsTarget.title"></span>
+                    </h3>
+                    
+                    <!-- Move to Chapter -->
+                    <div style="margin-bottom:16px;">
+                        <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px;">
+                            Move to chapter:
+                        </label>
+                        <select class="move-select" style="width:100%;padding:10px 12px;"
+                            @change="if($event.target.value) { moveSceneToChapter(sceneActionsTarget.id, $event.target.value); showSceneActionsModal = false; }">
+                            <option value="">Select chapter...</option>
+                            <template x-for="ch in chapters" :key="ch.id">
+                                <option :value="ch.id" 
+                                    :selected="ch.id === sceneActionsTarget.chapterId"
+                                    x-text="ch.title + (ch.id === sceneActionsTarget.chapterId ? ' (current)' : '')">
+                                </option>
+                            </template>
+                        </select>
+                        </div>
+
+                        <!-- POV Character override -->
+                        <div style="margin-bottom:16px;">
+                            <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:6px;">
+                                POV Character:
+                            </label>
+                            <select class="move-select" style="width:100%;padding:10px 12px;"
+                                @change="if($event.target.value !== undefined) { povCharacter = $event.target.value; sceneActionsTarget.povCharacter = $event.target.value || ''; saveScene(); }">
+                                <option value="">Project default</option>
+                                <template x-for="char in (compendiumLists['characters'] || []).filter(c => c.isPovCharacter)"
+                                    :key="char.id">
+                                    <option :value="char.title"
+                                        :selected="(sceneActionsTarget.povCharacter || '') === char.title"
+                                        x-text="char.title"></option>
+                                </template>
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons Grid -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px;">
+                        <button class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;"
+                            @click="moveSceneUp(sceneActionsTarget.id); showSceneActionsModal = false">
+                            ⬆️ Move up
+                        </button>
+                        <button class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;"
+                            @click="moveSceneDown(sceneActionsTarget.id); showSceneActionsModal = false">
+                            ⬇️ Move down
+                        </button>
+                        <button class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;"
+                            @click="openRenameSceneModal(sceneActionsTarget.id); showSceneActionsModal = false">
+                            ✏️ Rename
+                        </button>
+                        <button class="btn btn-secondary" style="display:flex;align-items:center;justify-content:center;gap:6px;"
+                            @click="openSceneSummary(sceneActionsTarget.id); showSceneActionsModal = false">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Summary
+                        </button>
+                    </div>
+
+                    <!-- Delete Button (separate, styled as danger) -->
+                    <button class="btn" style="width:100%;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);"
+                        @click="deleteScene(sceneActionsTarget.id); showSceneActionsModal = false">
+                        🗑️ Delete scene
+                    </button>
+
+                    <!-- Close Button -->
+                    <div style="margin-top:16px;text-align:center;">
+                        <button class="btn btn-secondary" @click="showSceneActionsModal = false">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

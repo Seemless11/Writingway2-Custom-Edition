@@ -1,0 +1,20 @@
+        <!-- Model Loading Overlay (floats on top of app) -->
+        <div x-show="showModelLoading" x-cloak
+            style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#1a1a2e;">
+            <div class="welcome-content">
+                <h2>Setting Up AI</h2>
+                <p x-text="loadingMessage" style="color:#e0e0e0;"></p>
+                <div class="loading-bar">
+                    <div class="loading-bar-fill" :style="`width: ${loadingProgress}%`"></div>
+                </div>
+                <p style="margin-top: 10px; font-size: 14px; color:#aaa;" x-text="`${loadingProgress}%`"></p>
+                <div class="note" x-show="loadingProgress < 100" style="color:#888;">
+                    This may take a minute on first run while the AI engine initializes...
+                </div>
+            </div>
+        </div>
+
+        <!-- Rewrite modal removed: selecting text shows only the floating Rewrite button -->
+
+
+

@@ -1,0 +1,35 @@
+        <!-- No Update Available Dialog -->
+        <template x-if="showNoUpdateDialog">
+            <div class="modal-overlay" @click.self="showNoUpdateDialog = false" style="z-index:10000;">
+                <div class="modal" style="max-width:500px;">
+                    <div class="modal-header">
+                        <h3 style="margin:0;display:flex;align-items:center;gap:8px;">
+                            <span style="font-size:24px;">✓</span>
+                            Up to Date
+                        </h3>
+                        <button class="btn-icon" @click="showNoUpdateDialog = false">×</button>
+                    </div>
+                    <div class="modal-body">
+                        <div style="background:rgba(40,167,69,0.1);border:1px solid rgba(40,167,69,0.3);border-radius:8px;padding:16px;margin-bottom:16px;">
+                            <div style="font-size:16px;font-weight:600;margin-bottom:4px;color:#28a745;">
+                                You are running the latest version of Writingway!
+                            </div>
+                        </div>
+                        <template x-if="dismissedUpdateVersion">
+                            <div style="padding:12px;background:var(--bg-tertiary);border-radius:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;">
+                                <span style="color:var(--text-secondary);">
+                                    Update reminder dismissed for version <strong x-text="dismissedUpdateVersion"></strong>
+                                </span>
+                                <button class="btn btn-sm" @click="window.UpdateChecker.resetDismissedUpdate(); dismissedUpdateVersion = null">
+                                    Reset Reminder
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-primary" @click="showNoUpdateDialog = false">OK</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

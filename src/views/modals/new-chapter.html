@@ -1,0 +1,15 @@
+        <!-- New Chapter Modal -->
+        <template x-if="showNewChapterModal">
+            <div class="modal-overlay" @click.self="showNewChapterModal = false">
+                <div class="modal">
+                    <h3>New Chapter</h3>
+                    <input type="text" x-model="newChapterName" placeholder="Chapter name (e.g., 'Chapter 1')"
+                        @keydown.enter="createChapter">
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" @click="showNewChapterModal = false">Cancel</button>
+                        <button class="btn btn-primary" @click="createChapter">Create</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

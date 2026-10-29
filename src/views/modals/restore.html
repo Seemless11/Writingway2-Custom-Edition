@@ -1,0 +1,48 @@
+        <!-- Restore Backup Modal -->
+        <div x-show="showRestoreModal" class="modal-backdrop" @click.self="closeRestoreModal()" x-cloak
+            style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:10000;">
+            <div class="modal-content"
+                style="background:var(--bg-secondary);padding:24px;border-radius:12px;max-width:700px;width:90%;max-height:80vh;overflow-y:auto;">
+                <h3 style="margin:0 0 20px 0;">Restore from Backup</h3>
+
+                <div x-show="backupList.length === 0"
+                    style="text-align:center;padding:40px;color:var(--text-secondary);">
+                    <p>Loading backups...</p>
+                </div>
+
+                <div x-show="backupList.length > 0">
+                    <p style="color:var(--text-secondary);font-size:14px;margin-bottom:16px;">
+                        Select a backup version to restore. This will replace your current project data.
+                    </p>
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <template x-for="backup in backupList" :key="backup.id || backup.version">
+                            <div
+                                style="padding:16px;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;">
+                                <div
+                                    style="display:flex;justify-content:space-between;align-items:start;margin-bottom:12px;">
+                                    <div>
+                                        <div style="font-weight:600;color:var(--text-primary);"
+                                            x-text="new Date(backup.timestamp).toLocaleString()"></div>
+                                        <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">
+                                            <span x-show="backup.provider === 'github'">Version: <span
+                                                    x-text="backup.version.substring(0, 7)"></span></span>
+                                            <span x-show="backup.provider === 'local'">File: <span
+                                                    x-text="backup.id"></span></span>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary" @click="restoreBackup(backup.ref)"
+                                        style="padding:8px 16px;font-size:13px;">
+                                        Restore
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div style="margin-top:24px;display:flex;justify-content:flex-end;">
+                    <button class="btn btn-secondary" @click="closeRestoreModal()">Cancel</button>
+                </div>
+            </div>
+        </div>
+

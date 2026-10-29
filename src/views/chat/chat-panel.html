@@ -1,0 +1,309 @@
+
+                    <!-- Character Chat Mode UI -->
+                    <div x-show="writingMode === 'chat'" x-cloak class="character-chat-container">
+                        <template x-if="!chatCharacter">
+                            <div class="chat-empty-state">
+                                <div style="opacity:0.3;">
+                                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+                                </div>
+                                <h3 style="color:var(--text-secondary);margin:0;">No Character Selected</h3>
+                                <!-- Recent Characters -->
+                                <template x-if="recentChatCharacters.length > 0">
+                                    <div style="width:100%;max-width:420px;margin:8px 0;">
+                                        <!-- Recent Imported Cards -->
+                                        <template x-if="recentChatCharacters.filter(e => e.tags?.includes('imported') && e.tags?.includes('sillytavern')).length > 0">
+                                            <div style="margin-bottom:16px;">
+                                                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;text-align:left;">Recent Imported Cards</div>
+                                                <template x-for="entry in recentChatCharacters.filter(e => e.tags?.includes('imported') && e.tags?.includes('sillytavern'))" :key="entry.id">
+                                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
+                                                        style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;margin-bottom:4px;border:1px solid transparent;"
+                                                        :style="chatCharacterId === entry.id ? 'background:rgba(217,119,6,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(217,119,6,0.3)'"
+                                                        @mouseleave="$el.style.background='var(--bg-primary)';$el.style.borderColor='transparent'">
+                                                        <div style="width:48px;height:48px;border-radius:8px;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:600;color:var(--accent);"
+                                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
+                                                            <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
+                                                        </div>
+                                                        <div style="flex:1;min-width:0;text-align:left;">
+                                                            <div style="font-weight:600;font-size:14px;color:var(--text-primary);" x-text="entry.title"></div>
+                                                            <div style="font-size:11px;color:var(--text-tertiary);" x-text="'Last used ' + (entry.lastUsed ? new Date(entry.lastUsed).toLocaleDateString() : '')"></div>
+                                                        </div>
+                                                        <button @click.stop="window.ChatMode.deleteCharacterCard($data, entry.id)"
+                                                            style="background:none;border:none;cursor:pointer;color:var(--text-tertiary);padding:4px 6px;border-radius:4px;flex-shrink:0;transition:color 0.15s;display:flex;align-items:center;"
+                                                            @mouseenter="$el.style.color='#ef4444'"
+                                                            @mouseleave="$el.style.color='var(--text-tertiary)'"
+                                                            title="Delete character card">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                        </button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <!-- Recent Compendium Characters -->
+                                        <template x-if="recentChatCharacters.filter(e => !e.tags?.includes('imported') || !e.tags?.includes('sillytavern')).length > 0">
+                                            <div>
+                                                <div style="font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;text-align:left;">Recent Characters</div>
+                                                <template x-for="entry in recentChatCharacters.filter(e => !e.tags?.includes('imported') || !e.tags?.includes('sillytavern'))" :key="entry.id">
+                                                    <div @click="window.ChatMode.selectCharacter($data, entry)"
+                                                        style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;cursor:pointer;transition:all 0.15s;margin-bottom:4px;border:1px solid transparent;"
+                                                        :style="chatCharacterId === entry.id ? 'background:rgba(217,119,6,0.1);border-color:var(--accent);' : 'background:var(--bg-primary);'"
+                                                        @mouseenter="$el.style.background='var(--bg-tertiary)';$el.style.borderColor='rgba(217,119,6,0.3)'"
+                                                        @mouseleave="$el.style.background='var(--bg-primary)';$el.style.borderColor='transparent'">
+                                                        <div style="width:36px;height:36px;border-radius:50%;overflow:hidden;background:var(--bg-tertiary);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:600;color:var(--accent);"
+                                                            :style="entry.imageUrl ? `background-image:url('${entry.imageUrl}');background-size:cover;background-position:center;` : ''">
+                                                            <span x-show="!entry.imageUrl" x-text="(entry.title || '?')[0]"></span>
+                                                        </div>
+                                                        <div style="flex:1;min-width:0;text-align:left;">
+                                                            <div style="font-weight:600;font-size:14px;color:var(--text-primary);" x-text="entry.title"></div>
+                                                            <div style="font-size:11px;color:var(--text-tertiary);" x-text="'Last used ' + (entry.lastUsed ? new Date(entry.lastUsed).toLocaleDateString() : '')"></div>
+                                                        </div>
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--text-secondary);opacity:0.5;"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="recentChatCharacters.length === 0">
+                                    <p style="color:var(--text-tertiary);max-width:400px;line-height:1.6;">
+                                        Select a character to start chatting. Characters are stored in your compendium with the "characters" category.
+                                        You can also import SillyTavern character cards.
+                                    </p>
+                                </template>
+                                <button class="btn btn-primary btn-icon" @click="window.ChatMode.loadCharacterRoster($data)"
+                                    style="margin-top:8px;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M3 6h.01"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M8 6h13"/></svg> Select Character
+                                </button>
+                            </div>
+                        </template>
+                        <template x-if="chatCharacter">
+                            <div style="flex:1;min-height:0;display:flex;flex-direction:column;">
+                                <!-- Chat Messages -->
+                                <div class="chat-column-main">
+                                    <!-- Chat Header -->
+                                    <div class="chat-header">
+                                        <div class="chat-header-info">
+                                            <div class="chat-header-avatar"
+                                                @click="window.ChatMode.onHeaderAvatarClick($data)"
+                                                title="View avatar / Edit character"
+                                                :style="chatCharacter.avatar ? `background-image:url('${chatCharacter.avatar}');background-size:cover;background-position:center;` : ''">
+                                                <span x-show="!chatCharacter.avatar" x-text="(chatCharacter.name || '?')[0]"></span>
+                                            </div>
+                                            <div style="min-width:0;cursor:pointer;" @click="window.ChatMode.showCharacterInfo($data)" title="View/Edit Character">
+                                                <div class="chat-header-name" x-text="chatCharacter.name"></div>
+                                                <div class="chat-header-desc"
+                                                    x-text="chatCharacter.description ? chatCharacter.description.substring(0,80) + (chatCharacter.description.length > 80 ? '...' : '') : ''"></div>
+                                            </div>
+                                        </div>
+                                        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                                            <!-- Session Selector -->
+                                            <div style="position:relative;" x-data="{ open: false }">
+                                                <button @click="open = !open; if(open) window.ChatMode.loadChatSessions($data)"
+                                                    style="background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;color:var(--text-secondary);">
+                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                    <span x-text="chatSessions.find(s => s.id === chatCharacterSessionId)?.title || 'Current Chat'"></span>
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+                                                </button>
+                                                <div x-show="open" @click.away="open = false"
+                                                    style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:4px;min-width:200px;z-index:100;box-shadow:0 4px 16px rgba(0,0,0,0.3);">
+                                                    <template x-for="(session, sidx) in chatSessions" :key="sidx">
+                                                        <div @click="window.ChatMode.switchChatSession($data, session); open = false"
+                                                            style="padding:6px 10px;border-radius:4px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:6px;"
+                                                            :style="chatCharacterSessionId === session.id ? 'background:rgba(217,119,6,0.1);color:var(--accent);' : 'color:var(--text-primary);'"
+                                                            @mouseenter="$el.style.background='var(--bg-tertiary)'"
+                                                            @mouseleave="$el.style.background= chatCharacterSessionId === session.id ? 'rgba(217,119,6,0.1)' : 'transparent'">
+                                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                            <span style="flex:1;" x-text="session.title || 'Chat ' + (sidx + 1)"></span>
+                                                            <span x-show="chatCharacterSessionId === session.id" style="color:var(--accent);font-size:10px;">✓</span>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </div>
+                                            <button @click="window.ChatMode.showCharacterInfo($data)" style="background:none;border:1px solid var(--border);border-radius:6px;cursor:pointer;color:var(--text-secondary);padding:4px 6px;display:flex;align-items:center;" title="Edit Character">
+                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Chat Messages -->
+                                    <div class="character-chat-messages" x-ref="chatMessages">
+                                        <template x-if="chatCharacterMessages.length === 0">
+                                            <template x-if="showGreetingPicker && chatCharacter?.alternateGreetings?.length > 0">
+                                                <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow-y:auto;">
+                                                    <div style="margin-bottom:16px;font-size:14px;font-weight:600;color:var(--text-primary);">Choose a greeting to start the conversation</div>
+                                                    <div style="display:flex;flex-direction:column;gap:8px;width:100%;max-width:480px;">
+                                                        <template x-for="(greeting, gIdx) in ([chatCharacter.firstMessage].concat(chatCharacter.alternateGreetings || [])).filter(g => g)" :key="gIdx">
+                                                            <div @click="window.ChatMode.selectGreeting($data, gIdx)"
+                                                                style="cursor:pointer;background:var(--bg-primary);border:1px solid var(--border);border-radius:8px;padding:12px 16px;text-align:left;transition:all 0.15s;"
+                                                                @mouseenter="$el.style.borderColor='var(--accent)';$el.style.background='var(--bg-tertiary)'"
+                                                                @mouseleave="$el.style.borderColor='';$el.style.background='var(--bg-primary)'">
+                                                                <div style="font-size:11px;font-weight:600;color:var(--accent);margin-bottom:4px;" x-text="'Greeting ' + (gIdx + 1)"></div>
+                                                                <div style="font-size:13px;color:var(--text-secondary);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;" x-text="greeting.length > 200 ? greeting.substring(0,200) + '...' : greeting"></div>
+                                                            </div>
+                                                        </template>
+                                                    </div>
+                                                    <button class="btn btn-secondary" @click="window.ChatMode.cancelGreetingSelection($data)" style="margin-top:16px;font-size:12px;padding:6px 16px;">Start without greeting</button>
+                                                </div>
+                                            </template>
+                                            <template x-if="!showGreetingPicker">
+                                                <div style="flex:1;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--text-tertiary);padding:40px;">
+                                                    <div>
+                                                        <div style="margin-bottom:12px;opacity:0.3;">
+                                                            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                                                        </div>
+                                                        <p style="max-width:400px;line-height:1.6;">
+                                                            Start a conversation with <strong x-text="chatCharacter.name"></strong>.
+                                                            <template x-if="chatCharacter.firstMessage">
+                                                                <span>The character has a first message that will appear when you send your first message.</span>
+                                                            </template>
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </template>
+                                        <template x-for="(msg, idx) in chatCharacterMessages" :key="idx">
+                                            <div class="chat-message"
+                                                style="display:flex;flex-direction:column;gap:4px;position:relative;"
+                                                :style="`max-width:${editingMessageIndex === idx ? '100' : '80'}%;align-self:${editingMessageIndex === idx ? 'stretch' : (msg.role === 'user' ? 'flex-end' : 'flex-start')};`">
+                                                <div style="display:flex;align-items:center;gap:6px;padding:0 4px;">
+                                                    <span style="font-size:11px;font-weight:600;color:var(--text-secondary);"
+                                                        x-text="msg.role === 'user' ? (userPersona?.name || 'You') : (chatCharacter?.name || 'Assistant')"></span>
+                                                    <span style="font-size:10px;color:var(--text-tertiary);"
+                                                        x-text="msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''"></span>
+                                                </div>
+                                                <!-- Edit Mode -->
+                                                <template x-if="editingMessageIndex === idx">
+                                                    <div style="display:flex;flex-direction:column;gap:6px;">
+                                                        <textarea class="chat-edit-textarea" x-model="editingMessageContent"
+                                                            x-init="$nextTick(() => { $el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 400) + 'px'; })"
+                                                            @input="$el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 400) + 'px'"
+                                                            @keydown="if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); window.ChatMode.saveEdit($data); }"></textarea>
+                                                        <div style="display:flex;gap:6px;justify-content:flex-end;">
+                                                            <button class="btn btn-secondary" @click="window.ChatMode.cancelEdit($data)" style="font-size:11px;padding:3px 8px;">Cancel</button>
+                                                            <button class="btn btn-primary" @click="window.ChatMode.saveEdit($data)" style="font-size:11px;padding:3px 8px;">Save</button>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                                <!-- Display Mode -->
+                                                <template x-if="editingMessageIndex !== idx">
+                                                    <div style="position:relative;">
+                                                        <template x-if="idx === 0 && msg.role === 'assistant' && (chatCharacter?.alternateGreetings?.length || 0) > 0">
+                                                            <button class="chat-greeting-arrow chat-greeting-arrow--prev"
+                                                                @click="window.ChatMode.cycleGreeting($data, -1)"
+                                                                :title="'Previous greeting (' + (window.ChatMode.chatGreetingList($data).findIndex(g => g === msg.content) + 1) + ' / ' + window.ChatMode.chatGreetingList($data).length + ')'">
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                                            </button>
+                                                        </template>
+                                                        <div class="chat-message-bubble"
+                                                            :class="msg.isError ? 'chat-message-bubble--error' : msg.role === 'user' ? 'chat-message-bubble--user' : 'chat-message-bubble--assistant'"
+                                                            x-effect="renderChatMessage($el, msg, chatRoleplayFormatting, userPersona?.name || 'You')">
+                                                        </div>
+                                                        <!-- Hover Actions -->
+                                                        <div class="chat-message-actions">
+                                                            <button @click="window.ChatMode.editMessage($data, idx)" title="Edit">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                                                            </button>
+                                                            <button @click="window.ChatMode.retryMessage($data, idx)" title="Retry">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                                                            </button>
+                                                            <button @click="window.ChatMode.deleteMessage($data, idx)" title="Delete">
+                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                                                            </button>
+                                                        </div>
+                                                        <template x-if="idx === 0 && msg.role === 'assistant' && (chatCharacter?.alternateGreetings?.length || 0) > 0">
+                                                            <button class="chat-greeting-arrow chat-greeting-arrow--next"
+                                                                @click="window.ChatMode.cycleGreeting($data, 1)"
+                                                                :title="'Next greeting (' + (window.ChatMode.chatGreetingList($data).findIndex(g => g === msg.content) + 1) + ' / ' + window.ChatMode.chatGreetingList($data).length + ')'">
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                                                            </button>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <div x-show="chatCharacterIsGenerating" style="align-self:flex-start;padding:10px 14px;background:var(--bg-tertiary);border-radius:12px;border-bottom-left-radius:4px;color:var(--text-secondary);font-size:13px;">
+                                            <span x-text="(chatCharacter ? chatCharacter.name : 'Assistant') + ' is typing...'"></span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Chat Input Toolbar -->
+                                    <div class="chat-input-toolbar">
+                                        <div x-show="chatRoleplayFormatting" class="rp-buttons">
+                                            <button class="rp-toolbar-btn" @click="window.ChatMode.wrapFormat($data, 'action')" title="Wrap in *...* for action">*A*</button>
+                                            <button class="rp-toolbar-btn" @click="window.ChatMode.wrapFormat($data, 'dialogue')" title="Wrap in quotes for dialogue">"D"</button>
+                                            <button class="rp-toolbar-btn" @click="window.ChatMode.wrapFormat($data, 'bold')" title="Wrap in **...** for bold"><b>B</b></button>
+                                        </div>
+                                        <div class="gen-settings">
+                                            <div class="gen-item">
+                                                <select x-model="chatResponseMode"
+                                                    @change="window.ChatMode.saveChatResponseMode($data)"
+                                                    class="gen-select">
+                                                    <option value="character">In-Character</option>
+                                                    <option value="narrative">Narrative</option>
+                                                </select>
+                                            </div>
+                                            <span class="gen-divider"></span>
+                                            <div class="gen-item gen-length">
+                                                <button class="gen-length-btn" type="button"
+                                                    @click="maxTokens = 200"
+                                                    :class="{ 'gen-active': maxTokens === 200 }">200</button>
+                                                <button class="gen-length-btn" type="button"
+                                                    @click="maxTokens = 400"
+                                                    :class="{ 'gen-active': maxTokens === 400 }">400</button>
+                                                <button class="gen-length-btn" type="button"
+                                                    @click="maxTokens = 600"
+                                                    :class="{ 'gen-active': maxTokens === 600 }">600</button>
+                                                <input type="number" x-model.number="maxTokens"
+                                                    min="1" max="20000" step="50"
+                                                    class="gen-custom-input" placeholder="custom">
+                                            </div>
+                                            <span class="gen-divider"></span>
+                                            <div class="gen-item gen-temp">
+                                                <label>Temp: <span x-text="temperature.toFixed(1)"></span></label>
+                                                <input type="range" x-model.number="temperature"
+                                                    min="0.1" max="2.0" step="0.1"
+                                                    class="gen-slider">
+                                            </div>
+                                            <span class="gen-divider"></span>
+                                            <div class="gen-item gen-trim">
+                                                <button class="gen-length-btn" type="button"
+                                                    @click="chatAutoTrim = !chatAutoTrim"
+                                                    :class="{ 'gen-active': chatAutoTrim }"
+                                                    :title="chatAutoTrim ? 'Auto-trim is ON: incomplete ending sentences are removed from replies' : 'Auto-trim is OFF: replies are kept exactly as generated'">
+                                                    <span x-text="chatAutoTrim ? 'Trim: ON' : 'Trim: OFF'"></span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Chat Input -->
+                                    <div class="character-chat-input-area">
+                                        <div class="chat-input-wrapper">
+                                            <textarea class="chat-input-textarea" x-model="chatCharacterInput"
+                                                rows="1"
+                                                @keydown="if ($event.key === 'Enter' && !$event.shiftKey) { $event.preventDefault(); if (!chatCharacterIsGenerating) { if (!window.ChatMode.handleSlashCommand($data, chatCharacterInput)) window.ChatMode.sendMessage($data, chatCharacterInput); } }"
+                                                @input="$el.style.height = 'auto'; $el.style.height = Math.min($el.scrollHeight, 150) + 'px'"
+                                                placeholder="Type a message..."
+                                                :disabled="chatCharacterIsGenerating"
+                                                :style="chatCharacterIsGenerating ? 'opacity:0.5;' : ''"></textarea>
+                                            <button class="chat-quick-btn"
+                                                @click="window.ChatMode.impersonate($data)"
+                                                :disabled="chatCharacterIsGenerating"
+                                                :title="'Impersonate: generate ' + (userPersona?.name || 'your') + '\'s reply (/impersonate)'">
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                                            </button>
+                                            <button class="chat-send-button"
+                                                @click="window.ChatMode.sendMessage($data, chatCharacterInput)"
+                                                :disabled="false"
+                                                x-bind:title="chatCharacterIsGenerating ? 'Stop generation' : 'Send (Enter)'">
+                                                <span x-show="!chatCharacterIsGenerating">
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+                                                </span>
+                                                <span x-show="chatCharacterIsGenerating">
+                                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                                                </span>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                        </template>
+                    </div>

@@ -1,0 +1,189 @@
+    <!-- Character Info/Edit Modal -->
+    <template x-if="showCharacterInfo">
+        <div class="modal-overlay" @click.self="showCharacterInfo = false" style="z-index:9800;">
+            <div style="width:min(640px,96%);max-height:85vh;background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <div class="character-avatar-preview"
+                            :class="{ 'character-avatar-preview--zoomable': chatCharacter?.avatar }"
+                            @click="window.ChatMode.showChatAvatarLightbox($data)"
+                            title="View avatar full size"
+                            :style="chatCharacter?.avatar ? `background-image:url('${chatCharacter.avatar}')` : ''">
+                            <span x-show="!chatCharacter?.avatar" x-text="(chatCharacter?.name || '?')[0]"></span>
+                        </div>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);" x-text="'Edit: ' + (chatCharacter?.name || 'Character')"></h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="showCharacterInfo = false">Done</button>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:20px 24px;">
+                    <div class="character-info-grid">
+                        <div class="character-info-field full-width">
+                            <label>Name</label>
+                            <input type="text" x-model="characterInfoDraft.name" placeholder="Character name">
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Description</label>
+                            <textarea x-model="characterInfoDraft.description" rows="3" placeholder="Brief description of the character"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterDescriptionGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterDescription($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character description with AI" style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterDescriptionGenerating"
+                                    @click="window.ChatMode.stopCharacterDescriptionGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Personality</label>
+                            <textarea x-model="characterInfoDraft.personality" rows="4" placeholder="Personality traits, quirks, mannerisms"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterPersonalityGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterPersonality($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character personality with AI" style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterPersonalityGenerating"
+                                    @click="window.ChatMode.stopCharacterPersonalityGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Scenario</label>
+                            <textarea x-model="characterInfoDraft.scenario" rows="3" placeholder="The current scenario or setting"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterScenarioGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterScenario($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character scenario with AI" style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterScenarioGenerating"
+                                    @click="window.ChatMode.stopCharacterScenarioGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Linked World <span style="font-size:11px;font-weight:400;color:var(--text-secondary);">(replaces embedded Scenario if set)</span></label>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <select x-model="characterInfoDraft.worldId"
+                                    style="flex:1;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                                    <option value="">None (use embedded scenario)</option>
+                                    <template x-for="entry in worldCreatorCompendiumEntries" :key="entry.id">
+                                        <option :value="entry.id" x-text="entry.title"></option>
+                                    </template>
+                                </select>
+                                <span x-show="characterInfoDraft.worldId" @click="characterInfoDraft.worldId = ''"
+                                    style="cursor:pointer;font-size:16px;opacity:0.5;flex-shrink:0;" title="Unlink world">✕</span>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
+                                <span x-show="characterInfoDraft.worldId && activeWorldEntry" x-text="'Active: ' + (activeWorldEntry?.title || '')"></span>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Linked Scenario <span style="font-size:11px;font-weight:400;color:var(--text-secondary);">(overrides embedded scenario)</span></label>
+                            <div style="display:flex;gap:6px;align-items:center;">
+                                <select x-model="characterInfoDraft.scenarioId"
+                                    style="flex:1;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                                    <option value="">None (use embedded scenario field)</option>
+                                    <template x-for="entry in scenarioCreatorCompendiumEntries" :key="entry.id">
+                                        <option :value="entry.id" x-text="entry.title"></option>
+                                    </template>
+                                </select>
+                                <span x-show="characterInfoDraft.scenarioId" @click="characterInfoDraft.scenarioId = ''"
+                                    style="cursor:pointer;font-size:16px;opacity:0.5;flex-shrink:0;" title="Unlink scenario">✕</span>
+                            </div>
+                            <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">
+                                <span x-show="characterInfoDraft.scenarioId && activeScenarioEntry" x-text="'Active: ' + (activeScenarioEntry?.title || '')"></span>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Greetings</label>
+                            <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;">
+                                <button @click="window.ChatMode.selectGreetingTab($data, 0)"
+                                    :style="`padding:4px 10px;font-size:11px;border-radius:4px;border:1px solid var(--border);cursor:pointer;${characterInfoDraft._activeGreetingIndex === 0 ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-primary);color:var(--text-secondary);'}`">
+                                    Primary
+                                </button>
+                                <template x-for="(g, i) in (characterInfoDraft.alternateGreetings || [])" :key="i">
+                                    <button @click="window.ChatMode.selectGreetingTab($data, i + 1)"
+                                        :style="`padding:4px 10px;font-size:11px;border-radius:4px;border:1px solid var(--border);cursor:pointer;display:inline-flex;align-items:center;gap:4px;${characterInfoDraft._activeGreetingIndex === i + 1 ? 'background:var(--accent);color:#fff;' : 'background:var(--bg-primary);color:var(--text-secondary);'}`">
+                                        Alt {{i + 1}}
+                                        <span @click.stop="window.ChatMode.removeGreetingTab($data, i)" style="margin-left:2px;opacity:0.6;cursor:pointer;font-size:14px;line-height:1;" title="Remove this greeting">&times;</span>
+                                    </button>
+                                </template>
+                                <button @click="window.ChatMode.addGreetingTab($data)"
+                                    style="padding:4px 8px;font-size:11px;border-radius:4px;border:1px dashed var(--border);cursor:pointer;background:transparent;color:var(--text-tertiary);display:inline-flex;align-items:center;gap:2px;" title="Add alternate greeting">+ Add</button>
+                            </div>
+                            <textarea x-model="characterInfoDraft._activeGreetingBuffer" rows="3" placeholder="The character's first message in a new conversation"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterFirstMessageGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterFirstMessage($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate character first message with AI" style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterFirstMessageGenerating"
+                                    @click="window.ChatMode.stopCharacterFirstMessageGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>Example Dialogue</label>
+                            <textarea x-model="characterInfoDraft.examples" rows="5" placeholder="Example conversations between {{char}} and {{user}}"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterExamplesGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterExamples($data)"
+                                    style="font-size:12px;padding:4px 10px;" 
+                                    title="Generate example dialogues with AI" style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterExamplesGenerating"
+                                    @click="window.ChatMode.stopCharacterExamplesGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                            </div>
+                        </div>
+                        <div class="character-info-field full-width">
+                            <label>System Prompt</label>
+                            <textarea x-model="characterInfoDraft.systemPrompt" rows="4" placeholder="Additional system-level instructions for the AI"></textarea>
+                            <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                                <button class="btn btn-secondary" 
+                                    x-show="!characterSystemPromptGenerating"
+                                    :disabled="!characterInfoDraft.name || aiStatus !== 'ready'"
+                                    @click="window.ChatMode.generateCharacterSystemPrompt($data)"
+                                    title="Generate system prompt with AI" style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                                <button class="btn btn-danger" 
+                                    x-show="characterSystemPromptGenerating"
+                                    @click="window.ChatMode.stopCharacterSystemPromptGeneration($data)"
+                                    style="font-size:12px;padding:4px 10px;display:inline-flex;align-items:center;gap:4px;">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:flex;justify-content:flex-end;gap:8px;padding:16px 24px;border-top:1px solid var(--border);flex-shrink:0;">
+                    <button class="btn btn-secondary" @click="showCharacterInfo = false">Cancel</button>
+                    <button class="btn btn-primary" @click="window.ChatMode.saveCharacterInfo($data)">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </template>
+

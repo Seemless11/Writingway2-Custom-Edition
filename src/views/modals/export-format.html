@@ -1,0 +1,86 @@
+        <!-- Export Format Selection Modal -->
+        <template x-if="showExportModal">
+            <div class="modal-overlay" @click.self="showExportModal = false">
+                <div class="modal" style="max-width:500px;">
+                    <h3>Export Project</h3>
+                    <p style="margin:0 0 20px 0;color:var(--text-secondary);font-size:14px;">Choose your export format:
+                    </p>
+
+                    <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:24px;">
+                        <label
+                            style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
+                            :style="exportFormat === 'zip' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
+                            @click="exportFormat = 'zip'">
+                            <input type="radio" name="exportFormat" value="zip" x-model="exportFormat"
+                                style="margin-top:2px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;margin-bottom:4px;">📦 ZIP Archive (TXT)</div>
+                                <div style="font-size:13px;color:var(--text-secondary);">Organized folder structure with
+                                    plain text files. Best for backups and re-importing.</div>
+                            </div>
+                        </label>
+
+                        <label
+                            style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
+                            :style="exportFormat === 'epub' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
+                            @click="exportFormat = 'epub'">
+                            <input type="radio" name="exportFormat" value="epub" x-model="exportFormat"
+                                style="margin-top:2px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;margin-bottom:4px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> EPUB</div>
+                                <div style="font-size:13px;color:var(--text-secondary);">E-book format compatible with
+                                    most e-readers and reading apps.</div>
+                            </div>
+                        </label>
+
+                        <label
+                            style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
+                            :style="exportFormat === 'html' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
+                            @click="exportFormat = 'html'">
+                            <input type="radio" name="exportFormat" value="html" x-model="exportFormat"
+                                style="margin-top:2px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;margin-bottom:4px;">🌐 HTML</div>
+                                <div style="font-size:13px;color:var(--text-secondary);">Single web page with styling.
+                                    Can be converted to PDF using browser print.</div>
+                            </div>
+                        </label>
+
+                        <label
+                            style="display:flex;align-items:start;gap:12px;padding:16px;background:var(--bg-secondary);border:2px solid var(--border);border-radius:8px;cursor:pointer;transition:all 0.2s;"
+                            :style="exportFormat === 'txt' ? 'border-color:var(--accent);background:rgba(217,119,6,0.1);' : ''"
+                            @click="exportFormat = 'txt'">
+                            <input type="radio" name="exportFormat" value="txt" x-model="exportFormat"
+                                style="margin-top:2px;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;margin-bottom:4px;">📄 Plain Text</div>
+                                <div style="font-size:13px;color:var(--text-secondary);">Single .txt file with all
+                                    content. Simple and universal.</div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Export Options (only for non-ZIP formats) -->
+                    <div x-show="exportFormat !== 'zip'" x-cloak
+                        style="padding:16px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;margin-bottom:24px;">
+                        <div style="font-weight:600;margin-bottom:12px;font-size:14px;">Export Options</div>
+                        <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                            <input type="checkbox" x-model="exportIncludeSceneTitles"
+                                style="width:18px;height:18px;cursor:pointer;">
+                            <div>
+                                <div style="font-size:14px;">Include scene titles</div>
+                                <div style="font-size:12px;color:var(--text-secondary);">
+                                    Uncheck to omit scene headings from the export (useful for cleaner reading drafts)
+                                </div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" @click="showExportModal = false">Cancel</button>
+                        <button class="btn btn-primary" @click="confirmExport()">Export</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

@@ -1,0 +1,76 @@
+        <!-- New Project Modal -->
+        <template x-if="showNewProjectModal">
+            <div class="modal-overlay" @click.self="showNewProjectModal = false">
+                <div class="modal">
+                    <h3>New Project</h3>
+                    <input type="text" x-model="newProjectName" placeholder="Project name (e.g., 'My Novel')"
+                        @keydown.enter="createProject">
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">Genre (optional, pick multiple)</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+                            <template x-for="g in (window.GenreDefs?.GENRES || [])" :key="g.id">
+                                <span class="tag-chip"
+                                    :class="{ 'tag-chip-active': selectedGenres.includes(g.id) }"
+                                    @click="selectedGenres = selectedGenres.includes(g.id) ? selectedGenres.filter(x => x !== g.id) : [...selectedGenres, g.id]"
+                                    x-text="g.icon + ' ' + g.label">
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">POV</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+                            <template x-for="p in (window.GenreDefs?.POVS || [])" :key="p.id">
+                                <span class="tag-chip"
+                                    :class="{ 'tag-chip-active': newProjectPov === p.id }"
+                                    @click="newProjectPov = p.id"
+                                    x-text="p.label">
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">Tense</label>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+                            <template x-for="t in (window.GenreDefs?.TENSES || [])" :key="t.id">
+                                <span class="tag-chip"
+                                    :class="{ 'tag-chip-active': newProjectTense === t.id }"
+                                    @click="newProjectTense = t.id"
+                                    x-text="t.label">
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">Language</label>
+                        <div style="margin-top: 6px;">
+                            <select x-model="newProjectLanguage"
+                                style="width:100%;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                                <template x-for="lang in (window.GenreDefs?.LANGUAGES || [])" :key="lang.id">
+                                    <option :value="lang.id" x-text="lang.label"></option>
+                                </template>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top: 12px;">
+                        <label style="font-size: 13px; color: var(--text-secondary);">POV Character (optional)</label>
+                        <div style="margin-top: 6px;">
+                            <input type="text" x-model="newProjectPovCharacter" placeholder="e.g., Alice"
+                                list="new-project-pov-list"
+                                style="width:100%;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <datalist id="new-project-pov-list">
+                                <template x-for="char in (compendiumLists['characters'] || []).filter(c => c.isPovCharacter)"
+                                    :key="char.id">
+                                    <option :value="char.title"></option>
+                                </template>
+                            </datalist>
+                        </div>
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" @click="showNewProjectModal = false">Cancel</button>
+                        <button class="btn btn-primary" @click="createProject">Create</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

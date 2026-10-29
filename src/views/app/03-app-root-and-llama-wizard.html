@@ -1,0 +1,54 @@
+    <div x-data="app" x-cloak>
+        <div x-show="showLlamaSetupWizard" x-cloak
+            style="position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:10050;padding:24px;">
+            <div
+                style="width:min(760px, 100%);background:linear-gradient(180deg, #232323, #1a1a1a);border:1px solid rgba(217,119,6,0.25);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,0.55);padding:28px;">
+                <div x-show="!llamaInstallComplete">
+                    <div style="font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:#66bb6a;margin-bottom:10px;">Local AI Setup</div>
+                    <h2 style="margin:0 0 12px 0;font-size:28px;color:var(--text-primary);">A GGUF model was found in <code>models/</code></h2>
+                    <p style="margin:0 0 16px 0;color:var(--text-secondary);line-height:1.7;">
+                        Writingway detected <strong x-text="runtimeInfo.ggufModels && runtimeInfo.ggufModels.length ? runtimeInfo.ggufModels[0] : 'a local model'"></strong>,
+                        but llama.cpp is not installed yet. Install it now if you want to run that model through Writingway's built-in local backend.
+                    </p>
+                    <div
+                        style="background:rgba(217,119,6,0.08);border:1px solid rgba(217,119,6,0.15);border-radius:12px;padding:16px;margin-bottom:18px;">
+                        <div style="font-weight:600;color:var(--text-primary);margin-bottom:8px;">Install target</div>
+                        <template x-for="choice in runtimeInfo.llamaInstallChoices" :key="choice.id">
+                            <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;cursor:pointer;border-top:1px solid rgba(255,255,255,0.04);">
+                                <input type="radio" x-model="llamaInstallChoice" :value="choice.id" style="margin-top:2px;width:16px;height:16px;">
+                                <span>
+                                    <span style="display:block;font-weight:600;color:var(--text-primary);" x-text="choice.label"></span>
+                                    <span style="display:block;font-size:12px;color:var(--text-secondary);line-height:1.5;" x-text="choice.description"></span>
+                                </span>
+                            </label>
+                        </template>
+                    </div>
+                    <p x-show="llamaInstallStatus" style="margin:0 0 12px 0;color:var(--text-secondary);" x-text="llamaInstallStatus"></p>
+                    <p x-show="llamaInstallError"
+                        style="margin:0 0 14px 0;color:#ff8a80;background:rgba(255,138,128,0.08);border:1px solid rgba(255,138,128,0.2);padding:12px;border-radius:10px;"
+                        x-text="llamaInstallError"></p>
+                    <div style="display:flex;justify-content:flex-end;gap:12px;">
+                        <button class="btn btn-secondary" @click="dismissLlamaSetupWizard()" :disabled="isInstallingLlama">Not now</button>
+                        <button class="btn btn-primary" @click="installLlamaCpp()" :disabled="isInstallingLlama">
+                            <span x-show="!isInstallingLlama">Install llama.cpp</span>
+                            <span x-show="isInstallingLlama">Installing...</span>
+                        </button>
+                    </div>
+                </div>
+                <div x-show="llamaInstallComplete">
+                    <div style="font-size:13px;letter-spacing:0.12em;text-transform:uppercase;color:#66bb6a;margin-bottom:10px;">Install Complete</div>
+                    <h2 style="margin:0 0 12px 0;font-size:28px;color:var(--text-primary);">llama.cpp is installed</h2>
+                    <p style="margin:0 0 16px 0;color:var(--text-secondary);line-height:1.7;">
+                        Restart Writingway now to launch the local llama.cpp server and make Local GGUF mode available.
+                    </p>
+                    <p x-show="llamaInstallStatus"
+                        style="margin:0 0 18px 0;color:#66bb6a;background:rgba(102,187,106,0.08);border:1px solid rgba(102,187,106,0.2);padding:12px;border-radius:10px;"
+                        x-text="llamaInstallStatus"></p>
+                    <div style="display:flex;justify-content:flex-end;">
+                        <button class="btn btn-primary" @click="shutdownForRestart()">Restart Writingway</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+

@@ -1,0 +1,203 @@
+        <!-- Context Panel Modal -->
+        <template x-if="showContextPanel">
+            <div class="modal-overlay" @click.self="showContextPanel = false">
+                <div class="modal" x-data="{ allCompendiumEntries: [] }"
+                    x-init="allCompendiumEntries = await getAllCompendiumEntries();"
+                    style="max-width:1100px;max-height:85vh;overflow:hidden;display:flex;flex-direction:column;">
+                    <div class="modal-header">
+                        <h3 style="margin:0;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Context Panel</h3>
+                        <button class="btn btn-secondary" @click="showContextPanel = false">Close</button>
+                    </div>
+                    <div class="modal-body" style="overflow-y:auto;flex:1;">
+                        <div style="margin-bottom:16px;">
+                            <div style="font-size:13px;color:var(--text-secondary);">
+                                Select what context to include in every generation prompt
+                            </div>
+                        </div>
+
+                        <!-- Two Column Layout -->
+                        <div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start;">
+                            <!-- Left Column: Compendium -->
+                            <div style="display:flex;flex-direction:column;">
+                                <!-- Compendium Entries Section -->
+                                <div
+                                    style="background:var(--bg-secondary);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                                    <div
+                                        style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                                        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></span>
+                                        <span>Compendium Entries</span>
+                                    </div>
+                                    <div style="max-height:500px;overflow-y:auto;">
+                                        <template x-if="allCompendiumEntries.length === 0">
+                                            <div
+                                                style="font-size:12px;color:var(--text-tertiary);padding:20px;text-align:center;">
+                                                No compendium entries yet
+                                            </div>
+                                        </template>
+                                        <template x-for="category in compendiumCategories" :key="category">
+                                            <div x-show="allCompendiumEntries.filter(e => e.category === category).length > 0"
+                                                style="margin-bottom:16px;">
+                                                <div style="font-size:10px;color:var(--text-secondary);text-transform:uppercase;margin-bottom:8px;font-weight:700;letter-spacing:0.5px;"
+                                                    x-text="category"></div>
+                                                <template
+                                                    x-for="entry in allCompendiumEntries.filter(e => e.category === category)"
+                                                    :key="entry.id">
+                                                    <label
+                                                        style="display:flex;align-items:center;gap:10px;padding:8px 10px;cursor:pointer;border-radius:6px;font-size:13px;margin-bottom:4px;transition:all 0.15s;"
+                                                        @mouseenter="$el.style.background = 'var(--bg-tertiary)'"
+                                                        @mouseleave="$el.style.background = 'transparent'">
+                                                        <input type="checkbox"
+                                                            :checked="contextPanel.compendiumIds.includes(entry.id)"
+                                                            @change="toggleContextCompendium(entry.id)"
+                                                            style="cursor:pointer;width:16px;height:16px;">
+                                                        <span style="flex:1;display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                                                            <span x-text="entry.title"></span>
+                                                            <span style="font-size:11px;color:var(--text-secondary);white-space:nowrap;" x-text="'~' + Math.ceil((entry.body || '').length / 4) + ' tokens'"></span>
+                                                        </span>
+                                                    </label>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right Column: Scenes & Tags -->
+                            <div style="display:flex;flex-direction:column;gap:16px;">
+                                <!-- Scenes Section -->
+                                <div
+                                    style="background:var(--bg-secondary);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                                    <div
+                                        style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                                        <span>📄</span>
+                                        <span>Scenes</span>
+                                    </div>
+                                    <div style="max-height:350px;overflow-y:auto;">
+                                        <template x-if="chapters.length === 0">
+                                            <div
+                                                style="font-size:12px;color:var(--text-tertiary);padding:20px;text-align:center;">
+                                                No scenes yet
+                                            </div>
+                                        </template>
+                                        <template x-for="chapter in chapters" :key="chapter.id">
+                                            <div style="margin-bottom:20px;">
+                                                <!-- Chapter Header -->
+                                                <div
+                                                    style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:8px 10px;background:var(--bg-tertiary);border-radius:6px;">
+                                                    <div style="font-size:13px;font-weight:600;" x-text="chapter.title">
+                                                    </div>
+                                                    <div style="display:flex;gap:8px;">
+                                                        <button
+                                                            @click="setContextChapter(chapter.id, contextPanel.chapters[chapter.id] === 'full' ? null : 'full')"
+                                                            :style="contextPanel.chapters[chapter.id] === 'full' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
+                                                            class="context-chapter-btn"
+                                                            title="Include full text of all scenes (click again to deselect)">
+                                                            📄 Full Text
+                                                        </button>
+                                                        <button
+                                                            @click="setContextChapter(chapter.id, contextPanel.chapters[chapter.id] === 'summary' ? null : 'summary')"
+                                                            :style="contextPanel.chapters[chapter.id] === 'summary' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
+                                                            class="context-chapter-btn"
+                                                            title="Include summaries of all scenes (click again to deselect)">
+                                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Summary
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <!-- Scenes List -->
+                                                <template x-for="scene in chapter.scenes" :key="scene.id">
+                                                    <div style="margin-left:12px;margin-bottom:6px;">
+                                                        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 8px;border-radius:5px;transition:all 0.15s;"
+                                                            @mouseenter="$el.style.background = 'var(--bg-tertiary)'"
+                                                            @mouseleave="$el.style.background = 'transparent'">
+                                                            <div
+                                                                style="font-size:13px;display:flex;align-items:center;gap:8px;flex:1;">
+                                                                <span class="summary-dot"
+                                                                    :class="{ 'has-summary': scene.summary, 'summary-stale': scene.summaryStale }"
+                                                                    :title="scene.summary ? (scene.summaryStale ? 'Summary is outdated' : 'Summary available') : 'No summary'"></span>
+                                                                <span x-text="scene.title"></span>
+                                                            </div>
+                                                            <div style="display:flex;gap:6px;">
+                                                                <button
+                                                                    @click="setContextScene(scene.id, contextPanel.scenes[scene.id] === 'full' ? null : 'full')"
+                                                                    :style="contextPanel.scenes[scene.id] === 'full' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
+                                                                    class="context-scene-btn" title="Include full text">
+                                                                    📄 Full
+                                                                </button>
+                                                                <button
+                                                                    @click="setContextScene(scene.id, contextPanel.scenes[scene.id] === 'summary' ? null : 'summary')"
+                                                                    :style="contextPanel.scenes[scene.id] === 'summary' ? 'background:var(--accent);color:white;font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);'"
+                                                                    class="context-scene-btn" title="Include summary"
+                                                                    :disabled="!scene.summary">
+                                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Summary
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <!-- Scene Tags Section -->
+                                <div
+                                    style="background:var(--bg-secondary);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                                    <div
+                                        style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                                        <span>🏷️</span>
+                                        <span>Scene Tags</span>
+                                    </div>
+                                    <template x-if="getAllTags().length === 0">
+                                        <div
+                                            style="font-size:12px;color:var(--text-tertiary);padding:20px;text-align:center;">
+                                            No scene tags yet. Add tags to scenes in their summary panel.
+                                        </div>
+                                    </template>
+                                    <div x-show="getAllTags().length > 0" style="display:flex;flex-wrap:wrap;gap:10px;">
+                                        <template x-for="tag in getAllTags()" :key="tag">
+                                            <button @click="toggleContextTag(tag)"
+                                                :style="contextPanel.tags.includes(tag) ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);'"
+                                                class="context-tag-btn"
+                                                :title="contextPanel.tags.includes(tag) ? 'Click to exclude scenes with tag: ' + tag : 'Click to include scenes with tag: ' + tag"
+                                                @mouseenter="if (!contextPanel.tags.includes(tag)) $el.style.borderColor = 'var(--accent)'"
+                                                @mouseleave="if (!contextPanel.tags.includes(tag)) $el.style.borderColor = 'var(--border)'"
+                                                x-text="tag">
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <!-- Compendium Tags Section -->
+                                <div x-data="{ compTagsModal: [] }" x-init="compTagsModal = await getCompendiumTags()"
+                                    style="background:var(--bg-secondary);padding:16px;border-radius:8px;border:1px solid var(--border);">
+                                    <div
+                                        style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+                                        <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></span>
+                                        <span>Compendium Tags</span>
+                                    </div>
+                                    <template x-if="compTagsModal.length === 0">
+                                        <div
+                                            style="font-size:12px;color:var(--text-tertiary);padding:20px;text-align:center;">
+                                            No compendium tags yet. Add tags to compendium entries.
+                                        </div>
+                                    </template>
+                                    <div x-show="compTagsModal.length > 0" style="display:flex;flex-wrap:wrap;gap:10px;">
+                                        <template x-for="tag in compTagsModal" :key="'comp-modal-'+tag">
+                                            <button @click="toggleContextCompendiumTag(tag)"
+                                                :style="(contextPanel.compendiumTags || []).includes(tag) ? 'background:var(--accent);color:white;border-color:var(--accent);font-weight:600;' : 'background:var(--bg-primary);color:var(--text-primary);border-color:var(--border);'"
+                                                class="context-tag-btn"
+                                                :title="(contextPanel.compendiumTags || []).includes(tag) ? 'Click to exclude compendium entries with tag: ' + tag : 'Click to include compendium entries with tag: ' + tag"
+                                                @mouseenter="if (!(contextPanel.compendiumTags || []).includes(tag)) $el.style.borderColor = 'var(--accent)'"
+                                                @mouseleave="if (!(contextPanel.compendiumTags || []).includes(tag)) $el.style.borderColor = 'var(--border)'"
+                                                x-text="tag">
+                                            </button>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+    </template>
+

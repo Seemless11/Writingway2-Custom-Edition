@@ -1,0 +1,142 @@
+        <!-- Scene Model Settings Modal -->
+        <template x-if="showSceneOptions">
+            <div class="modal-overlay" @click.self="showSceneOptions = false">
+                <div class="modal" style="max-width:400px;max-height:90vh;overflow-y:auto;">
+                    <div class="modal-header">
+                        <h3 style="margin:0;">Scene Model Settings</h3>
+                        <button class="btn btn-secondary" @click="showSceneOptions = false">Close</button>
+                    </div>
+                    <div class="modal-body" style="display:flex;flex-direction:column;gap:16px;">
+                        <!-- Model Selection -->
+                        <label style="font-size:12px;color:var(--text-secondary);display:block;"
+                            title="The AI model used for generation. Different models have different capabilities and costs.">
+                            MODEL
+                            <select x-model="aiModel" @change="switchModelPreset()"
+                                style="width:100%;margin-top:6px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                                <template
+                                    x-for="model in (aiMode === 'api' ? (providerModels[aiProvider] || []) : [])"
+                                    :key="model.id">
+                                    <option :value="model.id" x-text="model.name + (model.recommended ? ' ⭐' : '')">
+                                    </option>
+                                </template>
+                                <template x-for="modelName in (aiMode === 'local' ? availableLocalModels : [])"
+                                    :key="modelName">
+                                    <option :value="modelName" x-text="modelName"></option>
+                                </template>
+                                <option
+                                    x-show="aiModel && ((aiMode === 'api' && !(providerModels[aiProvider] || []).find(m => m.id === aiModel)) || (aiMode === 'local' && !availableLocalModels.includes(aiModel)))"
+                                    :value="aiModel" x-text="aiModel"></option>
+                                <option x-show="aiMode === 'local' && availableLocalModels.length === 0 && !aiModel"
+                                    value="" disabled>Local model (via llama-server)</option>
+                            </select>
+                        </label>
+
+                        <!-- Use Provider Defaults Toggle -->
+                        <div>
+                            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                <input type="checkbox" x-model="useProviderDefaults"
+                                    @change="saveGenerationParams()" style="width:16px;height:16px;cursor:pointer;">
+                                <span style="font-size:13px;color:var(--text-primary);">
+                                    Use model's default settings
+                                </span>
+                            </label>
+                            <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;padding-left:24px;">
+                                When enabled, temperature and advanced parameters won't be sent to the provider.
+                                The model will use its own built-in defaults. Target length is always sent.
+                            </p>
+                        </div>
+
+                        <!-- Target Length (always active, independent of useProviderDefaults) -->
+                        <label style="font-size:12px;color:var(--text-secondary);display:block;"
+                            title="Desired minimum length of generated text in words.">
+                            TARGET LENGTH: <span x-text="maxTokens + ' words'"></span>
+                            <input type="range" x-model.number="maxTokens" min="100" max="20000" step="100"
+                                @input="savePresetParam()" style="width:100%;margin-top:6px;">
+                            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-tertiary);margin-top:2px;">
+                                <span>Short</span>
+                                <span>Very Long</span>
+                            </div>
+                        </label>
+
+                        <!-- Generation Parameters (grayed out when useProviderDefaults is on) -->
+                        <div style="padding-top:16px;border-top:1px solid var(--border);"
+                            :style="useProviderDefaults ? 'opacity:0.5;pointer-events:none;' : ''">
+                            <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">
+                                Generation Parameters
+                                <span x-show="aiModel && modelPresets[aiModel]" style="font-size:10px;color:var(--text-secondary);font-weight:400;margin-left:8px;">
+                                    (custom preset)
+                                </span>
+                            </div>
+
+                            <!-- Temperature -->
+                            <label style="font-size:12px;color:var(--text-secondary);display:block;margin-bottom:12px;"
+                                title="Controls randomness. Lower = more focused. Higher = more creative."
+                                :disabled="useProviderDefaults">
+                                TEMPERATURE: <span x-text="temperature.toFixed(1)"></span>
+                                <input type="range" x-model.number="temperature" min="0.1" max="2.0" step="0.1"
+                                    @input="savePresetParam()" style="width:100%;margin-top:6px;"
+                                    :disabled="useProviderDefaults">
+                            </label>
+
+                            <!-- Advanced Parameters (collapsible) -->
+                            <details style="margin-top:12px;">
+                                <summary style="font-size:12px;color:var(--text-secondary);cursor:pointer;padding:4px 0;">
+                                    Advanced Generation Parameters
+                                </summary>
+                                <div style="padding:12px 0 0 0;display:flex;flex-direction:column;gap:12px;">
+                                    <label style="font-size:12px;color:var(--text-secondary);display:block;">
+                                        TOP P: <span x-text="modelPresets[aiModel] ? topP.toFixed(2) : 'Model default'"></span>
+                                        <input type="range" x-model.number="topP" min="0" max="1" step="0.05"
+                                            @input="savePresetParam()" style="width:100%;margin-top:4px;">
+                                    </label>
+                                    <label style="font-size:12px;color:var(--text-secondary);display:block;">
+                                        TOP K: <span x-text="modelPresets[aiModel] ? topK : 'Model default'"></span>
+                                        <input type="range" x-model.number="topK" min="0" max="200" step="1"
+                                            @input="savePresetParam()" style="width:100%;margin-top:4px;">
+                                    </label>
+                                    <label style="font-size:12px;color:var(--text-secondary);display:block;">
+                                        REPETITION PENALTY: <span x-text="modelPresets[aiModel] ? repetitionPenalty.toFixed(2) : 'Model default'"></span>
+                                        <input type="range" x-model.number="repetitionPenalty" min="0" max="2" step="0.05"
+                                            @input="savePresetParam()" style="width:100%;margin-top:4px;">
+                                    </label>
+                                    <label style="font-size:12px;color:var(--text-secondary);display:block;">
+                                        FREQUENCY PENALTY: <span x-text="modelPresets[aiModel] ? frequencyPenalty.toFixed(2) : 'Model default'"></span>
+                                        <input type="range" x-model.number="frequencyPenalty" min="0" max="2" step="0.05"
+                                            @input="savePresetParam()" style="width:100%;margin-top:4px;">
+                                    </label>
+                                    <label style="font-size:12px;color:var(--text-secondary);display:block;">
+                                        PRESENCE PENALTY: <span x-text="modelPresets[aiModel] ? presencePenalty.toFixed(2) : 'Model default'"></span>
+                                        <input type="range" x-model.number="presencePenalty" min="0" max="2" step="0.05"
+                                            @input="savePresetParam()" style="width:100%;margin-top:4px;">
+                                    </label>
+                                    <label style="font-size:12px;color:var(--text-secondary);display:block;">
+                                        MIN P: <span x-text="modelPresets[aiModel] ? minP.toFixed(2) : 'Model default'"></span>
+                                        <input type="range" x-model.number="minP" min="0" max="1" step="0.05"
+                                            @input="savePresetParam()" style="width:100%;margin-top:4px;">
+                                    </label>
+                                    <label style="font-size:12px;color:var(--text-secondary);display:block;">
+                                        SEED: <span x-text="modelPresets[aiModel] && seed != null ? seed : 'Model default'"></span>
+                                        <input type="number" x-model.number="seed" placeholder="Model default"
+                                            @input="savePresetParam()"
+                                            style="width:100%;margin-top:4px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                                    </label>
+
+                                    <button class="btn btn-secondary" @click="clearModelPreset()"
+                                        x-show="aiModel && modelPresets[aiModel]"
+                                        style="width:100%;font-size:11px;margin-top:4px;">
+                                        🗑️ Clear preset for this model
+                                    </button>
+                                </div>
+                            </details>
+                        </div>
+
+                        <!-- Quick link to full AI Settings -->
+                        <button class="btn btn-secondary" @click="showSceneOptions = false; showAISettings = true"
+                            style="width:100%;font-size:11px;display:flex;align-items:center;gap:6px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg> Advanced AI Settings
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

@@ -1,0 +1,93 @@
+                    <div class="editor-container">
+                    <div class="editor-header" x-show="writingMode !== 'chat'">
+                        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+                            <div class="editor-title" x-text="currentScene ? currentScene.title : 'No scene selected'">
+                            </div>
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <div class="editor-stats" style="white-space:nowrap;">
+                                    <span x-text="`${currentSceneWords} words`"></span>
+                                    <span class="save-indicator" :class="{ 'saving': isSaving }"
+                                        x-text="saveStatus"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formatting Toolbar (compact dropdown) -->
+                    <div x-show="currentScene" x-cloak x-data="{ formatMenuOpen: false }"
+                        style="padding:8px 30px;background:var(--bg-secondary);border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;">
+                        <span style="font-size:12px;color:var(--text-secondary);">Format:</span>
+                        <button @click="formatMenuOpen = !formatMenuOpen" class="btn btn-secondary"
+                            style="position:relative;">
+                            ✎ Text Formatting
+                        </button>
+
+                        <!-- Preview Toggle Button -->
+                        <button @click="showMarkdownPreview = !showMarkdownPreview" class="btn btn-secondary"
+                            :class="{ 'btn-primary': showMarkdownPreview }"
+                            :title="showMarkdownPreview ? 'Switch to edit mode' : 'Preview formatted text'">
+                            <span x-show="!showMarkdownPreview">👁️ Preview</span>
+                            <span x-show="showMarkdownPreview">✏️ Edit</span>
+                        </button>
+
+                        <div x-show="filesystemSaveStatus" x-cloak
+                            style="font-size:12px;font-weight:600;margin-left:8px;"
+                            :style="filesystemSaveTone === 'error'
+                                ? 'color:#ff8a80;'
+                                : (filesystemSaveTone === 'info' ? 'color:var(--text-secondary);' : 'color:#66bb6a;')">
+                            <span x-text="filesystemSaveStatus"></span>
+                        </div>
+
+                        <!-- Rewrite Selection Button (only visible when text is selected) -->
+                        <button x-show="showRewriteBtn && !showMarkdownPreview" @click="handleRewriteButtonClick()"
+                            class="btn btn-secondary" title="Rewrite selected text with AI">
+                            ✨ Rewrite
+                        </button>
+
+                        <!-- Create Compendium Entry Button -->
+                        <button x-show="showCreateCompBtn && !showMarkdownPreview" @click="showCompCategoryPicker = !showCompCategoryPicker"
+                            class="btn btn-secondary" title="Create compendium entry from selected text">
+                            📖 Create Entry
+                        </button>
+
+                        <!-- Category picker for Create Entry -->
+                        <div x-show="showCompCategoryPicker" @click.away="showCompCategoryPicker = false" x-cloak
+                            style="position:absolute;top:45px;left:180px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:1000;min-width:160px;">
+                            <div style="font-size:11px;color:var(--text-secondary);padding:4px 8px;margin-bottom:4px;">Choose category:</div>
+                            <template x-for="cat in compendiumCategories" :key="cat">
+                                <div @click="createCompendiumEntryFromSelection(cat)"
+                                    style="padding:6px 8px;cursor:pointer;border-radius:4px;text-transform:capitalize;font-size:13px;"
+                                    @mouseenter="$el.style.background='var(--bg-hover)'"
+                                    @mouseleave="$el.style.background=''">
+                                    <span x-text="cat"></span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div x-show="formatMenuOpen" @click.away="formatMenuOpen = false" x-cloak
+                            style="position:absolute;top:45px;left:80px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:8px;box-shadow:0 4px 12px rgba(0,0,0,0.3);z-index:1000;display:grid;grid-template-columns:1fr 1fr;gap:4px;min-width:280px;">
+                            <button @click="applyFormatting('bold'); formatMenuOpen=false" class="btn btn-secondary"
+                                style="justify-content:flex-start;font-weight:bold;" title="Wrap selection in **bold**">
+                                <span style="width:20px;display:inline-block;">B</span> Bold
+                            </button>
+                            <button @click="applyFormatting('italic'); formatMenuOpen=false" class="btn btn-secondary"
+                                style="justify-content:flex-start;font-style:italic;"
+                                title="Wrap selection in *italic*">
+                                <span style="width:20px;display:inline-block;">I</span> Italic
+                            </button>
+                            <button @click="applyFormatting('strikethrough'); formatMenuOpen=false"
+                                class="btn btn-secondary"
+                                style="justify-content:flex-start;text-decoration:line-through;"
+                                title="Wrap selection in ~~strikethrough~~">
+                                <span style="width:20px;display:inline-block;">S</span> Strike
+                            </button>
+                            <button @click="applyFormatting('heading'); formatMenuOpen=false" class="btn btn-secondary"
+                                style="justify-content:flex-start;" title="Make selection a ## Heading">
+                                <span style="width:20px;display:inline-block;">H</span> Heading
+                            </button>
+                            <button @click="applyFormatting('quote'); formatMenuOpen=false" class="btn btn-secondary"
+                                style="justify-content:flex-start;" title="Make selection a > quote">
+                                <span style="width:20px;display:inline-block;">"</span> Quote
+                            </button>
+                        </div>
+                    </div>

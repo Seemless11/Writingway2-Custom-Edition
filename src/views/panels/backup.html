@@ -1,0 +1,120 @@
+        <!-- Backup Settings Panel -->
+        <div class="slide-panel-right" :class="{ 'open': showBackupSettings }" x-cloak>
+            <div class="slide-panel-header">
+                <h3 style="margin:0;display:flex;align-items:center;gap:8px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg> Backups</h3>
+                <button class="btn btn-secondary" @click="closeBackupSettings()">Close</button>
+            </div>
+            <div class="slide-panel-body" style="padding:20px;">
+                <div style="margin-bottom:20px;">
+                    <label style="display:block;font-weight:600;margin-bottom:8px;">Backup Provider</label>
+                    <select x-model="backupProvider"
+                        style="width:100%;padding:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                        <template x-for="provider in backupProviderOptions" :key="provider.id">
+                            <option :value="provider.id"
+                                x-text="provider.available ? provider.name : (provider.name + ' (Coming Soon)')"></option>
+                        </template>
+                    </select>
+                    <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
+                        Choose where Writingway stores automatic project backups.
+                    </p>
+                </div>
+
+                <div x-show="backupProvider === 'github'"
+                    style="background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;padding:16px;margin-bottom:24px;">
+                    <h4 style="margin:0 0 12px 0;color:var(--text-primary);">GitHub Gist Setup</h4>
+                    <ol style="margin:0;padding-left:20px;line-height:1.8;font-size:14px;">
+                        <li>Go to <a href="https://github.com/settings/tokens" target="_blank"
+                                style="color:var(--color-accent);">GitHub Settings → Developer settings → Personal access tokens</a></li>
+                        <li>Click "Generate new token (classic)"</li>
+                        <li>Give it a name such as "Writingway Backup"</li>
+                        <li>Select the <strong>gist</strong> permission only</li>
+                        <li>Paste the token below</li>
+                    </ol>
+                </div>
+
+                <div x-show="backupProvider === 'local'"
+                    style="background:rgba(76,175,80,0.1);border:1px solid rgba(76,175,80,0.3);border-radius:8px;padding:16px;margin-bottom:24px;">
+                    <h4 style="margin:0 0 12px 0;color:var(--text-primary);">Local Versioning</h4>
+                    <p style="margin:0;font-size:14px;line-height:1.7;color:var(--text-secondary);">
+                        Each backup is written to the <code>project-backups/</code> folder inside Writingway.
+                        This keeps timestamped restore points on this machine without requiring any cloud login.
+                    </p>
+                </div>
+
+                <div x-show="backupProvider === 'onedrive' || backupProvider === 'gdrive'"
+                    style="background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:8px;padding:16px;margin-bottom:24px;">
+                    <h4 style="margin:0 0 12px 0;color:var(--text-primary);" x-text="backupProviderName() + ' Integration'"></h4>
+                    <p style="margin:0;font-size:14px;line-height:1.7;color:var(--text-secondary);">
+                        This provider is listed for planning, but its sign-in and sync flow is not implemented yet.
+                        Use GitHub Gist or Local Versioning for working backups today.
+                    </p>
+                </div>
+
+                <div x-show="backupProvider === 'github'" style="margin-bottom:20px;">
+                    <label style="display:block;font-weight:600;margin-bottom:8px;">GitHub Token</label>
+                    <input type="password" x-model="githubToken" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx"
+                        style="width:100%;padding:10px;background:var(--input-bg);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-family:monospace;font-size:13px;">
+                    <p style="font-size:12px;color:var(--text-secondary);margin-top:8px;">
+                        <span x-show="githubUsername" style="color:#4caf50;">✓ Connected as: <strong
+                                x-text="githubUsername"></strong></span>
+                    </p>
+                </div>
+
+                <div style="margin-bottom:20px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" x-model="backupEnabled" style="width:18px;height:18px;">
+                        <span style="font-weight:600;">Enable automatic backup (every 5 minutes)</span>
+                    </label>
+                </div>
+
+                <div style="display:flex;gap:12px;margin-bottom:20px;">
+                    <button class="btn btn-primary" @click="saveBackupSettings()" style="flex:1;">
+                        Save Settings
+                    </button>
+                    <button class="btn btn-secondary" @click="backupNow()" style="flex:1;">
+                        Backup Now
+                    </button>
+                </div>
+
+                <div x-show="backupStatus"
+                    style="padding:12px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:6px;margin-bottom:20px;">
+                    <p style="margin:0;font-size:14px;" x-text="backupStatus"></p>
+                    <p x-show="lastBackupTime" style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);">
+                        Last backup: <span
+                            x-text="lastBackupTime ? new Date(lastBackupTime).toLocaleString() : 'Never'"></span>
+                    </p>
+                </div>
+
+                <div style="border-top:1px solid var(--border);padding-top:20px;">
+                    <button class="btn btn-secondary" @click="openRestoreModal()"
+                        :disabled="!currentProject || (backupProvider === 'github' && (!githubToken || !currentProjectGistId)) || (backupProvider !== 'github' && backupProvider !== 'local')"
+                        style="width:100%;">
+                        📥 Restore from Backup
+                    </button>
+                    <button class="btn btn-secondary" @click="restoreBestLocalSnapshot()" style="width:100%;margin-top:10px;">
+                        ♻️ Restore from Local Snapshot (all projects)
+                    </button>
+                    <p style="margin:8px 0 0 0;font-size:12px;color:var(--text-secondary);line-height:1.5;">
+                        Recovers every project from the newest disk snapshot in <code>project-backups/all/</code>.
+                        This replaces all current browser data.
+                    </p>
+                </div>
+
+                <div x-show="backupProvider === 'github'"
+                    style="margin-top:20px;padding:16px;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.3);border-radius:8px;">
+                    <p style="margin:0;font-size:13px;line-height:1.6;">
+                        <strong>Note:</strong> Each project is backed up to its own private GitHub Gist.
+                        Backups include chapters, scenes, content, compendium entries, prompts, and other project data.
+                    </p>
+                </div>
+
+                <div x-show="backupProvider === 'local'"
+                    style="margin-top:20px;padding:16px;background:rgba(217,119,6,0.1);border:1px solid rgba(217,119,6,0.3);border-radius:8px;">
+                    <p style="margin:0;font-size:13px;line-height:1.6;">
+                        <strong>Note:</strong> Local backups are stored as timestamped JSON snapshots under
+                        <code>project-backups/</code>. They stay on this machine unless you sync that folder yourself.
+                    </p>
+                </div>
+            </div>
+        </div>
+

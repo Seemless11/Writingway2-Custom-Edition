@@ -1,0 +1,88 @@
+        <!-- Scene/Chapter Summary Panel -->
+        <div class="slide-panel-right summary-panel" :class="{ 'open': showSummaryPanel }" x-cloak aria-hidden="true">
+            <div class="slide-panel-header">
+                <h3 style="margin:0;" x-text="summaryTargetChapterId ? 'Chapter Summary' : 'Scene Summary'"></h3>
+                <div>
+                    <button class="btn btn-secondary" @click="showSummaryPanel = false">Close</button>
+                </div>
+            </div>
+            <div class="slide-panel-body">
+                <div style="display:flex;flex-direction:column;height:100%;">
+                    <div style="flex:1;overflow:auto;">
+                        <!-- Tags input (scenes only) -->
+                        <div x-show="summaryTargetSceneId" style="margin-bottom:12px;">
+                            <label
+                                style="display:block;margin-bottom:6px;font-size:13px;color:var(--text-secondary);font-weight:600;">Tags
+                                (comma-separated)</label>
+                            <input type="text" x-model="sceneTags" placeholder="e.g., chase, action, romance"
+                                style="width:100%;padding:10px 12px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;font-size:14px;" />
+                            <div style="font-size:12px;color:var(--text-tertiary);margin-top:4px;">Tags help organize
+                                and reference scenes in your context panel</div>
+                        </div>
+                        <label
+                            style="display:block;margin-bottom:6px;font-size:13px;color:var(--text-secondary);font-weight:600;"
+                            x-text="summaryTargetChapterId ? 'Chapter Summary' : 'Scene Summary'"></label>
+                        <textarea x-model="summaryText" rows="12"
+                            style="width:100%;padding:12px;background:var(--bg-primary);border:1px solid var(--border);color:var(--text-primary);border-radius:6px;resize:vertical;"></textarea>
+                    </div>
+
+                    <div
+                        style="flex:0 0 auto;display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:12px;position:relative;">
+                        <!-- Prompt Selection Button -->
+                        <div style="position:relative;">
+                            <button class="btn btn-secondary" @click="showSummaryPromptList = !showSummaryPromptList"
+                                title="Choose a summary prompt">
+                                Prompt
+                            </button>
+                            <!-- Prompt Dropdown -->
+                            <div x-show="showSummaryPromptList" @click.away="showSummaryPromptList = false" x-cloak
+                                style="position:absolute;bottom:100%;left:0;margin-bottom:8px;background:var(--bg-tertiary);border:1px solid var(--border);border-radius:6px;padding:8px;min-width:280px;max-height:300px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.4);z-index:1000;">
+                                <div
+                                    style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;padding:4px 8px;">
+                                    Select Summary Prompt:
+                                </div>
+                                <!-- Default option -->
+                                <div @click="selectedSummaryPromptId = null; showSummaryPromptList = false"
+                                    :style="!selectedSummaryPromptId ? 'background:var(--accent);color:white;' : ''"
+                                    style="padding:8px 12px;cursor:pointer;border-radius:4px;margin-bottom:4px;transition:background 0.15s;"
+                                    :class="!selectedSummaryPromptId ? '' : 'hover:bg-tertiary'">
+                                    <div style="font-weight:600;font-size:13px;">
+                                        Default
+                                        <span x-show="prompts.filter(p => p.category === 'summary').length === 0"
+                                            style="font-size:11px;opacity:0.7;">(Heuristic)</span>
+                                    </div>
+                                    <div style="font-size:11px;opacity:0.8;">
+                                        <span x-show="prompts.filter(p => p.category === 'summary').length > 0">First
+                                            summary prompt or fallback</span>
+                                    </div>
+                                </div>
+                                <!-- Summary category prompts -->
+                                <template x-for="prompt in prompts.filter(p => p.category === 'summary')"
+                                    :key="prompt.id">
+                                    <div @click="selectedSummaryPromptId = prompt.id; showSummaryPromptList = false"
+                                        :style="selectedSummaryPromptId === prompt.id ? 'background:var(--accent);color:white;' : ''"
+                                        style="padding:8px 12px;cursor:pointer;border-radius:4px;margin-bottom:4px;transition:background 0.15s;"
+                                        @mouseenter="$el.style.background = selectedSummaryPromptId === prompt.id ? 'var(--accent)' : 'var(--bg-secondary)'"
+                                        @mouseleave="$el.style.background = selectedSummaryPromptId === prompt.id ? 'var(--accent)' : 'transparent'">
+                                        <div style="font-weight:600;font-size:13px;" x-text="prompt.title"></div>
+                                        <div style="font-size:11px;opacity:0.8;"
+                                            x-text="(prompt.content || '').slice(0, 60) + '...'"></div>
+                                    </div>
+                                </template>
+                                <!-- No prompts message -->
+                                <div x-show="prompts.filter(p => p.category === 'summary').length === 0"
+                                    style="padding:12px;text-align:center;color:var(--text-secondary);font-size:12px;">
+                                    No summary prompts yet.<br>
+                                    <span style="font-size:11px;opacity:0.7;">Add one in the Prompts panel</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-secondary"
+                            @click="summaryTargetChapterId ? summarizeChapter() : summarizeScene()">Summarize</button>
+                        <button class="btn btn-primary"
+                            @click="summaryTargetChapterId ? saveChapterSummary() : saveSceneSummary()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+

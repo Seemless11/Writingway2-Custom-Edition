@@ -1,0 +1,272 @@
+        <!-- Compendium Slide Panel -->
+        <div id="compendium-panel" class="slide-panel-right compendium-panel" :class="{ 'open': showCodexPanel }"
+            x-cloak :aria-hidden="!showCodexPanel">
+            <div class="slide-panel-header">
+                <h3 style="margin:0;">Compendium</h3>
+                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;">
+                    <span x-show="compendiumDirty" x-cloak style="font-size:12px;color:var(--warning);flex-shrink:0;">Unsaved changes</span>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openCharacterCreator()" title="Create a new character with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Character</button>
+                    <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;flex-shrink:0;" @click="openWorldCreator()" title="Create a new world with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> World</button>
+                    <div x-data="{ moreOpen: false }" @click.outside="moreOpen = false" style="position:relative;flex-shrink:0;">
+                        <button class="btn btn-secondary" style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:4px;" @click="moreOpen = !moreOpen" title="More actions">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg> More
+                        </button>
+                        <div x-show="moreOpen" x-cloak @click="moreOpen = false" style="position:absolute;top:100%;right:0;margin-top:4px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:100;min-width:180px;box-shadow:0 4px 16px rgba(0,0,0,0.2);">
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openScenarioCreator()" title="Create a new scenario with AI assistance"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Scenario</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="importCharacterCard('story')" title="Import SillyTavern character cards (one or more)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg> Import</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openPasteImport()" title="Paste wiki article or text to extract a character"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg> Paste Import</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openCompendiumVault('characters')" title="Browse and import entries from other projects"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Vault</button>
+                            <button style="font-size:12px;padding:6px 12px;display:flex;align-items:center;gap:6px;width:100%;justify-content:flex-start;border:none;background:none;border-radius:4px;color:var(--text-primary);cursor:pointer;" @click="openLorebookPanel()" title="View imported lorebooks"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg> Lorebooks</button>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary" @click="closeCompendium()" style="flex-shrink:0;padding:4px 8px;display:flex;align-items:center;" title="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+                </div>
+            </div>
+            <div class="slide-panel-body">
+                <div style="display:flex;gap:12px;height:100%;">
+                    <div style="width:40%;overflow:auto;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <strong style="color:var(--text-primary);">Categories</strong>
+                        </div>
+
+                        <!-- Compendium Search -->
+                        <div style="margin-bottom:12px;">
+                            <input type="text" x-model="compendiumSearchQuery" placeholder="🔍 Search entries..."
+                                style="width:100%;padding:8px 12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;"
+                                @keydown.escape="compendiumSearchQuery = ''">
+                        </div>
+
+                        <template x-for="cat in compendiumCategories" :key="cat">
+                            <div style="margin-bottom:12px;">
+                                <div class="comp-category" :class="{ 'active': openCompCategories.includes(cat) }"
+                                    tabindex="0" role="button" @click="loadCompendiumCategory(cat)"
+                                    @keydown.enter="loadCompendiumCategory(cat)">
+                                    <div class="comp-category-label"
+                                        style="text-transform:capitalize;font-weight:700;color:var(--text-primary);"
+                                        x-text="cat"></div>
+                                    <div style="display:flex;align-items:center;gap:6px;">
+                                        <div class="comp-category-count"
+                                            style="font-size:12px;color:var(--text-secondary);"
+                                            x-text="(compendiumCounts[cat] || 0)"></div>
+                                        <button class="btn btn-secondary" style="padding:2px 8px;font-size:14px;"
+                                            @click.stop="createCompendiumEntry(cat)"
+                                            :title="`New ${cat} entry`">+</button>
+                                    </div>
+                                </div>
+                                <div x-show="openCompCategories.includes(cat) || compendiumSearchQuery" x-cloak style="margin-top:6px;">
+                                    <template x-for="e in (compendiumLists[cat] || []).filter(entry => !compendiumSearchQuery || entry.title.toLowerCase().includes(compendiumSearchQuery.toLowerCase()) || (entry.body && entry.body.toLowerCase().includes(compendiumSearchQuery.toLowerCase())))" :key="e.id">
+                                        <div class="comp-entry"
+                                            :class="{ 'active': currentCompEntry && currentCompEntry.id === e.id }"
+                                            tabindex="0">
+                                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                                <div style="flex:1;cursor:pointer;" @click="selectCompendiumEntry(e.id)"
+                                                    @keydown.enter="selectCompendiumEntry(e.id)">
+                                                    <div class="comp-entry-title" x-text="e.title"></div>
+                                                    <div class="comp-entry-meta" style="display:flex;gap:6px;">
+                                                        <span style="color:var(--text-secondary);font-size:11px;" x-text="'~' + Math.ceil((e.body || '').length / 4) + ' tokens'"></span>
+                                                        <span x-text="new Date(e.modified).toLocaleString()"></span>
+                                                    </div>
+                                                </div>
+
+                                                <div class="item-actions" style="margin-left:8px;"
+                                                    x-data="{ openMenu:false }">
+                                                    <button class="menu-button" @click.stop="openMenu = !openMenu"
+                                                        title="More">⋯</button>
+                                                    <div x-show="openMenu" x-cloak @click.away="openMenu = false"
+                                                        x-transition class="action-menu">
+                                                        <div class="menu-row">
+                                                            <label
+                                                                style="font-size:12px;color:var(--text-secondary);flex:1;display:flex;gap:6px;align-items:center;">
+                                                                Move to
+                                                                <select class="move-select"
+                                                                    @change.stop="moveCompendiumEntryToCategory(e.id, $event.target.value); openMenu=false;">
+                                                                    <option value="" disabled selected>Choose category
+                                                                    </option>
+                                                                    <template x-for="cat in compendiumCategories"
+                                                                        :key="cat">
+                                                                        <option :value="cat"
+                                                                            :selected="cat === e.category" x-text="cat">
+                                                                        </option>
+                                                                    </template>
+                                                                </select>
+                                                            </label>
+                                                        </div>
+                                                        <button
+                                                            @click.stop="moveCompendiumEntryUp(e.id); openMenu=false">Move
+                                                            up</button>
+                                                        <button
+                                                            @click.stop="moveCompendiumEntryDown(e.id); openMenu=false">Move
+                                                            down</button>
+                                                        <button
+                                                            @click.stop="deleteCompendiumEntry(e.id); openMenu=false">Delete
+                                                            entry</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div style="flex:1;display:flex;flex-direction:column;">
+                        <div style="flex:0 0 auto;margin-bottom:6px;">
+                            <template x-if="!currentCompEntry">
+                                <div style="color:var(--text-secondary);">Select an entry or create a new one.</div>
+                            </template>
+                            <template x-if="currentCompEntry">
+                                <div>
+                                    <input type="text" x-model="currentCompEntry.title" placeholder="Entry title"
+                                        @input="updateCompendiumDirtyFlag()"
+                                        style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-primary);color:var(--text-primary);border-radius:6px;margin-bottom:6px;">
+                                </div>
+                            </template>
+                        </div>
+                        <div style="flex:1;overflow:auto;">
+                            <template x-if="currentCompEntry">
+                                <div class="comp-editor-vertical">
+                                    <!-- Image under the title -->
+                                    <label class="comp-image-preview comp-image-block" tabindex="0"
+                                        @click.prevent="$refs.compImageInput.click()" @dragover.prevent
+                                        @drop.prevent="setCompImageFromFile($event)">
+                                        <template x-if="currentCompEntry.imageUrl">
+                                            <img :key="currentCompEntry.imageUrl" :src="currentCompEntry.imageUrl" alt="Entry image preview"
+                                                :style="`object-fit: contain; transform: scale(${currentCompEntry.imageZoom || 1}) translate(${currentCompEntry.imagePanX || 0}px, ${currentCompEntry.imagePanY || 0}px); cursor: zoom-in;`"
+                                                @click.stop="window.CompendiumManager.showCompendiumImageLightbox($data, currentCompEntry)"
+                                                title="Click to view / reposition full size">
+                                        </template>
+                                        <template x-if="!currentCompEntry.imageUrl">
+                                            <div class="comp-image-placeholder">Drop an image here</div>
+                                        </template>
+                                        <input x-ref="compImageInput" type="file" accept="image/*"
+                                            @change="setCompImageFromFile($event)" style="display:none">
+                                    </label>
+
+                                    <!-- Body below the image -->
+                                    <div style="position:relative;margin-top:12px;">
+                                        <textarea x-model="currentCompEntry.body"
+                                            placeholder="Write compendium entry body here. Use @name to reference entries."
+                                            class="comp-editor-body"
+                                            @input="updateCompendiumDirtyFlag(); onCompBodyInput($event)"
+                                            @keydown="onCompBodyKey($event)"
+                                            style="width:100%;"></textarea>
+                                        <div style="text-align:right;font-size:11px;color:var(--text-secondary);margin-top:2px;">
+                                            ~<span x-text="Math.ceil((currentCompEntry.body || '').length / 4)"></span> tokens
+                                        </div>
+
+                                        <div x-show="compBodySearchOpen" x-cloak
+                                            style="position:absolute;top:100%;left:0;right:0;z-index:5000;background:var(--bg-primary);border:1px solid var(--accent);border-radius:6px;padding:6px;max-height:200px;overflow:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+                                            <template x-for="(m,mi) in compBodySearchMatches" :key="m.id">
+                                                <div class="quick-search-item"
+                                                    :class="{ 'active': mi === compBodySearchSelectedIndex }"
+                                                    @click="selectCompBodyMatch(m)"
+                                                    style="padding:6px;border-radius:4px;cursor:pointer;">
+                                                    <div style="font-weight:600" x-text="m.title"></div>
+                                                    <div style="font-size:12px;color:var(--text-secondary);"
+                                                        x-text="(m.category || '')"></div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+
+                                    <!-- Always in Context checkbox -->
+                                    <div
+                                        style="margin-top:12px;padding:12px;background:rgba(217,119,6,0.06);border:1px solid rgba(217,119,6,0.2);border-radius:6px;">
+                                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                            <input type="checkbox" x-model="currentCompEntry.alwaysInContext"
+                                                @change="updateCompendiumDirtyFlag()"
+                                                style="cursor:pointer;">
+                                            <span style="font-size:14px;color:rgba(255,255,255,0.9);">Always include in
+                                                prose prompts</span>
+                                        </label>
+                                        <p
+                                            style="margin:6px 0 0 26px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.4;">
+                                            When enabled, this entry will be automatically included in all prose
+                                            generation prompts (useful for style guides, world rules, etc.)
+                                        </p>
+                                    </div>
+
+                                    <!-- POV Character checkbox -->
+                                    <div x-show="currentCompEntry.category === 'characters'"
+                                        style="margin-top:12px;padding:12px;background:rgba(76,175,80,0.05);border:1px solid rgba(76,175,80,0.2);border-radius:6px;">
+                                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                                            <input type="checkbox" x-model="currentCompEntry.isPovCharacter"
+                                                @change="updateCompendiumDirtyFlag()"
+                                                style="cursor:pointer;">
+                                            <span style="font-size:14px;color:rgba(255,255,255,0.9);">Use as POV
+                                                character</span>
+                                        </label>
+                                        <p
+                                            style="margin:6px 0 0 26px;font-size:12px;color:rgba(255,255,255,0.5);line-height:1.4;">
+                                            When enabled, this character will appear in the POV Character selector
+                                            for projects and scenes.
+                                        </p>
+                                    </div>
+
+                                    <!-- Tags and image remove button -->
+                                    <div
+                                        style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:12px;">
+                                        <div class="comp-tags">
+                                            <div class="tag-list">
+                                                <template x-for="(t,ti) in (currentCompEntry.tags || [])" :key="ti">
+                                                    <span class="tag-chip" @click.stop="removeCompTag(ti)"
+                                                        title="Remove tag" x-text="t"></span>
+                                                </template>
+                                            </div>
+                                            <input class="tag-input" x-model="newCompTag"
+                                                placeholder="Add tag and press Enter"
+                                                @keydown.enter.prevent="addCompTag()">
+                                        </div>
+
+                                        <div style="display:flex;gap:8px;align-items:center;">
+                                            <!-- Image removal handled by clicking the image itself -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                        <div style="flex:0 0 auto;display:flex;gap:8px;margin-top:8px;align-items:center;">
+                            <button class="btn btn-secondary" @click="editCharacterInCreator(currentCompEntry)"
+                                x-show="currentCompEntry && currentCompEntry.category === 'characters'"
+                                title="Open this character in the creator to edit traits"
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Edit in Creator</button>
+                            <button class="btn btn-secondary" @click="editWorldInCreator(currentCompEntry)"
+                                x-show="currentCompEntry && currentCompEntry._worldData"
+                                title="Re-open this world in the creator to edit traits"
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> Edit in Creator</button>
+                            <button class="btn btn-secondary" @click="editScenarioInCreator(currentCompEntry)"
+                                x-show="currentCompEntry && currentCompEntry._scenarioData"
+                                title="Re-open this scenario in the creator to edit traits"
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg> Edit in Creator</button>
+                            <button class="btn btn-secondary" @click="generateCompendiumEntry"
+                                x-show="currentCompEntry && !compendiumGenerating && !showCompGenActions"
+                                :disabled="!currentCompEntry || aiStatus !== 'ready'"
+                                style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;" title="Generate entry content with AI"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                            <template x-if="compendiumGenerating">
+                                <button class="btn btn-danger" @click="stopCompendiumGeneration"
+                                    style="font-size:12px;padding:4px 10px;display:flex;align-items:center;gap:6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="10" height="10" x="7" y="7" rx="2"/></svg> Stop</button>
+                            </template>
+                            <template x-if="showCompGenActions">
+                                <div style="display:inline-flex;gap:4px;">
+                                    <button class="btn btn-primary" @click="acceptCompendiumGen"
+                                        style="font-size:12px;padding:4px 10px;">Accept</button>
+                                    <button class="btn btn-secondary" @click="retryCompendiumGen"
+                                        style="font-size:12px;padding:4px 10px;">Retry</button>
+                                    <button class="btn btn-danger" @click="discardCompendiumGen"
+                                        style="font-size:12px;padding:4px 10px;">Discard</button>
+                                </div>
+                            </template>
+                            <button class="btn btn-primary" @click="saveCompendiumEntry"
+                                :disabled="!currentCompEntry || !compendiumDirty"
+                                x-show="!showCompGenActions">Save</button>
+                            <span style="margin-left:8px;font-size:13px;color:var(--text-secondary);"
+                                class="compendium-save-status"
+                                :class="{ 'saving': compendiumSaveStatus === 'Saving...' }"
+                                x-text="compendiumSaveStatus"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+

@@ -1,0 +1,57 @@
+        <!-- Prompt History Modal -->
+        <template x-if="showPromptHistory">
+            <div class="modal-overlay" @click.self="showPromptHistory = false">
+                <div class="modal" style="max-width:900px;max-height:80vh;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                        <h3 style="margin:0;">Prompt History</h3>
+                        <button class="btn btn-secondary" @click="showPromptHistory = false">Close</button>
+                    </div>
+
+                    <div style="overflow:auto;max-height:calc(80vh - 100px);">
+                        <template x-if="promptHistoryList.length === 0">
+                            <div style="color:var(--text-secondary);text-align:center;padding:40px;">
+                                No prompt history yet. Generate scenes to build your history.
+                            </div>
+                        </template>
+
+                        <template x-for="(item, idx) in promptHistoryList" :key="item.id">
+                            <div
+                                style="border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:12px;background:var(--bg-secondary);">
+                                <div
+                                    style="display:flex;justify-content:space-between;align-items:start;margin-bottom:8px;">
+                                    <div style="flex:1;">
+                                        <div style="font-size:11px;color:var(--text-secondary);margin-bottom:4px;">
+                                            <span x-text="new Date(item.timestamp).toLocaleString()"></span>
+                                            <template x-if="item.sceneId">
+                                                <span> • Scene: <span
+                                                        x-text="scenes.find(s => s.id === item.sceneId)?.title || 'Unknown'"></span></span>
+                                            </template>
+                                        </div>
+                                        <div style="font-weight:500;margin-bottom:8px;">
+                                            <strong style="color:var(--text-secondary);font-size:11px;">Beat:</strong>
+                                            <div style="color:var(--text-primary);font-size:13px;margin-top:2px;"
+                                                x-text="item.beat"></div>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary"
+                                        @click="reuseBeat(item.beat)"
+                                        style="font-size:11px;padding:4px 8px;">
+                                        Reuse Beat
+                                    </button>
+                                </div>
+
+                                <details style="margin-top:8px;">
+                                    <summary
+                                        style="cursor:pointer;color:var(--text-secondary);font-size:11px;user-select:none;">
+                                        View Full Prompt
+                                    </summary>
+                                    <pre style="margin-top:8px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:4px;font-size:11px;overflow:auto;max-height:300px;white-space:pre-wrap;word-wrap:break-word;"
+                                        x-text="item.prompt"></pre>
+                                </details>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </template>
+

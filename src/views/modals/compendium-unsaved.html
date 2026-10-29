@@ -1,0 +1,15 @@
+        <!-- Compendium Unsaved Changes Modal -->
+        <template x-if="showCompendiumUnsavedModal">
+            <div class="modal-overlay" @click.self="cancelCompendiumAction()">
+                <div class="modal" style="max-width: 400px;">
+                    <h3 style="margin-top:0;">Leave this entry?</h3>
+                    <p style="color:var(--text-secondary);margin-bottom:20px;">Unsaved changes will be lost.</p>
+                    <div class="modal-buttons" style="display:flex;gap:8px;justify-content:flex-end;">
+                        <button class="btn btn-secondary" @click="cancelCompendiumAction()">Cancel</button>
+                        <button class="btn btn-danger" @click="discardAndProceedCompendium()">Leave without saving</button>
+                        <button class="btn btn-primary" @click="saveAndProceedCompendium()">Save &amp; leave</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+

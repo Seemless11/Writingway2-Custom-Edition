@@ -1,0 +1,63 @@
+    <!-- Persona Settings Modal -->
+    <template x-if="showPersonaSettings">
+        <div class="modal-overlay" @click.self="showPersonaSettings = false" style="z-index:9800;">
+            <div style="width:min(480px,96%);background:var(--bg-secondary);border:1px solid var(--border);border-radius:12px;display:flex;flex-direction:column;overflow:hidden;">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        <h3 style="margin:0;font-size:18px;color:var(--text-primary);">Your Personas</h3>
+                    </div>
+                    <button class="btn btn-secondary" @click="showPersonaSettings = false">Done</button>
+                </div>
+                <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <select :value="activePersonaId"
+                            @change="window.ChatMode.switchPersona($data, $event.target.value)"
+                            style="flex:1;padding:8px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;">
+                            <template x-for="p in userPersonas" :key="p.id">
+                                <option :value="p.id" x-text="p.name"></option>
+                            </template>
+                        </select>
+                        <button class="btn btn-secondary btn-icon" @click="window.ChatMode.createPersona($data)"
+                            style="font-size:12px;padding:6px 10px;white-space:nowrap;" title="New persona">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> New</button>
+                        <button class="btn btn-danger btn-icon" 
+                            x-show="userPersonas.length > 1"
+                            @click="window.ChatMode.deletePersona($data, activePersonaId)"
+                            style="font-size:12px;padding:6px 10px;" title="Delete persona">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Your Name</label>
+                        <input type="text" x-model="userPersona.name" placeholder="How the AI refers to you"
+                            @input="window.ChatMode.savePersona($data)"
+                            style="width:100%;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:14px;">
+                    </div>
+                    <div>
+                        <label style="display:block;font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:6px;">Description</label>
+                        <textarea x-model="userPersona.description" placeholder="Describe yourself — the AI will use this to understand who it's talking to."
+                            @input="window.ChatMode.savePersona($data)"
+                            style="width:100%;min-height:100px;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-size:13px;resize:vertical;font-family:inherit;line-height:1.6;"></textarea>
+                        <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+                            <button class="btn btn-secondary btn-icon" 
+                                x-show="!personaDescriptionGenerating"
+                                :disabled="!userPersona.name || aiStatus !== 'ready'"
+                                @click="window.ChatMode.generatePersonaDescription($data)"
+                                style="font-size:12px;padding:4px 10px;" 
+                                title="Generate persona description with AI">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg> Generate</button>
+                            <button class="btn btn-danger btn-icon" 
+                                x-show="personaDescriptionGenerating"
+                                @click="window.ChatMode.stopPersonaDescriptionGeneration($data)"
+                                style="font-size:12px;padding:4px 10px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg> Stop</button>
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:var(--text-tertiary);line-height:1.6;padding:10px 14px;background:var(--bg-primary);border-radius:6px;border:1px solid var(--border);">
+                        Your persona is used in character chat mode. The AI will refer to you by your name and incorporate your description into the conversation context.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
