@@ -218,6 +218,59 @@ window.ChatMode = {
         app.avatarLightboxEntry = null;
     },
 
+    // ========== Compendium Image Lightbox ==========
+    showCompendiumImageLightbox(app, entry) {
+        if (!entry || !entry.imageUrl) return;
+        // Reset zoom and pan state
+        app.compendiumImageZoom = 1;
+        app.compendiumImagePanX = 0;
+        app.compendiumImagePanY = 0;
+        app.compendiumImageLightboxEntry = entry;
+        app.showCompendiumImageLightbox = true;
+    },
+
+    closeCompendiumImageLightbox(app) {
+        app.showCompendiumImageLightbox = false;
+        app.compendiumImageLightboxEntry = null;
+        app.compendiumImageZoom = 1;
+        app.compendiumImagePanX = 0;
+        app.compendiumImagePanY = 0;
+    },
+
+    compendiumImageZoomIn(app) {
+        if (app) app.compendiumImageZoom = Math.min(4, (app.compendiumImageZoom || 1) + 0.2);
+    },
+
+    compendiumImageZoomOut(app) {
+        if (app) app.compendiumImageZoom = Math.max(0.5, (app.compendiumImageZoom || 1) - 0.2);
+    },
+
+    useCurrentImageForEntry(app) {
+        if (!app.compendiumImageLightboxEntry?.imageUrl) {
+            alert('No image in lightbox to use.');
+            return;
+        }
+        if (!app.currentCompEntry) {
+            alert('No compendium entry selected. Select or create an entry first.');
+            return;
+        }
+        const entry = app.currentCompEntry;
+        entry.imageZoom = app.compendiumImageZoom || 1;
+        entry.imagePanX = app.compendiumImagePanX || 0;
+        entry.imagePanY = app.compendiumImagePanY || 0;
+        app.currentCompEntry = Object.assign({}, entry, {
+            imageUrl: app.compendiumImageLightboxEntry.imageUrl,
+            imageZoom: entry.imageZoom,
+            imagePanX: entry.imagePanX,
+            imagePanY: entry.imagePanY
+        });
+        if (window.CompendiumManager) {
+            window.CompendiumManager.updateCompendiumDirtyFlag(app);
+            window.CompendiumManager.saveCompendiumEntry(app);
+        }
+        this.closeCompendiumImageLightbox(app);
+    },
+
     async showChatAvatarLightbox(app) {
         if (!app.chatCharacter?.avatar) return;
         let entry = null;

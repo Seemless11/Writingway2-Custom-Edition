@@ -108,7 +108,11 @@
          * @param {Object} app - Alpine app instance
          */
         async loadProjects(app) {
-            app.projects = await db.projects.orderBy('created').reverse().toArray();
+            app.projects = (await db.projects.toArray()).sort((a, b) => {
+                const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.modified ? new Date(a.modified).getTime() : 0);
+                const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.modified ? new Date(b.modified).getTime() : 0);
+                return bTime - aTime;
+            });
         },
 
         /**

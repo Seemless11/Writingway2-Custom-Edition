@@ -400,6 +400,15 @@ function createAppState() {
         showCompGenActions: false, // Show Accept/Retry/Discard after generation
         compGenPreTitle: '', // Snapshot of entry title before generation
         compGenPreBody: '', // Snapshot of entry body before generation
+        // Compendium Image Lightbox state
+        showCompendiumImageLightbox: false,
+        compendiumImageLightboxEntry: null,
+        compendiumImageZoom: 1,
+        compendiumImagePanX: 0,
+        compendiumImagePanY: 0,
+        compendiumImageIsDragging: false,
+        compendiumImageDragStartX: 0,
+        compendiumImageDragStartY: 0,
 
         // ========== Lorebook Panel State ==========
         showLorebookPanel: false,

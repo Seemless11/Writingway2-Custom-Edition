@@ -338,6 +338,9 @@
                     body: app.currentCompEntry.body || '',
                     tags: JSON.parse(JSON.stringify(app.currentCompEntry.tags || [])),
                     imageUrl: app.currentCompEntry.imageUrl || null,
+                    imageZoom: app.currentCompEntry.imageZoom || 1,
+                    imagePanX: app.currentCompEntry.imagePanX || 0,
+                    imagePanY: app.currentCompEntry.imagePanY || 0,
                     alwaysInContext: app.currentCompEntry.alwaysInContext || false,
                     isPovCharacter: app.currentCompEntry.isPovCharacter || false
                 };
