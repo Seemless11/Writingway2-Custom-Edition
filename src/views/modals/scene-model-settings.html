@@ -58,7 +58,26 @@
                             </div>
                         </label>
 
-                        <!-- Generation Parameters (grayed out when useProviderDefaults is on) -->
+                        <!-- Reasoning effort, kept beside target length because both
+                             draw from the same output-token budget on reasoning models. -->
+                        <label style="font-size:12px;color:var(--text-secondary);display:block;"
+                            title="Thinking models spend output tokens on reasoning. Lower effort leaves more of the budget for prose.">
+                            REASONING EFFORT
+                            <select x-model="reasoningEffort" @change="savePresetParam()"
+                                style="width:100%;margin-top:6px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                                <option value="low">Low — recommended for prose</option>
+                                <option value="off">Off — no reasoning (where supported)</option>
+                                <option value="minimal">Minimal</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="auto">Model default</option>
+                            </select>
+                            <span style="display:block;font-size:10px;color:var(--text-tertiary);margin-top:4px;"
+                                x-show="lastGenUsage"
+                                x-text="lastGenUsage ? 'Last: ' + (lastGenUsage.completionTokens || 0) + ' output tokens' + (lastGenUsage.reasoningTokens ? ' · ' + Math.round(100 * lastGenUsage.reasoningTokens / (lastGenUsage.completionTokens || 1)) + '% reasoning' : '') : ''"></span>
+                        </label>
+
+
                         <div style="padding-top:16px;border-top:1px solid var(--border);"
                             :style="useProviderDefaults ? 'opacity:0.5;pointer-events:none;' : ''">
                             <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">

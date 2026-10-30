@@ -150,6 +150,7 @@ Object.assign(window.AppMethods, {
                 this.modelPresets[this.aiModel] = {
                     temperature: this.temperature,
                     maxTokens: this.maxTokens,
+                    reasoningEffort: this.reasoningEffort,
                     topP: this.topP,
                     topK: this.topK,
                     repetitionPenalty: this.repetitionPenalty,
@@ -168,6 +169,7 @@ Object.assign(window.AppMethods, {
                 if (preset) {
                     this.temperature = preset.temperature;
                     this.maxTokens = preset.maxTokens;
+                    this.reasoningEffort = preset.reasoningEffort || 'low';
                     this.topP = preset.topP;
                     this.topK = preset.topK;
                     this.repetitionPenalty = preset.repetitionPenalty;
@@ -178,6 +180,7 @@ Object.assign(window.AppMethods, {
                 } else {
                     this.temperature = 0.8;
                     this.maxTokens = 300;
+                    this.reasoningEffort = 'low';
                     this.topP = 0.9;
                     this.topK = 40;
                     this.repetitionPenalty = 1.0;

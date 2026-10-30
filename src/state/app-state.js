@@ -10,6 +10,7 @@ function createAppState() {
         currentProject: null,
         projects: [],
         selectedProjectId: null,
+        sortMode: 'date-desc', // date-desc, date-asc, name-asc, name-desc
 
         // ========== UI Modal State ==========
         showRenameProjectModal: false,
@@ -524,6 +525,15 @@ function createAppState() {
         maxTokens: 300,
         useProviderDefaults: false, // Don't send temperature/maxTokens, let provider use their defaults
         forceNonStreaming: false, // Force non-streaming mode for models that don't support it
+        // Reasoning effort sent to reasoning models: 'auto' | 'off' | 'minimal' |
+        // 'low' | 'medium' | 'high'. 'low' keeps chain-of-thought from eating a
+        // prose-focused request's output budget.
+        reasoningEffort: 'low',
+        // Extra output tokens reserved for chain-of-thought when a model reasons.
+        reasoningBudget: 4000,
+        // Usage of the most recent generation: { promptTokens, completionTokens,
+        // reasoningTokens, visibleTokens, totalTokens }.
+        lastGenUsage: null,
         modelPresets: {}, // { [modelId]: { temperature, maxTokens, topP, ... } }
 
         // Per-model preset fields

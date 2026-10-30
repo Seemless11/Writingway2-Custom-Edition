@@ -14,9 +14,310 @@
         return 'Check your AI provider connection and settings.';
     }
 
+    // Finish reasons that mean the provider ran out of output budget. Providers
+    // disagree on the exact string (OpenAI/OpenRouter "length", Anthropic
+    // "max_tokens", Google "MAX_TOKENS", some gateways "max_output_tokens"),
+    // and missing one made the app treat a chopped stream as a finished scene.
+    const LENGTH_FINISH_REASONS = new Set([
+        'length', 'max_tokens', 'max_output_tokens',
+        'max_completion_tokens', 'model_length', 'token_limit'
+    ]);
+
     function isTruncated(result) {
-        const fr = (result?.finishReason || '').toLowerCase();
-        return fr === 'length' || fr === 'max_tokens';
+        const fr = String(result?.finishReason || '').toLowerCase();
+        return LENGTH_FINISH_REASONS.has(fr);
+    }
+
+    function countWords(text) {
+        const t = String(text || '').trim();
+        if (!t) return 0;
+        return t.split(/\s+/).filter(Boolean).length;
+    }
+
+    // Extra output budget reserved for chain-of-thought. 4000 is enough for the
+    // short reasoning pass a prose task needs; it is a ceiling, not a spend.
+    const DEFAULT_REASONING_ALLOWANCE = 4000;
+
+    /**
+     * Human-readable length instruction shared by every prompt builder.
+     * A range is far more reliable than "at least N words": models routinely
+     * stopped at ~60% of the target, or rambled until they hit the token cap.
+     * @param {number} words - Target word count
+     * @returns {string}
+     */
+    function lengthInstructionFor(words) {
+        const target = Math.max(1, Math.round(Number(words) || 300));
+        const min = Math.max(1, Math.round(target * 0.9));
+        const max = Math.max(min + 1, Math.round(target * 1.2));
+        return `about ${target} words (${min}-${max} words)`;
+    }
+
+    /**
+     * Best-effort reasoning-model detection from the model id. Used only to add
+     * output headroom and to decide whether a reasoning-effort control can be
+     * sent; a false positive costs nothing because max_tokens is a ceiling.
+     * @param {string} model
+     * @returns {boolean}
+     */
+    // Rough context window per model family (tokens). Used to cap max_tokens
+    // so that prompt + max_tokens <= context_window.
+    const MODEL_CONTEXT_WINDOWS = {
+        // OpenAI
+        'gpt-4o': 128000, 'gpt-4o-mini': 128000, 'gpt-4.1': 128000, 'gpt-4.1-mini': 128000, 'gpt-4.1-nano': 128000,
+        'gpt-5': 400000, 'gpt-5-mini': 400000, 'gpt-5-nano': 400000,
+        'gpt-5.1': 400000, 'gpt-5.2': 400000, 'gpt-5.2-pro': 400000,
+        'gpt-6': 1048576, 'gpt-6.1-sol': 1048576, 'gpt-6-astra': 1048576,
+        'o1': 200000, 'o1-mini': 128000, 'o3-mini': 200000, 'o4-mini': 200000,
+        // Anthropic
+        'claude-3.5': 200000, 'claude-3.5-sonnet': 200000, 'claude-3.5-haiku': 200000, 'claude-3.5-opus': 200000,
+        'claude-4': 200000, 'claude-4.5': 200000, 'claude-4.6': 200000, 'claude-4.7': 200000, 'claude-4.8': 200000,
+        'claude-5': 200000, 'claude-5.5': 200000,
+        'claude-sonnet-5': 200000, 'claude-opus-5': 200000, 'claude-haiku-5': 200000,
+        'claude-fable': 200000, 'claude-mythos': 200000,
+        // Google
+        'gemini-2.5': 1048576, 'gemini-2.5-pro': 1048576, 'gemini-2.5-flash': 1048576, 'gemini-2.5-flash-lite': 1048576,
+        'gemini-3': 1048576, 'gemini-3.1': 1048576, 'gemini-3.5': 1048576, 'gemini-3.8': 1048576, 'gemini-4': 1048576,
+        // DeepSeek
+        'deepseek': 128000, 'deepseek-v3': 128000, 'deepseek-v4': 128000, 'deepseek-r1': 128000,
+        // Qwen
+        'qwen': 131072, 'qwen-3': 131072,
+        // Other
+        'kimi': 128000, 'grok': 131072, 'glm': 128000,
+        // Default fallback
+        'default': 32768
+    };
+
+    function getModelContextWindow(model) {
+        if (!model) return MODEL_CONTEXT_WINDOWS.default;
+        const m = String(model).toLowerCase();
+        // Try exact match first
+        for (const [key, window] of Object.entries(MODEL_CONTEXT_WINDOWS)) {
+            if (key === 'default') continue;
+            if (m.includes(key)) return window;
+        }
+        // Family fallbacks
+        if (m.includes('gpt-5') || m.includes('gpt-6')) return 400000;
+        if (m.includes('gpt-4') || m.includes('o1') || m.includes('o3') || m.includes('o4')) return 128000;
+        if (m.includes('claude')) return 200000;
+        if (m.includes('gemini')) return 1048576;
+        if (m.includes('deepseek')) return 128000;
+        if (m.includes('qwen')) return 131072;
+        if (m.includes('kimi') || m.includes('grok') || m.includes('glm')) return 128000;
+        return MODEL_CONTEXT_WINDOWS.default;
+    }
+
+    function estimatePromptTokens(messages) {
+        // Rough estimation: ~4 chars per token for English text
+        let totalChars = 0;
+        for (const msg of messages) {
+            if (msg.content) totalChars += String(msg.content).length;
+            if (msg.system) totalChars += String(msg.system).length;
+        }
+        return Math.ceil(totalChars / 4);
+    }
+
+    function isReasoningModel(model) {
+        if (!model) return false;
+        const m = String(model).toLowerCase();
+        // OpenAI o-series: o1, o3-mini, o4-mini, ...
+        if (/(^|[/:])o[1-9]([-_.]|$)/.test(m)) return true;
+        // Claude 4.6+ / 5.x: adaptive thinking is on by default from Claude 5
+        // onward, so these need the same headroom as any other thinking model.
+        if (isAdaptiveClaudeModel(m)) return true;
+        return (
+            m.includes('reasoning') ||
+            m.includes('thinking') ||
+            m.includes('thought') ||
+            m.includes('qwq') ||
+            m.includes('magistral') ||
+            m.includes('deepseek-reasoner') ||
+            /deepseek[-_.]?r1/.test(m) ||
+            /deepseek.*v[34]/.test(m) ||
+            /qwen[-_.]?3/.test(m) ||
+            m.includes('kimi-k2-thinking') ||
+            m.includes('k2-thinking') ||
+            /glm[-_.]?(4\.[5-9]|z1)/.test(m) ||
+            m.includes('minimax-m2') ||
+            /grok[-_.]?[34]/.test(m) ||
+            /gemini[-_.]?[23](\.\d)?/.test(m) ||
+            /gpt[-_.]?[5-9]/.test(m)
+        );
+    }
+
+    /**
+     * Claude models with adaptive thinking support (4.6 and later, plus the
+     * Fable/Mythos families). These accept `output_config.effort`; the rarer
+     * extended-thinking models (4.5 and older) do not, so they are excluded.
+     * @param {string} model
+     * @returns {boolean}
+     */
+    function isAdaptiveClaudeModel(model) {
+        if (!model) return false;
+        const m = String(model).toLowerCase();
+        if (!m.includes('claude') && !/(^|[/:])(fable|mythos)/.test(m)) return false;
+        if (/mythos[-_.]?preview/.test(m)) return true;
+        return /(?:opus|sonnet|haiku|fable|mythos)[-_.]?(?:4[-_.](?:6|7|8)|5(?:[-_.]?\d+)*)/.test(m);
+    }
+
+    /**
+     * Claude 4.7+ rejects non-default sampling parameters with a 400; the
+     * default temperature (1.0) or omitting them is the only accepted option.
+     * @param {string} model
+     * @returns {boolean}
+     */
+    function claudeRejectsSamplingParams(model) {
+        if (!model) return false;
+        const m = String(model).toLowerCase();
+        if (!m.includes('claude') && !/(^|[/:])(fable|mythos)/.test(m)) return false;
+        if (/mythos[-_.]?preview/.test(m)) return true;
+        return /(?:opus|sonnet|haiku|fable|mythos)[-_.]?(?:4[-_.](?:7|8)|5(?:[-_.]?\d+)*)/.test(m);
+    }
+
+    /**
+     * Map the app's effort setting onto OpenAI's `reasoning_effort` vocabulary.
+     * Support varies by family: o-series cannot disable, GPT-6.1 rejects both
+     * `none` and `minimal`, and some GPT-6 models reject `none`. When a level is
+     * unavailable we fall back to the lowest one the model accepts rather than
+     * sending a value that returns 400.
+     * @param {string} model
+     * @param {string} setting
+     * @returns {string|null} null means "omit the parameter"
+     */
+    function openAiReasoningEffort(model, setting) {
+        const requested = String(setting || 'low').toLowerCase();
+        if (requested === 'auto') return null;
+        if (!['off', 'minimal', 'low', 'medium', 'high'].includes(requested)) return 'low';
+        if (requested !== 'off' && requested !== 'minimal') return requested;
+
+        const m = String(model || '').toLowerCase();
+        // o1/o3 accept only low/medium/high.
+        if (/(^|[/:])o[1-9]([-_.]|$)/.test(m)) return 'low';
+        // GPT-6.1 Sol: no none, no minimal.
+        if (/gpt[-_.]?6\.1/.test(m)) return 'low';
+
+        const isGpt6Family = /gpt[-_.]?6/.test(m);
+        const supportsNone = /gpt[-_.]?5/.test(m) ||
+            (isGpt6Family && !/astra|6\.1/.test(m));
+        // Only the original GPT-5 family (and GPT-6 Astra) still accept minimal.
+        const supportsMinimal = /gpt[-_.]?5(?!\.[1-9])/.test(m) ||
+            (isGpt6Family && !/6\.1/.test(m));
+
+        if (requested === 'off') {
+            return supportsNone ? 'none' : (supportsMinimal ? 'minimal' : 'low');
+        }
+        return supportsMinimal ? 'minimal' : (supportsNone ? 'none' : 'low');
+    }
+
+    /**
+     * Map the effort setting onto Claude's `output_config.effort`. Models that
+     * cannot disable thinking fall back to `low`, the lowest accepted level.
+     * @param {string} setting
+     * @returns {string|null}
+     */
+    function anthropicEffortFor(setting) {
+        const s = String(setting || 'low').toLowerCase();
+        if (s === 'auto') return null;
+        if (s === 'medium') return 'medium';
+        if (s === 'high') return 'high';
+        return 'low';
+    }
+
+    /**
+     * Map the effort setting onto Gemini 3's `thinkingLevel`. Not every model
+     * accepts `minimal` or `medium` (the 3 Pro previews are low/high only), so
+     * unavailable levels fall back to the nearest accepted one.
+     * @param {string} model
+     * @param {string} setting
+     * @returns {string|null}
+     */
+    function geminiThinkingLevelFor(model, setting) {
+        const s = String(setting || 'low').toLowerCase();
+        if (s === 'auto') return null;
+        if (s === 'off' || s === 'minimal' || s === 'low') return 'low';
+        if (s === 'high') return 'high';
+        // Gemini 3 Pro preview only accepts low/high.
+        if (/gemini[-_.]?3[-_.]?pro[-_.]?preview/.test(String(model || '').toLowerCase())) return 'high';
+        return 'medium';
+    }
+
+    /**
+     * Output-token budget for a word target. Reasoning models get a separate
+     * allowance because their thinking tokens share max_tokens with the prose;
+     * without it a 300-word request could burn its entire cap before writing a
+     * single visible word.
+     * @param {number} wordTarget
+     * @param {Object} app
+     * @param {string} model
+     * @returns {{ prose: number, reasoning: number, total: number }}
+     */
+    function outputTokenBudget(wordTarget, app, model) {
+        const words = Math.max(1, Number(wordTarget) || 300);
+        // ~2.5 tokens per requested word covers the usual overshoot (1.2x
+        // words at ~1.5 tokens/word) with room to finish the last sentence.
+        const prose = Math.ceil(words * 2.5);
+        let reasoning = 0;
+        if (isReasoningModel(model)) {
+            const configured = Number(app?.reasoningBudget);
+            reasoning = (Number.isFinite(configured) && configured >= 0)
+                ? Math.round(configured)
+                : DEFAULT_REASONING_ALLOWANCE;
+        }
+        return { prose, reasoning, total: Math.min(prose + reasoning, 128000) };
+    }
+
+    /**
+     * Resolve the configured reasoning effort.
+     * Values: 'auto' (send nothing), 'off', 'minimal', 'low', 'medium', 'high'.
+     * @param {Object} app
+     * @returns {string}
+     */
+    function reasoningEffortSetting(app) {
+        const raw = String(app?.reasoningEffort || 'low').toLowerCase();
+        const allowed = ['auto', 'off', 'minimal', 'low', 'medium', 'high'];
+        return allowed.includes(raw) ? raw : 'low';
+    }
+
+    /**
+     * Normalise provider usage payloads into one shape.
+     * @param {Object|null} usage
+     * @returns {Object|null}
+     */
+    function normalizeUsage(usage) {
+        if (!usage || typeof usage !== 'object') return null;
+        const details = usage.completion_tokens_details || usage.output_tokens_details || {};
+        const promptTokens = usage.prompt_tokens ?? usage.input_tokens ?? null;
+        const completionTokens = usage.completion_tokens ?? usage.output_tokens ?? null;
+        const reasoningTokens = details.reasoning_tokens ?? usage.native_tokens_reasoning ?? null;
+        const totalTokens = usage.total_tokens ?? (
+            promptTokens !== null && completionTokens !== null ? promptTokens + completionTokens : null
+        );
+        const visibleTokens = (completionTokens !== null && reasoningTokens !== null)
+            ? Math.max(0, completionTokens - reasoningTokens)
+            : null;
+        return { promptTokens, completionTokens, reasoningTokens, visibleTokens, totalTokens };
+    }
+
+    function mergeUsage(a, b) {
+        if (!a) return b || null;
+        if (!b) return a;
+        const sum = (x, y) => (Number.isFinite(x) && Number.isFinite(y)) ? x + y : (Number.isFinite(x) ? x : y);
+        return {
+            promptTokens: sum(a.promptTokens, b.promptTokens),
+            completionTokens: sum(a.completionTokens, b.completionTokens),
+            reasoningTokens: sum(a.reasoningTokens, b.reasoningTokens),
+            visibleTokens: sum(a.visibleTokens, b.visibleTokens),
+            totalTokens: sum(a.totalTokens, b.totalTokens)
+        };
+    }
+
+    function describeUsage(usage) {
+        if (!usage) return '';
+        const out = usage.completionTokens;
+        const reason = usage.reasoningTokens;
+        if (out === null || out === undefined) return '';
+        if (!reason) return `${out} output tokens`;
+        const pct = out > 0 ? Math.round((reason / out) * 100) : 0;
+        return `${out} output tokens (${reason} reasoning, ${pct}%)`;
     }
 
     /**
@@ -69,7 +370,7 @@
             console.debug('[buildPrompt] received prosePrompt:', JSON.stringify(options.prosePrompt));
             console.debug('[buildPrompt] received systemPrompt:', JSON.stringify(options.systemPrompt));
         } catch (e) { /* ignore */ }
-        const povName = (options.povCharacter && options.povCharacter.trim()) ? options.povCharacter.trim() : 'the protagonist';
+
         const tenseMap = {
             'past': 'past tense',
             'present': 'present tense',
@@ -77,45 +378,41 @@
             'past perfect': 'past perfect tense',
             'present perfect': 'present perfect tense'
         };
+
+        // Build context with all placeholders using PromptRender
+        const ctx = window.PromptRender?.buildContext
+            ? window.PromptRender.buildContext(options.app, {
+                genreIds: options.projectGenres,
+                targetWords: options.maxTokens,
+                pov: options.pov,
+                povName: options.povCharacter,
+                tense: options.tense,
+                language: options.language
+            })
+            : null;
+
+        const targetWords = options.maxTokens || 300;
+        const lengthInstruction = lengthInstructionFor(targetWords);
+        const genreSentence = ctx?.genres || '';
+        const langText = options.language || 'English';
+        const povName = (options.povCharacter && options.povCharacter.trim()) ? options.povCharacter.trim() : 'the protagonist';
         const tenseText = tenseMap[options.tense] || 'past tense';
         const povText = options.pov || '3rd person limited';
-        const langText = options.language || 'English';
-        const povSentence = `You are a co-author tasked with assisting your partner. You are writing a story from the point of view of ${povName} in ${tenseText}, in ${povText}.${langText !== 'English' ? ` Write in ${langText}.` : ''}`;
 
-        // Build genre descriptor sentence from project genres
-        let genreSentence = '';
-        if (options.projectGenres && options.projectGenres.length > 0 && window.GenreDefs) {
-            const descriptors = window.GenreDefs.getPromptDescriptor(options.projectGenres);
-            if (descriptors.length > 0) {
-                const labels = options.projectGenres
-                    .map(gid => window.GenreDefs.findGenre(gid)?.label || gid)
-                    .join(' ');
-                genreSentence = `\nThis is a ${labels} story. Write with ${descriptors.join(', and ')}.`;
-            }
-        }
-
-        // Translate the word-count target into a length instruction for the prompt.
-        // The slider/buttons store a word target, not a token limit.
-        const targetWords = options.maxTokens || 300;
-        const lengthInstruction = `at least ${targetWords} words`;
-
-        // Use custom system prompt if provided, otherwise fall back to default
+        // Resolve systemContent using PromptRender (if available) or manual fallback
         let systemPrompt;
         if (options.systemPrompt && typeof options.systemPrompt === 'string' && options.systemPrompt.trim()) {
-            // Replace placeholders in custom system prompt
-            systemPrompt = options.systemPrompt.trim()
-                .replace(/\{povName\}/gi, povName)
-                .replace(/\{tense\}/gi, tenseText)
-                .replace(/\{pov\}/gi, povText)
-                .replace(/\{length\}/gi, lengthInstruction)
-                .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
-                .replace(/\{language\}/gi, langText);
-            if (genreSentence) {
-                systemPrompt += genreSentence;
-            }
+            systemPrompt = window.PromptRender?.render
+                ? window.PromptRender.render(options.systemPrompt.trim(), ctx || { length: lengthInstruction, pov: options.pov, povName: options.povCharacter, tense: tenseMap[options.tense] || 'past tense', language: langText, genres: genreSentence, genreLabels: ctx?.genreLabels || '' })
+                : options.systemPrompt.trim()
+                    .replace(/\{povName\}/gi, options.povCharacter || 'the protagonist')
+                    .replace(/\{tense\}/gi, tenseMap[options.tense] || 'past tense')
+                    .replace(/\{pov\}/gi, options.pov || '3rd person limited')
+                    .replace(/\{length\}/gi, lengthInstruction)
+                    .replace(/\{genres\}/gi, genreSentence)
+                    .replace(/\{language\}/gi, langText);
         } else {
-            // Default fallback system prompt
-            systemPrompt = `${povSentence}${genreSentence} You are a creative writing assistant. The author provides a BEAT (what happens next) and you expand it into vivid, engaging prose. Write ${lengthInstruction} that bring the beat to life. Match the author's tone and style. Use sensory details. Show, don't tell.`;
+            systemPrompt = `${povName} / ${tenseText} / ${povText}${langText !== 'English' ? ` / ${langText}` : ''}${genreSentence} You are a creative writing assistant. The author provides a BEAT (what happens next) and you expand it into vivid, engaging prose. Write ${lengthInstruction} that bring the beat to life. Match the author's tone and style. Use sensory details. Show, don't tell.`;
         }
 
         // Ensure language directive is always present in the system prompt
@@ -133,11 +430,20 @@
         // When `options.preview === true` we avoid adding explicit debug markers so the preview is cleaner.
         let proseTemplateText = '';
         if (options.prosePrompt && typeof options.prosePrompt === 'string' && options.prosePrompt.trim()) {
+            const renderedProsePrompt = window.PromptRender?.render
+                ? window.PromptRender.render(options.prosePrompt.trim(), ctx || { length: lengthInstruction, pov: options.pov, povName: options.povCharacter, tense: tenseText, language: langText, genres: genreSentence, genreLabels: ctx?.genreLabels || '' })
+                : options.prosePrompt.trim()
+                    .replace(/\{povName\}/gi, povName)
+                    .replace(/\{tense\}/gi, tenseText)
+                    .replace(/\{pov\}/gi, povText)
+                    .replace(/\{length\}/gi, lengthInstruction)
+                    .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
+                    .replace(/\{language\}/gi, langText);
             if (options.preview) {
-                proseTemplateText = `\n\n${options.prosePrompt.trim()}`;
+                proseTemplateText = `\n\n${renderedProsePrompt}`;
             } else {
                 // Add explicit markers to make the template visible during debugging/inspection
-                proseTemplateText = `\n\n--- PROMPT TEMPLATE START ---\n${options.prosePrompt.trim()}\n--- PROMPT TEMPLATE END ---`;
+                proseTemplateText = `\n\n--- PROMPT TEMPLATE START ---\n${renderedProsePrompt}\n--- PROMPT TEMPLATE END ---`;
             }
         }
 
@@ -186,7 +492,13 @@
         // Clean up extra whitespace
         cleanedBeat = cleanedBeat.replace(/\s+/g, ' ').trim();
 
-        userContent += `\n\nBEAT TO EXPAND:\n${cleanedBeat}\n\nWrite ${lengthInstruction} continuing from here:`;
+        // If the prompt template contains {length}, don't duplicate with our own instruction
+        const proseHasLength = window.PromptRender?.hasLengthToken
+            ? window.PromptRender.hasLengthToken(options.prosePrompt || '')
+            : /\{length\}/i.test(options.prosePrompt || '');
+        const appendLength = !proseHasLength;
+
+        userContent += `\n\nBEAT TO EXPAND:\n${cleanedBeat}\n\n` + (appendLength ? `Write ${lengthInstruction} continuing from here:` : 'Continue from here.');
 
         // Return object with both messages array (for APIs) and string format (for local)
         const result = {
@@ -260,13 +572,18 @@
             return await streamGenerationKobold(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams);
         }
 
+        let result;
         if (aiMode === 'api') {
             // API Mode - use configured provider with messages
-            return await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams, opts);
+            result = await streamGenerationAPI(messages || promptStr, onToken, aiProvider, aiApiKey, aiModel, aiEndpoint, temperature, maxTokens, app, useProviderDefaults, abortSignal, extraParams, opts);
         } else {
             // Local Mode - use llama-server with string prompt
-            return await streamGenerationLocal(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams);
+            result = await streamGenerationLocal(promptStr, onToken, aiEndpoint, temperature, maxTokens, useProviderDefaults, abortSignal, extraParams);
         }
+        // Direct callers (chat mode, workshop) get the same usage telemetry as
+        // the resume loop, so reasoning share is visible everywhere.
+        if (app && result && result.usage) app.lastGenUsage = result.usage;
+        return result;
     }
 
     /**
@@ -289,15 +606,23 @@
     const CONTINUE_INSTRUCTION = 'Continue writing from exactly where you left off. Do not repeat anything that has already been written. Finish the current sentence, then stop at a natural ending point.';
 
     /**
-     * Build the prompt for a continuation stream after a truncated generation.
-     * The partial text is fed back as an assistant turn plus a short continue
-     * instruction, so the next stream finishes the sentence instead of
-     * starting over or repeating what is already written.
+     * Build a continuation prompt. Two cases:
+     * - truncated: finish the sentence that got cut off.
+     * - short: the model stopped of its own accord before reaching the word
+     *   target, so ask for new prose that advances the scene.
      * @param {Object|Array|string} prompt - The original prompt passed to streamGeneration
      * @param {string} partialText - The text generated so far (app.lastGenText)
+     * @param {Object} [opts]
+     * @param {boolean} [opts.truncated=true] - Whether the last stream hit the cap
+     * @param {number} [opts.remainingWords=0] - Words still needed for the target
      * @returns {Object|Array|string} - A continuation prompt in the same shape
      */
-    function buildContinuePrompt(prompt, partialText) {
+    function buildContinuePrompt(prompt, partialText, opts = {}) {
+        const truncated = opts.truncated !== false;
+        const remaining = Math.max(40, Math.round(Number(opts.remainingWords) || 0));
+        const instruction = truncated
+            ? CONTINUE_INSTRUCTION
+            : `Continue the scene from exactly where it stopped. Do not repeat anything that has already been written. Add roughly ${remaining} more words of new prose that move the scene forward, then stop at a natural ending point.`;
         let messages = null;
         if (Array.isArray(prompt)) {
             messages = prompt;
@@ -308,7 +633,7 @@
             const next = [
                 ...messages,
                 { role: 'assistant', content: partialText },
-                { role: 'user', content: CONTINUE_INSTRUCTION }
+                { role: 'user', content: instruction }
             ];
             if (prompt && !Array.isArray(prompt)) {
                 // Keep the buildPrompt() object shape so streamGeneration picks
@@ -318,30 +643,42 @@
             return next;
         }
         const str = typeof prompt === 'string' ? prompt : String(prompt);
-        return str + '<|im_end|>\n<|im_start|>user\n' + CONTINUE_INSTRUCTION + '<|im_end|>\n<|im_start|>assistant\n';
+        return str + '<|im_end|>\n<|im_start|>user\n' + instruction + '<|im_end|>\n<|im_start|>assistant\n';
     }
 
     /**
-     * Stream a generation, automatically continuing (up to 2 extra streams)
-     * when the model hits the token limit mid-sentence. The partial text is
-     * fed back as an assistant turn so the next stream finishes the sentence,
-     * instead of trimming the dangling tail away and losing content.
+     * Stream a generation, continuing when the model hits the token limit
+     * mid-sentence or stops well short of the word target. The partial text is
+     * fed back as an assistant turn so the next stream extends it instead of
+     * starting over. At most 3 streams total, and only while progress is made.
      * @param {Object|Array|string} prompt - The initial prompt
      * @param {Object} app - Alpine app instance
      * @param {Function} onToken - Token callback (same as streamGeneration)
+     * @param {Object} [options]
+     * @param {number} [options.targetWords] - Word target (defaults to app.maxTokens)
      * @returns {Promise<Object>} - Result of the final stream in the chain
      */
-    async function streamGenerationWithResume(prompt, app, onToken) {
+    async function streamGenerationWithResume(prompt, app, onToken, options = {}) {
         // Claim the current run id up front: if a newer generation starts
         // (run id bumps), this stale loop must exit instead of firing more
         // attempts into the wrong run.
         const myRun = app._genRunId;
+        const targetWords = Math.max(1, Number(options.targetWords ?? app?.maxTokens) || 300);
+        const minWords = Math.max(1, Math.round(targetWords * 0.8));
+        // A wildly short reply (< 40% of target) means the model failed or the
+        // request was cut short before it wrote anything useful; topping it up
+        // only produces more of the same, so leave it for the user to retry.
+        const topUpFloor = Math.round(targetWords * 0.4);
+        const RESUME_MIN_WORDS = 60;
+        const MAX_ATTEMPTS = 3;
         let currentPrompt = prompt;
         let result;
         let attempt = 0;
+        let lastWordCount = 0;
+        let usage = null;
         while (true) {
             attempt++;
-            if (attempt > 3) break;
+            if (attempt > MAX_ATTEMPTS) break;
             // Stop must hold across resume attempts. A superseded run, a user
             // abort, or a nulled controller must never fire another request -
             // otherwise the generation becomes unstoppable (abort-vs-resolve
@@ -349,20 +686,42 @@
             if (myRun !== undefined && myRun !== app._genRunId) break;
             if (app._genAbortLatched) break;
             if (!app.beatAbortController) break;
-            if (attempt > 1 && app) app.genStatus = 'Hit token cap - continuing...';
+            if (attempt > 1 && app) {
+                app.genStatus = isTruncated(result)
+                    ? 'Hit token cap - continuing...'
+                    : 'Extending to reach the target length...';
+            }
             const signal = app.beatAbortController.signal;
             result = await streamGeneration(currentPrompt, onToken, app, signal, { continuation: attempt > 1 });
-            if (!isTruncated(result) || !app.lastGenText) break;
+            usage = mergeUsage(usage, result?.usage);
+            const text = app.lastGenText || '';
+            const words = countWords(text);
+            const truncated = isTruncated(result);
+
             // A reasoning model that hits the token cap has usually spent its
             // budget on chain-of-thought, not on prose. Auto-resuming would just
             // start another long thinking pass, so only continue when there is
             // substantial visible prose to finish (a genuine mid-sentence cut).
-            const RESUME_MIN_WORDS = 60;
-            if (result?.sawReasoning && (app.lastGenText || '').trim().split(/\s+/).filter(Boolean).length < RESUME_MIN_WORDS) {
+            if (truncated && result?.sawReasoning && words < RESUME_MIN_WORDS) {
                 console.warn('⚠️ Reasoning model hit its token budget during thinking; skipping auto-resume.');
                 break;
             }
-            currentPrompt = buildContinuePrompt(currentPrompt, app.lastGenText);
+            const needsTopUp = !truncated && words < minWords && words >= topUpFloor;
+            if (!truncated && !needsTopUp) break;
+            // No progress since the previous stream: another pass would only
+            // repeat text (or spin forever), so stop here.
+            if (words <= lastWordCount) break;
+            lastWordCount = words;
+            currentPrompt = buildContinuePrompt(currentPrompt, text, {
+                truncated,
+                remainingWords: Math.max(40, targetWords - words)
+            });
+        }
+        if (usage) {
+            result = { ...(result || {}), usage };
+            if (app) app.lastGenUsage = usage;
+            const summary = describeUsage(usage);
+            if (summary) console.log('📊 Generation usage:', summary);
         }
         return result;
     }
@@ -548,54 +907,52 @@
 
         const temp = temperature || 0.8;
         const rawWordTarget = maxTokens || 300;
-        // Generous headroom over the "at least N words" instruction so the
-        // model isn't starved mid-sentence; continuations (opts.continuation)
-        // only need to finish the sentence, so no min_tokens floor is sent.
-        let maxTok = Math.round(rawWordTarget * 2.5);
+        // Split the output budget into prose + reasoning. Reasoning tokens are
+        // billed as output and count against max_tokens on almost every
+        // provider, so sending only a prose-sized cap is what made a 300-word
+        // request spend its entire budget thinking and return nothing.
+        const budget = outputTokenBudget(rawWordTarget, app, model);
+        let maxTok = budget.total;
+
+        // Cap max_tokens to fit within the model's context window.
+        // Large prompts (scene + compendium + summaries) can exceed the window,
+        // leaving no room for output and causing immediate truncation.
+        const contextWindow = getModelContextWindow(model);
+        const promptTokens = estimatePromptTokens(messages);
+        const safetyMargin = 1024; // buffer for response overhead
+        const availableForOutput = Math.max(512, contextWindow - promptTokens - safetyMargin);
+        if (maxTok > availableForOutput) {
+            console.warn(`⚠️ Prompt too large (${promptTokens} tokens) for ${model}'s ${contextWindow} context window; capping max_tokens from ${maxTok} to ${availableForOutput}`);
+            maxTok = availableForOutput;
+        }
 
         // Check if user has explicitly forced non-streaming mode
         const userForcedNonStreaming = app?.forceNonStreaming || false;
 
         // Detect reasoning/thinking models. This is used to (a) add reasoning
         // headroom to max_tokens so chain-of-thought doesn't starve the visible
-        // answer, and (b) skip pointless auto-resumes. It deliberately does NOT
-        // force non-streaming — reasoning models stream fine, and the
-        // JSON-content-type fallback below still handles providers that return a
-        // complete response regardless of stream:true.
-        const modelLower = (model || '').toLowerCase();
-        const isThinkingModel = model && (
-            // OpenAI o-series (o1, o3, o4, etc.)
-            /\bo[0-9][-_]/.test(model) ||
-            // Explicit reasoning/thinking indicators
-            modelLower.includes('reasoning') ||
-            modelLower.includes('think') ||
-            modelLower.includes('thought') ||
-            // Known thinking model families
-            modelLower.includes('deepseek-reasoner') ||
-            modelLower.includes('qwq') ||
-            modelLower.includes('deepseek') && (
-                modelLower.includes('r1') ||
-                modelLower.includes('reasoner') ||
-                modelLower.includes('v4') ||
-                modelLower.includes('flash')
-            )
-        );
-
-        // Reasoning tokens count against max_tokens, so a reasoning model can
-        // burn the whole budget thinking and get cut before writing any story.
-        // Add a modest, fixed headroom (max_tokens remains a firm ceiling so the
-        // flexible "at least N words" instruction cannot balloon into a rambling
-        // reply). // TODO(plan-b): optionally append a "keep reasoning brief"
-        // system-prompt hint for these models to shorten the silent phase.
-        const REASONING_HEADROOM = 1000;
-        if (isThinkingModel) maxTok += REASONING_HEADROOM;
+        // answer, (b) cap reasoning with the provider's own control when the
+        // user picked an effort, and (c) skip pointless auto-resumes. It
+        // deliberately does NOT force non-streaming — reasoning models stream
+        // fine, and the JSON-content-type fallback below still handles
+        // providers that return a complete response regardless of stream:true.
+        const isThinkingModel = isReasoningModel(model);
+        const effortSetting = reasoningEffortSetting(app);
+        const wantsReasoningControl = Boolean(isThinkingModel) && effortSetting !== 'auto';
+        // Provider-specific effort vocabularies differ; each branch maps the
+        // shared setting onto the lowest level the selected model accepts when
+        // the requested one is unavailable (e.g. "off" on a model that cannot
+        // disable thinking).
+        const openAiEffort = openAiReasoningEffort(model, effortSetting);
 
         const shouldDisableStreaming = userForcedNonStreaming;
 
         if (shouldDisableStreaming) {
             console.log('🔧 Non-streaming mode forced by user setting');
         } else if (isThinkingModel) {
-            console.log('🧠 Reasoning model detected:', model, '- streaming with reasoning headroom');
+            console.log('🧠 Reasoning model detected:', model,
+                '- budget:', budget.prose, 'prose +', budget.reasoning, 'reasoning tokens',
+                '(effort:', effortSetting + ')');
         }
 
         if (provider === 'openrouter') {
@@ -613,7 +970,12 @@
             };
             // Always send max_tokens — output length is a deliberate user choice
             body.max_tokens = maxTok;
-            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            // Reasoning counts against max_tokens: cap it at the source instead
+            // of hoping the model stays brief.
+            if (wantsReasoningControl) {
+                body.reasoning = { effort: effortSetting === 'off' ? 'none' : effortSetting };
+            }
+            if (!opts.continuation) body.min_tokens = Math.round(rawWordTarget * 1.25);
             // Only include other parameters if not using provider defaults
             if (!useProviderDefaults) {
                 body.temperature = temp;
@@ -629,15 +991,34 @@
                 'x-api-key': apiKey,
                 'anthropic-version': '2023-06-01'
             };
+            // Anthropic takes the system prompt as a top-level field; sending a
+            // "system" role inside messages is rejected with a 400.
+            const systemText = messages
+                .filter(m => m && m.role === 'system')
+                .map(m => m.content)
+                .filter(Boolean)
+                .join('\n\n');
+            const convo = messages.filter(m => m && m.role !== 'system');
             body = {
                 model: model || 'claude-3-5-sonnet-20241022',
-                messages: messages,
+                messages: convo,
                 stream: true // Anthropic models all support streaming
             };
+            if (systemText) body.system = systemText;
             // Anthropic requires max_tokens — always send it
             body.max_tokens = maxTok;
-            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
-            if (!useProviderDefaults) {
+            // NOTE: min_tokens is not part of the Anthropic API and used to be
+            // sent here, causing 400s on every request.
+            // Claude 4.6+ supports effort; on models that cannot disable
+            // thinking this falls back to "low". We never send an explicit
+            // `thinking` block: 4.6-4.8 default to no thinking (which keeps
+            // prose length predictable), and 5.x thinks adaptively anyway.
+            if (wantsReasoningControl) {
+                const effort = anthropicEffortFor(effortSetting);
+                if (effort) body.output_config = { effort };
+            }
+            // Claude 4.7+ rejects non-default temperature/top_p/top_k with 400.
+            if (!useProviderDefaults && !claudeRejectsSamplingParams(model)) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
                 if (extraParams.topK !== undefined) body.top_k = extraParams.topK;
@@ -648,14 +1029,23 @@
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`
             };
+            // o-series / GPT-5 replaced max_tokens with max_completion_tokens and
+            // reject temperature/penalties other than their defaults.
+            const usesCompletionTokens = isThinkingModel;
             body = {
                 model: model || 'gpt-4o-mini',
                 messages: messages,
                 stream: !shouldDisableStreaming // Disable streaming for thinking models or if forced
             };
-            body.max_tokens = maxTok;
-            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
-            if (!useProviderDefaults) {
+            if (usesCompletionTokens) {
+                body.max_completion_tokens = maxTok;
+                if (wantsReasoningControl && openAiEffort) body.reasoning_effort = openAiEffort;
+            } else {
+                body.max_tokens = maxTok;
+            }
+            if (!shouldDisableStreaming) body.stream_options = { include_usage: true };
+            // NOTE: min_tokens is an OpenRouter extension; OpenAI returns 400.
+            if (!useProviderDefaults && !usesCompletionTokens) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
                 if (extraParams.frequencyPenalty !== undefined) body.frequency_penalty = extraParams.frequencyPenalty;
@@ -665,18 +1055,38 @@
         } else if (provider === 'google') {
             // Google AI uses a different API format - extract text from messages
             const text = messages.map(m => m.content).join('\n\n');
-            url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.5-flash'}:streamGenerateContent?key=${apiKey}`;
+            // alt=sse makes Gemini emit real "data:" SSE lines; without it the
+            // response is a JSON array that the SSE parser cannot read.
+            url = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-2.5-flash'}:streamGenerateContent?alt=sse&key=${apiKey}`;
             headers = { 'Content-Type': 'application/json' };
             body = {
                 contents: [{ parts: [{ text: text }] }]
             };
+            // Target length is always sent, independent of provider defaults.
+            body.generationConfig = { maxOutputTokens: maxTok };
             if (!useProviderDefaults) {
-                body.generationConfig = {
-                    temperature: temp,
-                    maxOutputTokens: maxTok
-                };
+                body.generationConfig.temperature = temp;
                 if (extraParams.topP !== undefined) body.generationConfig.topP = extraParams.topP;
                 if (extraParams.topK !== undefined) body.generationConfig.topK = extraParams.topK;
+            }
+            if (wantsReasoningControl) {
+                const modelLower = (model || '').toLowerCase();
+                if (/gemini[-_.]?3/.test(modelLower)) {
+                    // Gemini 3 uses thinking levels, not a token budget. The
+                    // accepted levels vary by model; unsupported ones fall back
+                    // to the nearest accepted level instead of returning 400.
+                    body.generationConfig.thinkingConfig = {
+                        thinkingLevel: geminiThinkingLevelFor(modelLower, effortSetting)
+                    };
+                } else {
+                    const budgets = { off: 0, minimal: 512, low: 1024, medium: 4096, high: 8192 };
+                    let thinkingBudget = budgets[effortSetting] ?? 1024;
+                    // 2.5 Pro cannot disable thinking; 128 is its minimum budget.
+                    if (/gemini[-_.]?2\.5[-_.]?pro|gemini[-_.]?pro/.test(modelLower)) {
+                        thinkingBudget = Math.max(128, thinkingBudget);
+                    }
+                    body.generationConfig.thinkingConfig = { thinkingBudget };
+                }
             }
         } else if (provider === 'nanogpt') {
             // NanoGPT uses OpenAI-compatible API
@@ -693,7 +1103,7 @@
                 stream: !shouldDisableStreaming
             };
             body.max_tokens = maxTok;
-            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
+            // NOTE: only OpenRouter documents min_tokens; other gateways reject it.
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -716,7 +1126,6 @@
                 stream: true
             };
             body.max_tokens = maxTok;
-            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -736,7 +1145,6 @@
                 stream: true
             };
             body.max_tokens = maxTok;
-            if (!opts.continuation && rawWordTarget >= 100) body.min_tokens = Math.round(rawWordTarget * 1.0);
             if (!useProviderDefaults) {
                 body.temperature = temp;
                 if (extraParams.topP !== undefined) body.top_p = extraParams.topP;
@@ -782,31 +1190,38 @@
             let content = null;
             let finishReason = null;
             let sawReasoning = false;
+            let usage = null;
             if (provider === 'openrouter' || provider === 'openai' || provider === 'nanogpt' || provider === 'lmstudio' || provider === 'custom') {
                 const msg = data.choices?.[0]?.message;
                 content = msg?.content;
                 finishReason = data.choices?.[0]?.finish_reason;
                 sawReasoning = hasReasoningFields(msg);
-
-                // For thinking models (o1, o3, etc.) that return encrypted reasoning,
-                // check if content is empty but there's a finish_reason
-                if (!content && finishReason) {
-                    console.warn('⚠️ Thinking model returned empty content. This usually means:');
-                    console.warn('   - Max tokens was hit during reasoning phase');
-                    console.warn('   - Model never produced final answer');
-                    console.warn('   - Try increasing max_tokens significantly (10000+) for thinking models');
-                    throw new Error('Thinking model returned empty response. The model likely hit max_tokens during its reasoning phase before generating an answer. Try increasing the target length to a higher value in AI Settings.');
-                }
+                usage = normalizeUsage(data.usage);
             } else if (provider === 'anthropic') {
                 content = data.content?.[0]?.text;
                 finishReason = data.stop_reason;
+                usage = normalizeUsage(data.usage);
             } else if (provider === 'google') {
                 content = data.candidates?.[0]?.content?.parts?.[0]?.text;
                 finishReason = data.candidates?.[0]?.finishReason;
+                const meta = data.usageMetadata;
+                if (meta) {
+                    usage = normalizeUsage({
+                        prompt_tokens: meta.promptTokenCount,
+                        completion_tokens: meta.candidatesTokenCount,
+                        completion_tokens_details: { reasoning_tokens: meta.thoughtsTokenCount }
+                    });
+                }
             }
 
             console.log('✅ Extracted content length:', content?.length || 0);
             console.log('🏁 Finish reason:', finishReason);
+            if (usage) console.log('📊 Usage:', describeUsage(usage));
+
+            if (!content && sawReasoning) {
+                console.warn('⚠️ Thinking model returned no visible content - it spent its budget reasoning');
+                throw new Error('The model only produced reasoning and no story text. It likely hit its token budget while thinking - lower the reasoning effort or increase the target length in AI Settings.');
+            }
 
             if (content) {
                 // Emit content in chunks to simulate streaming
@@ -819,7 +1234,7 @@
                 console.error('❌ No content found in non-streaming response');
                 throw new Error('No content received from API');
             }
-            return { finishReason, sawReasoning };
+            return { finishReason, sawReasoning, usage };
         }
 
         const reader = response.body.getReader();
@@ -828,6 +1243,7 @@
         let hasReceivedContent = false;
         let sawReasoning = false;
         let finishReason = null;
+        let usage = null;
 
         // Only touch genStatus when we are the ones who set it, so a caller's
         // status (e.g. "Hit token cap - continuing...") is never clobbered.
@@ -862,10 +1278,40 @@
                             }
                         }
                         clearThinkingStatus();
-                        return { finishReason, sawReasoning };
+                        return { finishReason, sawReasoning, usage };
                     }
 
                     const data = JSON.parse(jsonStr);
+
+                    // Usage normally arrives in the final chunk. Capturing it lets
+                    // us report how much of the output budget reasoning consumed
+                    // instead of leaving the user guessing why text was short.
+                    // Anthropic's message_* events are handled separately below
+                    // because their usage is split across start/delta.
+                    if (data.usage && !String(data.type || '').startsWith('message_')) {
+                        usage = normalizeUsage(data.usage);
+                    }
+                    if (data.usageMetadata) {
+                        usage = normalizeUsage({
+                            prompt_tokens: data.usageMetadata.promptTokenCount,
+                            completion_tokens: data.usageMetadata.candidatesTokenCount,
+                            completion_tokens_details: { reasoning_tokens: data.usageMetadata.thoughtsTokenCount }
+                        });
+                    }
+                    if (data.type === 'message_start' && data.message?.usage) {
+                        usage = normalizeUsage({
+                            prompt_tokens: data.message.usage.input_tokens,
+                            completion_tokens: data.message.usage.output_tokens
+                        });
+                    }
+                    // Anthropic reports cumulative output tokens in message_delta,
+                    // so replace (not add) the running completion count.
+                    if (data.type === 'message_delta' && data.usage) {
+                        usage = normalizeUsage({
+                            prompt_tokens: usage?.promptTokens ?? null,
+                            completion_tokens: data.usage.output_tokens
+                        });
+                    }
 
                     // Debug: Log the first chunk to see what we're receiving
                     if (!hasReceivedContent && !sawReasoning) {
@@ -944,7 +1390,7 @@
             clearThinkingStatus();
             if (sawReasoning) {
                 console.warn('⚠️ No visible content received - the model spent its budget reasoning');
-                throw new Error('The model only produced reasoning and no story text. It likely hit its token budget while thinking - increase the target length or reasoning budget in AI Settings.');
+                throw new Error('The model only produced reasoning and no story text. It likely hit its token budget while thinking - lower the reasoning effort or increase the target length in AI Settings.');
             }
             console.error('⚠️ No content received from stream');
             console.error('This usually happens with thinking models that either:');
@@ -955,7 +1401,7 @@
         }
 
         console.log('🏁 Final finish reason:', finishReason);
-        return { finishReason, sawReasoning };
+        return { finishReason, sawReasoning, usage };
     }
 
     /**
@@ -998,29 +1444,33 @@
         const langText = options.language || 'English';
         const povSentence = `You are a co-author tasked with assisting your partner. You are writing a story from the point of view of ${povName} in ${tenseText}, in ${povText}.${langText !== 'English' ? ` Write in ${langText}.` : ''}`;
 
-        let genreSentence = '';
-        if (options.projectGenres && options.projectGenres.length > 0 && window.GenreDefs) {
-            const descriptors = window.GenreDefs.getPromptDescriptor(options.projectGenres);
-            if (descriptors.length > 0) {
-                const labels = options.projectGenres
-                    .map(gid => window.GenreDefs.findGenre(gid)?.label || gid)
-                    .join(' ');
-                genreSentence = `\nThis is a ${labels} story. Write with ${descriptors.join(', and ')}.`;
-            }
-        }
+        // Build context with all placeholders using PromptRender
+        const ctx = window.PromptRender?.buildContext
+            ? window.PromptRender.buildContext(options.app, {
+                genreIds: options.projectGenres,
+                targetWords: options.maxTokens,
+                pov: options.pov,
+                povName: options.povCharacter,
+                tense: options.tense,
+                language: options.language
+            })
+            : null;
 
         const targetWords = options.maxTokens || 300;
-        const lengthInstruction = `at least ${targetWords} words`;
+        const lengthInstruction = lengthInstructionFor(targetWords);
+        const genreSentence = ctx?.genres || '';
 
         let systemPrompt;
         if (options.systemPrompt && typeof options.systemPrompt === 'string' && options.systemPrompt.trim()) {
-            systemPrompt = options.systemPrompt.trim()
-                .replace(/\{povName\}/gi, povName)
-                .replace(/\{tense\}/gi, tenseText)
-                .replace(/\{pov\}/gi, povText)
-                .replace(/\{length\}/gi, lengthInstruction)
-                .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
-                .replace(/\{language\}/gi, langText);
+            systemPrompt = window.PromptRender?.render
+                ? window.PromptRender.render(options.systemPrompt.trim(), ctx || { length: lengthInstruction, pov: options.pov, povName: options.povCharacter, tense: tenseText, language: langText, genres: genreSentence, genreLabels: ctx?.genreLabels || '' })
+                : options.systemPrompt.trim()
+                    .replace(/\{povName\}/gi, povName)
+                    .replace(/\{tense\}/gi, tenseText)
+                    .replace(/\{pov\}/gi, povText)
+                    .replace(/\{length\}/gi, lengthInstruction)
+                    .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
+                    .replace(/\{language\}/gi, langText);
             if (genreSentence) {
                 systemPrompt += genreSentence;
             }
@@ -1203,7 +1653,7 @@
                         if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
                     });
                 }
-            });
+            }, { targetWords: app.maxTokens });
             // Only ever trim an incomplete ending when the model actually hit the
             // token limit; natural stops are never silently edited. Even then only
             // a genuinely tiny dangling fragment is removed — anything bigger
@@ -1396,7 +1846,7 @@
                     const ta = document.querySelector('.editor-textarea');
                     if (ta && app._genFollow) ta.scrollTop = ta.scrollHeight;
                 });
-            });
+            }, { targetWords: app.maxTokens });
             // Only ever trim an incomplete ending when the model actually hit the
             // token limit; natural stops are never silently edited. Even then only
             // a genuinely tiny dangling fragment is removed — anything bigger
@@ -1598,7 +2048,15 @@
 
         const compendiumLang = app?.language || app?.currentProject?.language || 'English';
         const langDirective = compendiumLang !== 'English' ? ` Write entirely in ${compendiumLang}.` : '';
-        const systemContent = `You are a creative writing assistant helping to develop a ${genreLabels} story. ${genreSentence} Be thorough, detailed, and consistent with the existing material.${langDirective}`;
+        
+        // Use the new COMPENDIUM_SYSTEM_PROMPT from CharacterCreator with genre rendering
+        const systemPrompt = window.CharacterCreator?.COMPENDIUM_SYSTEM_PROMPT
+            ? (window.PromptRender?.render
+                ? window.PromptRender.render(window.CharacterCreator.COMPENDIUM_SYSTEM_PROMPT, { genreLabels, genreIds: project?.genres })
+                : String(window.CharacterCreator.COMPENDIUM_SYSTEM_PROMPT)).replace('{genreLabels}', genreLabels)
+            : `You are a creative writing assistant helping to develop a ${genreLabels} story. ${genreSentence} Be thorough, detailed, and consistent with the existing material.`;
+        
+        const systemContent = systemPrompt + langDirective;
 
         const userContent = `Please create a new compendium entry for the category "${category}".${title ? `\n\nThe entry is titled "${title}".` : ''}
 
@@ -1625,6 +2083,19 @@ Write ${lengthInstruction}, rich with specific details that fit the world.${titl
         loadPromptHistory,
         generateFromBeat,
         generateFlowFromBeat,
-        stopBeatGeneration
+        stopBeatGeneration,
+        // Shared helpers for other modules and tests
+        isTruncated,
+        isReasoningModel,
+        isAdaptiveClaudeModel,
+        claudeRejectsSamplingParams,
+        openAiReasoningEffort,
+        anthropicEffortFor,
+        geminiThinkingLevelFor,
+        lengthInstructionFor,
+        outputTokenBudget,
+        countWords,
+        normalizeUsage,
+        describeUsage
     };
 })();

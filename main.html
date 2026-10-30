@@ -15,6 +15,7 @@
     <script defer src="src/db.js"></script>
     <script defer src="src/test-helpers.js"></script>
     <script defer src="src/genres.js"></script>
+    <script defer src="src/prompt-packs.js"></script>
     <!-- Phase 2 Refactoring: State management extracted -->
     <script defer src="src/state/app-state.js"></script>
     <script defer src="src/state/watchers.js"></script>
@@ -50,11 +51,29 @@
     <script defer src="src/character-creator.js"></script>
     <script defer src="src/world-creator.js"></script>
     <script defer src="src/scenario-creator.js"></script>
-    <script defer src="src/app.js"></script>
+    <script defer src="src/app/core.js"></script>
+<script defer src="src/app/rewrite.js"></script>
+<script defer src="src/app/ai.js"></script>
+<script defer src="src/app/summaries.js"></script>
+<script defer src="src/app/context-panel.js"></script>
+<script defer src="src/app/projects.js"></script>
+<script defer src="src/app/compendium.js"></script>
+<script defer src="src/app/lorebook.js"></script>
+<script defer src="src/app/paste-import.js"></script>
+<script defer src="src/app/character-creator.js"></script>
+<script defer src="src/app/world-creator.js"></script>
+<script defer src="src/app/scenario-creator.js"></script>
+<script defer src="src/app/workshop.js"></script>
+<script defer src="src/app/prompts.js"></script>
+<script defer src="src/app/scenes.js"></script>
+<script defer src="src/app/editor.js"></script>
+<script defer src="src/app/generation.js"></script>
+<script defer src="src/app/backup.js"></script>
+<script defer src="src/app.js"></script>
     <script defer src="src/compendium.js"></script>
     <script defer src="src/image-describer.js"></script>
     <script defer src="src/chat-mode.js"></script>
-    <!-- Local vendor Alpine (use a real alpine.min.js here for offline runs) -->
+    <!-- Alpine loads after app scripts so Alpine.data('app') registers before init -->
     <script defer src="src/vendor/alpine.min.js"></script>
 
     <link rel="stylesheet" href="src/styles.css">
@@ -185,7 +204,7 @@
       </defs>
     </svg>
 
-    <div x-data="app">
+    <div x-data="app" x-cloak>
         <div x-show="showLlamaSetupWizard" x-cloak
             style="position:fixed;inset:0;background:rgba(0,0,0,0.78);display:flex;align-items:center;justify-content:center;z-index:10050;padding:24px;">
             <div
@@ -2180,6 +2199,28 @@
                         </p>
                     </div>
 
+                    <!-- Reasoning Effort (reasoning/thinking models only) -->
+                    <div x-show="aiMode === 'api'" style="margin-bottom:16px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">
+                            Reasoning Effort (thinking models)
+                        </label>
+                        <select x-model="reasoningEffort" @change="saveGenerationParams()"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                            <option value="low">Low — recommended for prose</option>
+                            <option value="off">Off — no reasoning (where supported)</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="auto">Model default</option>
+                        </select>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
+                            Thinking tokens count against the output limit. Low stops reasoning from
+                            eating the story text; the target length is budgeted separately.
+                        </p>
+                        <p x-show="lastGenUsage" style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-text="lastGenUsage ? 'Last generation: ' + (lastGenUsage.completionTokens || 0) + ' output tokens' + (lastGenUsage.reasoningTokens ? ' · ' + Math.round(100 * lastGenUsage.reasoningTokens / (lastGenUsage.completionTokens || 1)) + '% reasoning' : '') : ''"></p>
+                    </div>
+
                     <div x-show="aiProvider === 'lmstudio'" style="margin-bottom:16px;">
                         <label
                             style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">LM Studio Server URL</label>
@@ -2782,8 +2823,10 @@
                                         @click.prevent="$refs.compImageInput.click()" @dragover.prevent
                                         @drop.prevent="setCompImageFromFile($event)">
                                         <template x-if="currentCompEntry.imageUrl">
-                                            <img :src="currentCompEntry.imageUrl" alt="Entry image preview"
-                                                @click.stop="confirmRemoveCompImage()">
+                                            <img :key="currentCompEntry.imageUrl" :src="currentCompEntry.imageUrl" alt="Entry image preview"
+                                                :style="`object-fit: contain; transform: scale(${currentCompEntry.imageZoom || 1}) translate(${currentCompEntry.imagePanX || 0}px, ${currentCompEntry.imagePanY || 0}px); cursor: zoom-in;`"
+                                                @click.stop="window.CompendiumManager.showCompendiumImageLightbox($data, currentCompEntry)"
+                                                title="Click to view / reposition full size">
                                         </template>
                                         <template x-if="!currentCompEntry.imageUrl">
                                             <div class="comp-image-placeholder">Drop an image here</div>
@@ -3535,7 +3578,26 @@
                             </div>
                         </label>
 
-                        <!-- Generation Parameters (grayed out when useProviderDefaults is on) -->
+                        <!-- Reasoning effort, kept beside target length because both
+                             draw from the same output-token budget on reasoning models. -->
+                        <label style="font-size:12px;color:var(--text-secondary);display:block;"
+                            title="Thinking models spend output tokens on reasoning. Lower effort leaves more of the budget for prose.">
+                            REASONING EFFORT
+                            <select x-model="reasoningEffort" @change="savePresetParam()"
+                                style="width:100%;margin-top:6px;padding:8px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);">
+                                <option value="low">Low — recommended for prose</option>
+                                <option value="off">Off — no reasoning (where supported)</option>
+                                <option value="minimal">Minimal</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                                <option value="auto">Model default</option>
+                            </select>
+                            <span style="display:block;font-size:10px;color:var(--text-tertiary);margin-top:4px;"
+                                x-show="lastGenUsage"
+                                x-text="lastGenUsage ? 'Last: ' + (lastGenUsage.completionTokens || 0) + ' output tokens' + (lastGenUsage.reasoningTokens ? ' · ' + Math.round(100 * lastGenUsage.reasoningTokens / (lastGenUsage.completionTokens || 1)) + '% reasoning' : '') : ''"></span>
+                        </label>
+
+
                         <div style="padding-top:16px;border-top:1px solid var(--border);"
                             :style="useProviderDefaults ? 'opacity:0.5;pointer-events:none;' : ''">
                             <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:12px;">
@@ -5414,6 +5476,57 @@
                 </div>
                 <div class="avatar-lightbox-body">
                     <div class="avatar-lightbox-image" :style="`background-image:url('${avatarLightboxEntry.imageUrl}')`"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Compendium Image Lightbox -->
+    <template x-if="showCompendiumImageLightbox && compendiumImageLightboxEntry?.imageUrl">
+        <div class="modal-overlay" @click.self="window.ChatMode.closeCompendiumImageLightbox($data)"
+            @keydown.escape.window="window.ChatMode.closeCompendiumImageLightbox($data)" style="z-index:9900;">
+            <div class="image-lightbox">
+                <div class="image-lightbox-header">
+                    <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+                        <div style="min-width:0;">
+                            <div class="image-lightbox-title" x-text="compendiumImageLightboxEntry.title || 'Image'"></div>
+                            <div class="image-lightbox-subtitle" style="font-size:11px;color:var(--text-secondary);">
+                                <span x-show="compendiumImageLightboxEntry.tags?.includes('imported') && compendiumImageLightboxEntry.tags?.includes('sillytavern')">Imported</span>
+                                <span x-show="!compendiumImageLightboxEntry.tags?.includes('imported') || !compendiumImageLightboxEntry.tags?.includes('sillytavern')">Character</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                        <button class="btn btn-secondary" @click="window.ChatMode.compendiumImageZoomIn($data)" title="Zoom in" style="font-size:12px;padding:6px 10px;">+</button>
+                        <button class="btn btn-secondary" @click="window.ChatMode.compendiumImageZoomOut($data)" title="Zoom out" style="font-size:12px;padding:6px 10px;">-</button>
+                        <span class="btn btn-secondary" style="font-size:12px;padding:6px 10px;cursor:default;">
+                            <span x-text="'Zoom: ' + Math.round(compendiumImageZoom * 100) + '%'"></span>
+                        </span>
+                        <button class="btn btn-primary" style="font-size:11px;padding:4px 8px;" @click="window.ChatMode.useCurrentImageForEntry($data)">Use Image</button>
+                        <button class="btn btn-secondary" @click="window.ChatMode.closeCompendiumImageLightbox($data)" style="font-size:12px;padding:6px 14px;">Done</button>
+                    </div>
+                </div>
+                <div class="image-lightbox-body">
+                    <div class="image-lightbox-image-container">
+                        <img :src="compendiumImageLightboxEntry.imageUrl" :alt="compendiumImageLightboxEntry.title || 'Image'"
+                            class="image-lightbox-img"
+                            :style="`transform: scale(${compendiumImageZoom}) translate(${compendiumImagePanX}px, ${compendiumImagePanY}px); object-fit: contain; object-position: center; border-radius: 8px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); cursor: grab;`"
+                            @wheel.prevent="compendiumImageZoom = Math.max(0.5, Math.min(4, compendiumImageZoom + ($event.deltaY > 0 ? -0.1 : 0.1)))"
+                            @mousedown.prevent="compendiumImageIsDragging = true; compendiumImageDragStartX = $event.clientX; compendiumImageDragStartY = $event.clientY"
+                            @mousemove.prevent="if (compendiumImageIsDragging) { compendiumImagePanX += ($event.clientX - compendiumImageDragStartX) / compendiumImageZoom; compendiumImagePanY += ($event.clientY - compendiumImageDragStartY) / compendiumImageZoom; compendiumImageDragStartX = $event.clientX; compendiumImageDragStartY = $event.clientY; }"
+                            @mouseup.prevent="compendiumImageIsDragging = false"
+                            @mouseleave.prevent="compendiumImageIsDragging = false" />
+                    </div>
+                    <div style="text-align:center;color:var(--text-secondary);padding:8px;font-size:12px;">
+                        <span x-text="'Zoom: ' + Math.round(compendiumImageZoom * 100) + '%' + (compendiumImageZoom > 1 ? ' • Drag to pan' : '')"></span>
+                    </div>
+                </div>
+                <div style="margin-top:12px;padding:12px;background:var(--bg-secondary);border:1px solid var(--border);border-radius:6px;">
+                    <div style="font-size:12px;color:var(--text-primary);margin-bottom:6px;">Preview in compendium entry (240×360):</div>
+                    <div style="width:240px;height:360px;background:var(--bg-tertiary);border-radius:6px;overflow:hidden;margin:0 auto;position:relative;">
+                        <img :src="compendiumImageLightboxEntry.imageUrl" :style="`transform: scale(${compendiumImageZoom}) translate(${compendiumImagePanX}px, ${compendiumImagePanY}px); object-fit: contain; object-position: center; display: block; max-width: 100%; max-height: 100%;`" />
+                    </div>
+                    <div style="text-align:center;font-size:10px;color:var(--text-secondary);margin-top:4px;">Aspect ratio preserved, padded to square</div>
                 </div>
             </div>
         </div>

@@ -24,6 +24,19 @@
         return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
 
+    /**
+     * Word-count instruction used for {length}. A range is more reliable than
+     * "at least N words", which models routinely undershoot or overshoot.
+     * @param {number} words
+     * @returns {string}
+     */
+    function buildLengthInstruction(words) {
+        const target = Math.max(1, Math.round(Number(words) || 300));
+        const min = Math.max(1, Math.round(target * 0.9));
+        const max = Math.max(min + 1, Math.round(target * 1.2));
+        return `about ${target} words (${min}-${max} words)`;
+    }
+
     function genreLabelsFor(genreIds) {
         if (!Array.isArray(genreIds) || genreIds.length === 0 || !window.GenreDefs) return [];
         return genreIds
@@ -65,7 +78,7 @@
         const language = asText(opts.language || (app && app.language) || (project && project.language)).trim() || 'English';
 
         return {
-            length: `at least ${targetWords} words`,
+            length: buildLengthInstruction(targetWords),
             pov,
             povName,
             povCharacter: povName,
@@ -105,6 +118,7 @@
         buildContext,
         render,
         hasLengthToken,
+        buildLengthInstruction,
         TENSE_MAP
     };
 })();

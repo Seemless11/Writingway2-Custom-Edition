@@ -194,6 +194,28 @@
                         </p>
                     </div>
 
+                    <!-- Reasoning Effort (reasoning/thinking models only) -->
+                    <div x-show="aiMode === 'api'" style="margin-bottom:16px;">
+                        <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">
+                            Reasoning Effort (thinking models)
+                        </label>
+                        <select x-model="reasoningEffort" @change="saveGenerationParams()"
+                            style="width:100%;padding:8px;border:1px solid var(--border);background:var(--bg-secondary);color:var(--text-primary);border-radius:6px;">
+                            <option value="low">Low — recommended for prose</option>
+                            <option value="off">Off — no reasoning (where supported)</option>
+                            <option value="minimal">Minimal</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                            <option value="auto">Model default</option>
+                        </select>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;">
+                            Thinking tokens count against the output limit. Low stops reasoning from
+                            eating the story text; the target length is budgeted separately.
+                        </p>
+                        <p x-show="lastGenUsage" style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;"
+                            x-text="lastGenUsage ? 'Last generation: ' + (lastGenUsage.completionTokens || 0) + ' output tokens' + (lastGenUsage.reasoningTokens ? ' · ' + Math.round(100 * lastGenUsage.reasoningTokens / (lastGenUsage.completionTokens || 1)) + '% reasoning' : '') : ''"></p>
+                    </div>
+
                     <div x-show="aiProvider === 'lmstudio'" style="margin-bottom:16px;">
                         <label
                             style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">LM Studio Server URL</label>

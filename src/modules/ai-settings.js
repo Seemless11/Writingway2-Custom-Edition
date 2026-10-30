@@ -186,6 +186,8 @@
                     maxTokens: app.maxTokens,
                     useProviderDefaults: app.useProviderDefaults || false,
                     forceNonStreaming: app.forceNonStreaming || false,
+                    reasoningEffort: app.reasoningEffort || 'low',
+                    reasoningBudget: app.reasoningBudget !== undefined ? app.reasoningBudget : 4000,
                     topP: app.topP,
                     topK: app.topK,
                     repetitionPenalty: app.repetitionPenalty,
@@ -222,6 +224,8 @@
                     maxTokens: app.maxTokens,
                     useProviderDefaults: app.useProviderDefaults || false,
                     forceNonStreaming: app.forceNonStreaming || false,
+                    reasoningEffort: app.reasoningEffort || 'low',
+                    reasoningBudget: app.reasoningBudget !== undefined ? app.reasoningBudget : 4000,
                     topP: app.topP,
                     topK: app.topK,
                     repetitionPenalty: app.repetitionPenalty,
@@ -432,6 +436,8 @@
                     app.maxTokens = settings.maxTokens !== undefined ? settings.maxTokens : 300;
                     app.useProviderDefaults = settings.useProviderDefaults || false;
                     app.forceNonStreaming = settings.forceNonStreaming || false;
+                    app.reasoningEffort = settings.reasoningEffort || 'low';
+                    app.reasoningBudget = settings.reasoningBudget !== undefined ? settings.reasoningBudget : 4000;
                     app.topP = settings.topP !== undefined ? settings.topP : 0.9;
                     app.topK = settings.topK !== undefined ? settings.topK : 40;
                     app.repetitionPenalty = settings.repetitionPenalty !== undefined ? settings.repetitionPenalty : 1.0;
