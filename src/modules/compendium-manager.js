@@ -315,7 +315,17 @@
         async _doSelectCompendiumEntry(app, id) {
             try {
                 const e = await window.Compendium.getEntry(id);
-                app.currentCompEntry = e || null;
+                if (!e) {
+                    app.currentCompEntry = null;
+                } else {
+                    // Build a fresh entry object and explicitly copy alwaysInContext so
+                    // Alpine's x-model checkbox re-renders to the correct state when
+                    // switching between entries (otherwise a stale binding persists).
+                    app.currentCompEntry = {
+                        ...e,
+                        alwaysInContext: Boolean(e.alwaysInContext)
+                    };
+                }
                 // Store snapshot for dirty comparison
                 this.storeCompendiumOriginal(app);
                 // Let Alpine flush reactivity so the editor/title reflect the new entry
