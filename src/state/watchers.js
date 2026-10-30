@@ -79,6 +79,16 @@ function setupWatchers(app) {
     app.$watch('seed', () => {
         if (!app.isInitializing) debouncedSave();
     });
+
+    // Compendium dirty tracking: recalculate dirty flag whenever the selected
+    // entry changes (safe — currentCompEntry may be null). @change handlers on
+    // individual checkboxes (alwaysInContext, isPovCharacter) already call
+    // updateCompendiumDirtyFlag; this watcher is a backup for programmatic edits.
+    app.$watch('currentCompEntry', () => {
+        if (!app.isInitializing && app.currentCompEntry && typeof app.updateCompendiumDirtyFlag === 'function') {
+            app.updateCompendiumDirtyFlag();
+        }
+    });
 }
 
 // Expose globally for Alpine.js

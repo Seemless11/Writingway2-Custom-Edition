@@ -318,6 +318,11 @@
                 app.currentCompEntry = e || null;
                 // Store snapshot for dirty comparison
                 this.storeCompendiumOriginal(app);
+                // Let Alpine flush reactivity so the editor/title reflect the new entry
+                // before any further user interaction (prevents "needs two clicks").
+                if (app.$nextTick) {
+                    await app.$nextTick();
+                }
             } catch (err) {
                 console.error('Failed to load compendium entry:', err);
             }
@@ -422,6 +427,17 @@
             reader.readAsDataURL(file);
             // clear input if present
             try { if (e && e.target) e.target.value = null; } catch (err) { }
+        },
+
+        /**
+         * Show a lightbox for viewing the compendium entry image with zoom/pan
+         * @param {Object} app - Alpine app instance
+         * @param {Object} entry - Compendium entry
+         */
+        showCompendiumImageLightbox(app, entry) {
+            if (window.ChatMode && window.ChatMode.showCompendiumImageLightbox) {
+                window.ChatMode.showCompendiumImageLightbox(app, entry);
+            }
         },
 
         /**
