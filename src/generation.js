@@ -240,6 +240,12 @@
         return 'medium';
     }
 
+    // Guarantee visible prose receives at least this many tokens even when a
+    // reasoning model reserves headroom for chain-of-thought. Without it, a
+    // reasoning model can spend its entire output budget thinking and return
+    // no story text at all.
+    const PROSE_MIN_TOKENS = 512;
+
     /**
      * Output-token budget for a word target. Reasoning models get a separate
      * allowance because their thinking tokens share max_tokens with the prose;
@@ -254,13 +260,15 @@
         const words = Math.max(1, Number(wordTarget) || 300);
         // ~2.5 tokens per requested word covers the usual overshoot (1.2x
         // words at ~1.5 tokens/word) with room to finish the last sentence.
-        const prose = Math.ceil(words * 2.5);
+        let prose = Math.ceil(words * 2.5);
         let reasoning = 0;
         if (isReasoningModel(model)) {
             const configured = Number(app?.reasoningBudget);
             reasoning = (Number.isFinite(configured) && configured >= 0)
                 ? Math.round(configured)
                 : DEFAULT_REASONING_ALLOWANCE;
+            // Reasoning headroom must never starve visible prose entirely.
+            prose = Math.max(prose, PROSE_MIN_TOKENS);
         }
         return { prose, reasoning, total: Math.min(prose + reasoning, 128000) };
     }
@@ -975,7 +983,13 @@
             if (wantsReasoningControl) {
                 body.reasoning = { effort: effortSetting === 'off' ? 'none' : effortSetting };
             }
-            if (!opts.continuation) body.min_tokens = Math.round(rawWordTarget * 1.25);
+            if (!opts.continuation) {
+                // min_tokens is an OpenRouter extension. Never require more output
+                // than the cap allows: min_tokens > max_tokens returns HTTP 400 and
+                // yields no output at all. Omit it when the cap is smaller.
+                const minTok = Math.round(rawWordTarget * 1.25);
+                if (minTok <= maxTok) body.min_tokens = minTok;
+            }
             // Only include other parameters if not using provider defaults
             if (!useProviderDefaults) {
                 body.temperature = temp;
