@@ -12,6 +12,7 @@
     "globals": {
         "Dexie": "readonly",
         "Alpine": "readonly",
+        "JSZip": "readonly",
         "db": "readonly",
         "window": "readonly"
     },
@@ -25,6 +26,7 @@
         ],
         "no-undef": "error",
         "no-empty": "off",
-        "no-constant-condition": "off"
+        "no-constant-condition": "off",
+        "no-control-regex": "off"
     }
 }

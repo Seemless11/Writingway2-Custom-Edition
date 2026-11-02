@@ -629,7 +629,7 @@ Object.assign(window.AppMethods, {
                         const editingId = this.charCreatorEditingEntryId;
 
                         // Helper: extract a ## Section from body
-                        function extractSection(body, sectionName) {
+                        const extractSection = function (body, sectionName) {
                             if (!body) return null;
                             const regex = new RegExp(`##\\s*${sectionName}\\s*\\n([\\s\\S]*?)(?=\\n##\\s|$)`, 'i');
                             const match = body.match(regex);
@@ -637,7 +637,7 @@ Object.assign(window.AppMethods, {
                         }
 
                         // Helper: remove ## Sections from body
-                        function stripSections(body, sectionNames) {
+                        const stripSections = function (body, sectionNames) {
                             if (!body) return '';
                             let result = body;
                             for (const name of sectionNames) {

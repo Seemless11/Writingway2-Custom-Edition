@@ -290,6 +290,7 @@
                         const raw = this.extractContent(betweenBlocks);
                         const sceneBlocks = this.splitIntoScenes(raw);
                         const scenes = [];
+                        let chapterSummary = '';
 
                         for (let i = 0; i < sceneBlocks.length; i++) {
                             const parts = this.splitSceneBlock(sceneBlocks[i]);

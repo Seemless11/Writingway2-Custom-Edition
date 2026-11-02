@@ -129,7 +129,7 @@
                 }
                 break;
 
-            case MSG_TYPES.TAB_HEARTBEAT:
+            case MSG_TYPES.TAB_HEARTBEAT: {
                 // Update last heartbeat time for this tab
                 const tabInfo = knownTabs.get(data.tabId);
                 if (tabInfo) {
@@ -144,6 +144,7 @@
                         console.log('🔒 This tab is now READ-ONLY (older tab heartbeat detected)');
                         setEditorReadOnly(true);
                     }
+                }
                 }
                 break;
 

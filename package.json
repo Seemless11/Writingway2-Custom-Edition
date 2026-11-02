@@ -4,11 +4,13 @@
     "private": true,
     "devDependencies": {
         "eslint": "^8.45.0",
+        "espree": "^9.6.1",
         "playwright": "^1.40.0"
     },
     "scripts": {
         "build": "node tools/build-html.js",
         "build:check": "node tools/build-html.js --check",
+        "lint": "eslint src",
         "split:app": "node tools/split-app-js.js",
         "smoke": "node tests/smoke.js",
         "handler": "node tests/handler-coverage.js",

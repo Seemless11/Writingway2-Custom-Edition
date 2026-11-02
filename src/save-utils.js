@@ -117,7 +117,7 @@
             } catch (e) { /* ignore */ }
 
             // Use a safe merge update to avoid accidentally removing fields like `summary`.
-            async function safeMergeUpdate(id, patch) {
+            const safeMergeUpdate = async function (id, patch) {
                 try {
                     const cur = await db.scenes.get(id) || {};
                     const merged = Object.assign({}, cur, patch, { id: id });
@@ -125,10 +125,10 @@
                     return merged;
                 } catch (e) {
                     // If put fails, try update as a fallback
-                    try { await db.scenes.update(id, patch); } catch (err) { throw err; }
+                    await db.scenes.update(id, patch);
                     return await db.scenes.get(id);
                 }
-            }
+            };
 
             let mergedScene = null;
             let saveOk = false;
