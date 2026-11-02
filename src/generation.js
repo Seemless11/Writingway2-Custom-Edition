@@ -543,6 +543,30 @@
         return result;
     }
 
+    // Fetch with a connect-phase timeout: aborts if the server never responds,
+    // but once response headers arrive the timeout is cleared so a slow
+    // generation stream can run as long as it needs. The caller's abortSignal
+    // (Stop button) still aborts the whole request.
+    const GENERATION_CONNECT_TIMEOUT_MS = 120000;
+    async function fetchWithConnectTimeout(url, opts, abortSignal) {
+        const controller = new AbortController();
+        const onAbort = () => controller.abort(abortSignal ? abortSignal.reason : undefined);
+        if (abortSignal) {
+            if (abortSignal.aborted) controller.abort(abortSignal.reason);
+            else abortSignal.addEventListener('abort', onAbort);
+        }
+        const timer = setTimeout(
+            () => controller.abort(new DOMException('Generation server did not respond (connect timeout after 120s)', 'TimeoutError')),
+            GENERATION_CONNECT_TIMEOUT_MS
+        );
+        try {
+            return await fetch(url, { ...opts, signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+            if (abortSignal) abortSignal.removeEventListener('abort', onAbort);
+        }
+    }
+
     async function streamGeneration(prompt, onToken, app, abortSignal, opts = {}) {
         // Get AI settings from app if provided
         const aiMode = app?.aiMode || 'local';
@@ -777,12 +801,11 @@
             }
         }
 
-        const response = await fetch(endpoint + '/completion', {
+        const response = await fetchWithConnectTimeout(endpoint + '/completion', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-            signal: abortSignal
-        });
+            body: JSON.stringify(requestBody)
+        }, abortSignal);
 
         if (!response.ok) {
             throw new Error(`Server returned ${response.status}`);
@@ -850,20 +873,18 @@
         // Stream from the KoboldAI SSE endpoint. If the server doesn't support
         // SSE streaming (older builds / 404), fall back to the non-streaming
         // /api/v1/generate endpoint and emit the result in chunks.
-        let response = await fetch(base + '/api/extra/generate/stream', {
+        let response = await fetchWithConnectTimeout(base + '/api/extra/generate/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(genparams),
-            signal: abortSignal
-        });
+            body: JSON.stringify(genparams)
+        }, abortSignal);
 
         if (!response.ok) {
-            response = await fetch(base + '/api/v1/generate', {
+            response = await fetchWithConnectTimeout(base + '/api/v1/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(genparams),
-                signal: abortSignal
-            });
+                body: JSON.stringify(genparams)
+            }, abortSignal);
         }
 
         if (!response.ok) {
@@ -1198,12 +1219,11 @@
             console.log('⚙️ Temperature:', temp, 'Word Target:', rawWordTarget, 'Token Cap:', maxTok);
         }
 
-        const response = await fetch(url, {
+        const response = await fetchWithConnectTimeout(url, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(body),
-            signal: abortSignal
-        });
+            body: JSON.stringify(body)
+        }, abortSignal);
 
         if (!response.ok) {
             const errorText = await response.text();
