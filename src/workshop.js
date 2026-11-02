@@ -30,14 +30,23 @@ window.workshopChat = {
 
         // Get the selected workshop prompt
         const selectedPrompt = app.prompts.find(p => p.id === app.selectedWorkshopPromptId);
-        const systemPrompt = selectedPrompt?.content ||
+        let systemPrompt = selectedPrompt?.content ||
             "You are a creative writing assistant helping to brainstorm and develop story ideas. Be thoughtful, creative, and supportive.";
+
+        // Resolve placeholders ({pov}, {tense}, {genreLabels}, {length}, ...) via
+        // PromptRender so template tokens never leak verbatim into the chat.
+        let hadLengthToken = false;
+        if (window.PromptRender) {
+            hadLengthToken = window.PromptRender.hasLengthToken(systemPrompt);
+            const renderCtx = window.PromptRender.buildContext(app, { targetWords: app?.maxTokens || 300 });
+            systemPrompt = window.PromptRender.render(systemPrompt, renderCtx);
+        }
 
         // Add system message with language directive and length instruction
         const workshopLang = app?.language || app?.currentProject?.language || 'English';
         const langDirective = workshopLang !== 'English' ? `\n\nWrite entirely in ${workshopLang}.` : '';
         const targetWords = app?.maxTokens || 300;
-        const lengthInstruction = `\n\nWrite approximately ${targetWords} words in your response.`;
+        const lengthInstruction = hadLengthToken ? '' : `\n\nWrite approximately ${targetWords} words in your response.`;
         messages.push({
             role: 'system',
             content: systemPrompt + langDirective + lengthInstruction
