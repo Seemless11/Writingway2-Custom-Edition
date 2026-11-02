@@ -199,7 +199,9 @@
         { id: 'custom', label: 'Custom Instruction', message: '' }
     ];
 
-    const SCENARIO_SYSTEM_PROMPT = 'You are a scenario-building assistant helping to develop compelling situations and conflicts for creative writing. Your role is to help flesh out a scenario based on selected traits, notes, and the user\'s directions.\n\nWhen asked to expand on a scenario:\n- Write in vivid, narrative prose — show the situation, don\'t just describe it\n- Connect traits together into a coherent, compelling situation\n- Suggest how conflicts, stakes, and character roles interact\n- Build tension and atmosphere that feels real and engaging\n- Keep descriptions evocative but concise (2-4 paragraphs per topic)\n- Do not add major new elements unless the user asks you to\n\nIf the user provides specific traits, weave them naturally into the description rather than just listing them.';
+    const SCENARIO_SYSTEM_PROMPT = `You are a scenario development assistant for {genreLabels}. Frame a situation driven by clear stakes and compelling pressure. Design the inciting incident, identify what forces are at work, and clarify the rules and consequences that shape the characters' choices. Let the scenario emerge from the interplay between character desire and world constraints. Provide concrete, actionable details rather than abstract premises.`;
+
+    const SCENARIO_COMPENDIUM_TEMPLATE = `Generate a scenario compendium entry for the {category} category. Include: the situation setup, key characters involved, central conflict or goal, and how this scenario creates meaningful pressure for the story. {genreSentence}`;
 
     const USER_TRAITS_KEY = 'ww_scenario_creator_user_traits';
     let userTraits = {};
@@ -408,6 +410,7 @@
         SCENARIO_TRAIT_CATEGORIES,
         DEFAULT_INSTRUCTION_TEMPLATES,
         SCENARIO_SYSTEM_PROMPT,
+        SCENARIO_COMPENDIUM_TEMPLATE,
         buildCompendiumEntry,
         getTraitLabel,
         getTraitHint,

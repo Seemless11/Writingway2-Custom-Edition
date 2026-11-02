@@ -2,71 +2,72 @@
 (function () {
     const GLOBAL_PROJECT_ID = '__global__';
 
+    // Fallback original V1 defaults for when PromptPacks isn't loaded
     const DEFAULT_PROMPTS = [
-        {
-            category: 'prose',
-            title: 'Default Prose Prompt',
-            content: 'Write the next scene continuing from the provided text. Maintain the established tone, style, POV, and tense. Use sensory details and vivid imagery. Show, don\'t tell. Focus on the beat provided and expand it naturally into about {length}.',
-            systemContent: 'You are a creative writing assistant. Write vivid, engaging prose that expands the given beat into a full scene. Match the author\'s style and tone.'
-        },
-        {
-            category: 'summary',
-            title: 'Default Summary Prompt',
-            content: 'You are a literary analysis assistant. Analyze the text below in depth — explore character motivations, emotional undercurrents, thematic significance, and narrative craft. Explain why moments matter, what they reveal, and how they serve the larger story. Do not simply recount events. Write as much as needed for a thorough analysis.'
-        },
-        {
-            category: 'workshop',
-            title: 'Default Workshop Prompt',
-            content: 'You are a creative writing workshop assistant. Help the author brainstorm ideas, develop characters, improve prose, and explore narrative possibilities. Be supportive, constructive, and specific in your feedback. Draw on writing craft principles.'
-        }
+        { category: 'prose', title: 'General Fiction Prose Prompt', content: 'Write the next scene continuing from the provided text. Maintain the established tone, style, POV, and tense. Use sensory details and vivid imagery. Show, don\'t tell. Focus on the beat provided and expand it naturally into about {length}.', systemContent: '' },
+        { category: 'rewrite', title: 'General Fiction Rewrite Prompt', content: 'You are a precise line editor. Improve clarity, rhythm, and impact. Preserve the author\'s voice — tighten, sharpen, and strengthen.', systemContent: '' },
+        { category: 'summary', title: 'General Fiction Summary Prompt', content: 'You are a continuity editor. Summarize the following text for continuity — who was present, what changed, new facts, and unresolved threads.', systemContent: '' },
+        { category: 'workshop', title: 'General Fiction Workshop Prompt', content: 'You are a creative writing workshop assistant. Help the author brainstorm ideas, develop characters, improve prose, and explore narrative possibilities. Be supportive, constructive, and specific in your feedback. Draw on writing craft principles.', systemContent: '' }
     ];
 
+    // V1 content signatures for untouched-prompt detection
+    const V1_PROSE_CONTENT = 'Write the next scene continuing from the provided text. Maintain the established tone, style, POV, and tense. Use sensory details and vivid imagery. Show, don\'t tell. Focus on the beat provided and expand it naturally into about {length}.';
+    const V1_SUMMARY_CONTENT = 'You are a literary analysis assistant. Analyze the text below in depth — explore character motivations, emotional undercurrents, thematic significance, and narrative craft. Explain why moments matter, what they reveal, and how they serve the larger story. Do not simply recount events. Write as much as needed for a thorough analysis.';
+    const V1_WORKSHOP_CONTENT = 'You are a creative writing workshop assistant. Help the author brainstorm ideas, develop characters, improve prose, and explore narrative possibilities. Be supportive, constructive, and specific in your feedback. Draw on writing craft principles.';
+
     async function seedDefaultPrompts(app) {
-        if (!app.currentProject) return;
+        if (!app || !app.currentProject) return;
         try {
-            for (const def of DEFAULT_PROMPTS) {
-                const existing = await db.prompts
-                    .where({ category: def.category, title: def.title })
-                    .filter(p => p.projectId === GLOBAL_PROJECT_ID || p.projectId === app.currentProject.id)
-                    .first();
-                if (!existing) {
-                    const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
-                    const now = new Date();
-                    await db.prompts.add({
-                        id,
-                        projectId: GLOBAL_PROJECT_ID,
-                        category: def.category,
-                        title: def.title,
-                        content: def.content || '',
-                        systemContent: def.systemContent || '',
-                        created: now,
-                        modified: now
-                    });
+            if (window.PromptPacks && window.PromptPacks.composeSet) {
+                const globalSet = window.PromptPacks.composeSet();
+                console.log('[Prompts] Seeding global prompts (general fiction)');
+                for (const prompt of Object.values(globalSet)) {
+                    const existing = await db.prompts
+                        .where({ category: prompt.category, title: prompt.title })
+                        .filter(p => p.projectId === GLOBAL_PROJECT_ID)
+                        .first();
+                    if (!existing || (existing.builtin && (!existing.content || existing.content.trim() === ''))) {
+                        const id = existing ? existing.id : Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, defaultFor: prompt.defaultFor || '', modified: new Date() };
+                        if (!existing) { payload.id = id; payload.projectId = GLOBAL_PROJECT_ID; payload.created = new Date(); avatar(payload); console.log('[Prompts] Seeded global:', prompt.title); }
+                        else { await db.prompts.update(id, payload); console.log('[Prompts] Updated global:', prompt.title); }
+                    }
+                }
+            } else {
+                for (const def of DEFAULT_PROMPTS) {
+                    const existing = await db.prompts
+                        .where({ category: def.category, title: def.title })
+                        .filter(p => p.projectId === GLOBAL_PROJECT_ID || p.projectId === app.currentProject.id)
+                        .first();
+                    if (!existing) {
+                        const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+                        await db.prompts.add({ id, projectId: GLOBAL_PROJECT_ID, category: def.category, title: def.title, content: def.content || '', systemContent: def.systemContent || '', builtin: true, packVersion: 1, created: new Date(), modified: new Date() });
+                    }
                 }
             }
 
-            // Seed genre-specific prompts for the current project
-            if (app.currentProject.genres?.length && window.GenreDefs) {
-                for (const gid of app.currentProject.genres) {
-                    const defaults = window.GenreDefs.getDefaultPromptsForGenre(gid);
-                    if (!defaults) continue;
-                    for (const [category, def] of Object.entries(defaults)) {
-                        const existing = await db.prompts
-                            .where({ projectId: app.currentProject.id, category, title: def.title })
-                            .first();
-                        if (!existing) {
-                            const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
-                            await db.prompts.add({
-                                id,
-                                projectId: app.currentProject.id,
-                                category,
-                                title: def.title,
-                                content: def.content || '',
-                                systemContent: def.systemContent || '',
-                                created: new Date(),
-                                modified: new Date()
-                            });
-                        }
+            if (app.currentProject.genres?.length && window.PromptPacks && window.PromptPacks.composeSet) {
+                const genreSet = window.PromptPacks.composeSet(app.currentProject.genres);
+                console.log('[Prompts] Seeding genre prompts for:', app.currentProject.genres);
+                for (const prompt of Object.values(genreSet)) {
+                    const existing = await db.prompts.where({ projectId: app.currentProject.id, category: prompt.category, title: prompt.title }).first();
+                    if (!existing || (existing.builtin && (!existing.content || existing.content.trim() === ''))) {
+                        const id = existing ? existing.id : Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, genreId: prompt.genreId || '', defaultFor: prompt.defaultFor || '', modified: new Date() };
+                        if (!existing) { payload.id = id; payload.projectId = app.currentProject.id; payload.created = new Date(); await db.prompts.add(payload); console.log('[Prompts] Seeded:', prompt.title); }
+                        else { await db.prompts.update(id, payload); console.log('[Prompts] Updated:', prompt.title); }
+                    }
+                }
+            } else if (window.PromptPacks && window.PromptPacks.composeSet) {
+                const generalSet = window.PromptPacks.composeSet([]);
+                console.log('[Prompts] No genres set - seeding General Fiction prompts for project');
+                for (const prompt of Object.values(generalSet)) {
+                    const existing = await db.prompts.where({ projectId: app.currentProject.id, category: prompt.category, title: prompt.title }).first();
+                    if (!existing || (existing.builtin && (!existing.content || existing.content.trim() === ''))) {
+                        const id = existing ? existing.id : Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, genreId: 'general', defaultFor: prompt.defaultFor || '', modified: new Date() };
+                        if (!existing) { payload.id = id; payload.projectId = app.currentProject.id; payload.created = new Date(); await db.prompts.add(payload); console.log('[Prompts] Seeded (general):', prompt.title); }
+                        else { await db.prompts.update(id, payload); console.log('[Prompts] Updated (general):', prompt.title); }
                     }
                 }
             }
@@ -75,243 +76,168 @@
         }
     }
 
-    async function loadPrompts(app) {
-        if (!app.currentProject) {
-            app.prompts = [];
-            return;
+    function isPromptUntouched(prompt) {
+        if (!prompt || !prompt.builtin) return false;
+        if (prompt.category === 'prose' && prompt.content === V1_PROSE_CONTENT) return true;
+        if (prompt.category === 'summary' && prompt.content === V1_SUMMARY_CONTENT) return true;
+        if (prompt.category === 'workshop' && prompt.content === V1_WORKSHOP_CONTENT) return true;
+        return false;
+    }
+
+    async function maybeUpgradePrompts(app) {
+        if (!app || !app.currentProject) return;
+        try {
+            const globalPrompts = await db.prompts.where('projectId').equals(GLOBAL_PROJECT_ID).toArray();
+            for (const p of globalPrompts) {
+                if (isPromptUntouched(p)) {
+                    const replacement = window.PromptPacks?.compose?.([], p.category);
+                    if (replacement) await db.prompts.update(p.id, { content: replacement.content || '', systemContent: replacement.systemContent || '', packVersion: window.PromptPacks.VERSION || 2, modified: new Date() });
+                }
+            }
+            const projectPrompts = await db.prompts.where('projectId').equals(app.currentProject.id).toArray();
+            for (const p of projectPrompts) {
+                if (isPromptUntouched(p)) {
+                    const genreSet = window.PromptPacks?.composeSet?.(app.currentProject.genres);
+                    if (genreSet) {
+                        const replacement = Object.values(genreSet).find(r => r.category === p.category && r.title === p.title);
+                        if (replacement) await db.prompts.update(p.id, { content: replacement.content || '', systemContent: replacement.systemContent || '', packVersion: window.PromptPacks.VERSION || 2, modified: new Date() });
+                    }
+                }
+            }
+            console.log('[Prompts] Upgrade to v2 complete');
+        } catch (e) {
+            console.warn('Prompt upgrade failed:', e);
         }
+    }
+
+    async function loadPrompts(app) {
+        if (!app || !app.currentProject) { if (app) app.prompts = []; return; }
         try {
             await seedDefaultPrompts(app);
+            await maybeUpgradePrompts(app);
             const projectPrompts = await db.prompts.where('projectId').equals(app.currentProject.id).sortBy('modified');
             const globalPrompts = await db.prompts.where('projectId').equals(GLOBAL_PROJECT_ID).sortBy('modified');
             app.prompts = [...globalPrompts, ...projectPrompts];
-            for (let c of app.promptCategories) {
-                if (app.promptCollapsed[c] === undefined) app.promptCollapsed[c] = false;
+            if (app.promptCategories) {
+                for (let c of app.promptCategories) {
+                    if (app.promptCollapsed && app.promptCollapsed[c] === undefined) app.promptCollapsed[c] = false;
+                }
             }
         } catch (e) {
             console.error('Failed to load prompts:', e);
-            app.prompts = [];
+            if (app) app.prompts = [];
         }
     }
 
+    // CRUD implementations
     async function createPrompt(app, category) {
-        if (!app.currentProject) return;
-        const title = app.newPromptTitle && app.newPromptTitle.trim() ? app.newPromptTitle.trim() : 'New Prompt';
-        const id = Date.now().toString();
-        const now = new Date();
-        const prompt = { id, projectId: app.currentProject.id, category, title, content: '', systemContent: '', created: now, modified: now };
-        await db.prompts.add(prompt);
-        app.newPromptTitle = '';
-        await loadPrompts(app);
-        openPrompt(app, id);
+        if (!app || !app.currentProject) return;
+        try {
+            const len = category === 'prose' ? 400 : (category === 'summary' ? 300 : 250);
+            const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
+            const now = new Date();
+            await db.prompts.add({
+                id, projectId: app.currentProject.id, category, title: 'New ' + (category || 'Prompt'),
+                content: 'Write the next ' + category + ' continuing from the provided text.',
+                systemContent: '', builtin: false, created: now, modified: now
+            });
+            await loadPrompts(app);
+            app.openPrompt(id);
+        } catch (e) { console.error('createPrompt error:', e); }
     }
 
     function openPrompt(app, id) {
-        const p = app.prompts.find(x => x.id === id);
-        if (!p) return;
-        app.currentPrompt = { ...p };
-        app.promptEditorContent = p.content || '';
-        app.promptEditorSystemContent = p.systemContent || '';
-
-        if (p.category === 'prose' && app && typeof app.saveSelectedProsePrompt === 'function') {
-            try {
-                app.saveSelectedProsePrompt(p.id);
-            } catch (e) { /* ignore */ }
+        if (!app || !id) return;
+        const p = (app.prompts || []).find(x => x.id === id);
+        if (p) {
+            app.currentPrompt = Object.assign({}, p);
+            app.selectedPromptId = id;
+            app.promptEditorContent = p.content || '';
+            app.promptEditorSystemContent = p.systemContent || '';
         }
     }
 
     async function savePrompt(app) {
-        if (!app.currentPrompt) return;
+        if (!app || !app.selectedPromptId || !app.currentPrompt) return;
         try {
-            const now = new Date();
-            await db.prompts.update(app.currentPrompt.id, {
-                title: app.currentPrompt.title,
-                content: app.promptEditorContent,
-                systemContent: app.promptEditorSystemContent,
-                category: app.currentPrompt.category,
-                modified: now
+            await db.prompts.update(app.selectedPromptId, {
+                content: app.promptEditorContent || '',
+                systemContent: app.promptEditorSystemContent || '',
+                title: app.currentPrompt.title || '',
+                category: app.currentPrompt.category || '',
+                modified: new Date()
             });
+            // Keep currentPrompt in sync so the editor stays correct after reload
+            const updated = await db.prompts.get(app.selectedPromptId);
+            if (updated) app.currentPrompt = Object.assign({}, updated);
             await loadPrompts(app);
-            app.currentPrompt = await db.prompts.get(app.currentPrompt.id);
-            app.promptEditorContent = app.currentPrompt.content || '';
-            app.promptEditorSystemContent = app.currentPrompt.systemContent || '';
-        } catch (e) {
-            console.error('Failed to save prompt:', e);
-        }
+        } catch (e) { console.error('savePrompt error:', e); }
     }
 
     async function deletePrompt(app, id) {
-        if (!id) return;
-        if (!confirm('Delete this prompt?')) return;
-        try {
-            await db.prompts.delete(id);
-            if (app.currentPrompt && app.currentPrompt.id === id) app.currentPrompt = null;
-            try {
-                if (app && app.selectedProsePromptId === id && typeof app.saveSelectedProsePrompt === 'function') {
-                    app.saveSelectedProsePrompt(null);
-                }
-            } catch (e) { /* ignore */ }
-            await loadPrompts(app);
-        } catch (e) {
-            console.error('Failed to delete prompt:', e);
-        }
-    }
-
-    async function toggleGlobal(app, id) {
         if (!id || !app.currentProject) return;
         try {
-            const p = await db.prompts.get(id);
-            if (!p) return;
-            const isGlobal = p.projectId === GLOBAL_PROJECT_ID;
-            const newProjectId = isGlobal ? app.currentProject.id : GLOBAL_PROJECT_ID;
-            await db.prompts.update(id, { projectId: newProjectId });
+            await db.prompts.delete(id);
             await loadPrompts(app);
-            if (app.currentPrompt && app.currentPrompt.id === id) {
-                app.currentPrompt = await db.prompts.get(id);
-            }
-        } catch (e) {
-            console.error('Failed to toggle global:', e);
-        }
+        } catch (e) { console.error('deletePrompt error:', e); }
+    }
+
+    function toggleGlobal(app, id) {
+        if (!id || !app.currentProject) return;
+        try {
+            const p = (app.prompts || []).find(x => x.id === id);
+            if (!p) return;
+            const newProjectId = p.projectId === '__global__' ? app.currentProject.id : '__global__';
+            db.prompts.update(id, { projectId: newProjectId, modified: new Date() }).then(() => loadPrompts(app));
+        } catch (e) { console.error('toggleGlobal error:', e); }
+    }
+
+    async function movePromptUp(app, id) {
+        if (!id || !app || !app.currentProject) return;
+        try { await db.prompts.update(id, { modified: new Date() }); await loadPrompts(app); } catch (e) {}
+    }
+    async function movePromptDown(app, id) {
+        if (!id || !app || !app.currentProject) return;
+        try { await db.prompts.update(id, { modified: new Date() }); await loadPrompts(app); } catch (e) {}
     }
 
     async function renamePrompt(app, id, newTitle) {
         if (!id) return;
-        try {
-            let title = newTitle;
-            if (!title) {
-                const p = await db.prompts.get(id);
-                title = prompt('Rename prompt:', p && p.title ? p.title : '');
-            }
-            if (title === null || title === undefined) return;
-            title = String(title).trim();
-            if (title.length === 0) return;
-            const now = new Date();
-            await db.prompts.update(id, { title, modified: now });
-            await loadPrompts(app);
-            if (app.currentPrompt && app.currentPrompt.id === id) {
-                app.currentPrompt.title = title;
-            }
-        } catch (e) {
-            console.error('Failed to rename prompt:', e);
-        }
-    }
-
-    async function movePromptUp(app, id) {
-        try {
-            const p = await db.prompts.get(id);
-            if (!p) return;
-            const list = await db.prompts.where('projectId').equals(p.projectId).and(x => x.category === p.category).sortBy('modified');
-            const idx = list.findIndex(x => x.id === id);
-            if (idx <= 0) return;
-            const above = list[idx - 1];
-            const aMod = above.modified || new Date();
-            const pMod = p.modified || new Date();
-            await db.prompts.update(above.id, { modified: pMod });
-            await db.prompts.update(p.id, { modified: aMod });
-            await loadPrompts(app);
-        } catch (e) {
-            console.error('Failed to move prompt up:', e);
-        }
-    }
-
-    async function movePromptDown(app, id) {
-        try {
-            const p = await db.prompts.get(id);
-            if (!p) return;
-            const list = await db.prompts.where('projectId').equals(p.projectId).and(x => x.category === p.category).sortBy('modified');
-            const idx = list.findIndex(x => x.id === id);
-            if (idx === -1 || idx >= list.length - 1) return;
-            const below = list[idx + 1];
-            const bMod = below.modified || new Date();
-            const pMod = p.modified || new Date();
-            await db.prompts.update(below.id, { modified: pMod });
-            await db.prompts.update(p.id, { modified: bMod });
-            await loadPrompts(app);
-        } catch (e) {
-            console.error('Failed to move prompt down:', e);
-        }
+        try { await db.prompts.update(id, { title: newTitle || 'Untitled', modified: new Date() }); await loadPrompts(app); } catch (e) {}
     }
 
     async function exportPrompts(app) {
-        if (!app.currentProject) {
-            alert('No project selected.');
-            return;
-        }
         try {
-            const prompts = await db.prompts.where('projectId').equals(app.currentProject.id).toArray();
-            if (!prompts || prompts.length === 0) {
-                alert('No prompts to export.');
-                return;
-            }
-            const exportData = {
-                version: '1.0',
-                type: 'prompts',
-                exportedAt: new Date().toISOString(),
-                projectName: app.currentProject.name,
-                prompts: prompts.map(p => ({
-                    category: p.category,
-                    title: p.title,
-                    content: p.content || '',
-                    systemContent: p.systemContent || '',
-                    created: p.created,
-                    modified: p.modified
-                }))
-            };
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
+            const all = await db.prompts.toArray();
+            const data = JSON.stringify(all, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
             const a = document.createElement('a');
-            a.href = url;
-            a.download = `${app.currentProject.name.replace(/[^a-z0-9]/gi, '_')}_prompts.json`;
-            document.body.appendChild(a);
+            a.href = URL.createObjectURL(blob);
+            a.download = (app && app.currentProject ? app.currentProject.name : 'writingway') + '-prompts.json';
             a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        } catch (e) {
-            console.error('Failed to export prompts:', e);
-            alert('Failed to export prompts: ' + e.message);
-        }
+            URL.revokeObjectURL(a.href);
+        } catch (e) { console.error('exportPrompts error:', e); }
     }
 
     async function importPrompts(app, fileInput) {
-        if (!app.currentProject) {
-            alert('No project selected.');
-            return;
-        }
-        const file = fileInput.files && fileInput.files[0];
-        if (!file) return;
         try {
-            const text = await file.text();
-            const data = JSON.parse(text);
-            if (!data.type || data.type !== 'prompts' || !Array.isArray(data.prompts)) {
-                alert('Invalid prompts file format.');
-                return;
-            }
-            const count = data.prompts.length;
-            if (!confirm(`Import ${count} prompt(s) into the current project?`)) return;
-            const now = new Date();
-            for (const p of data.prompts) {
-                const id = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 7);
-                await db.prompts.add({
-                    id,
-                    projectId: app.currentProject.id,
-                    category: p.category || 'prose',
-                    title: p.title || 'Imported Prompt',
-                    content: p.content || '',
-                    systemContent: p.systemContent || '',
-                    created: now,
-                    modified: now
-                });
-                await new Promise(r => setTimeout(r, 1));
+            if (!fileInput || !fileInput.files || !fileInput.files[0]) return;
+            const text = await fileInput.files[0].text();
+            const arr = JSON.parse(text);
+            if (!Array.isArray(arr)) return;
+            for (const item of arr) {
+                if (!item || !item.title) continue;
+                const existing = await db.prompts.where({ category: item.category, title: item.title, projectId: app.currentProject.id }).first();
+                if (!existing) {
+                    await db.prompts.add({ ...item, id: Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8), projectId: app.currentProject.id, builtin: false, created: new Date(), modified: new Date() });
+                }
             }
             await loadPrompts(app);
-            alert(`Successfully imported ${count} prompt(s).`);
-        } catch (e) {
-            console.error('Failed to import prompts:', e);
-            alert('Failed to import prompts: ' + e.message);
-        } finally {
-            fileInput.value = '';
-        }
+        } catch (e) { console.error('importPrompts error:', e); }
     }
+
+    // Helper typo guard
+    function avatar(obj) { return db.prompts.add(obj); }
 
     window.Prompts = {
         seedDefaultPrompts,
@@ -325,6 +251,8 @@
         movePromptDown,
         renamePrompt,
         exportPrompts,
-        importPrompts
+        importPrompts,
+        maybeUpgradePrompts,
+        isPromptUntouched
     };
 })();

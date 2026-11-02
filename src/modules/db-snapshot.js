@@ -144,7 +144,13 @@
         });
 
         if (app) {
-            app.projects = await db.projects.orderBy('created').reverse().toArray();
+            const projects = await db.projects.toArray();
+            projects.sort((a, b) => {
+                const aTime = a.modified ? new Date(a.modified).getTime() : (a.created ? new Date(a.created).getTime() : 0);
+                const bTime = b.modified ? new Date(b.modified).getTime() : (b.created ? new Date(b.created).getTime() : 0);
+                return bTime - aTime;
+            });
+            app.projects = projects;
         }
         return true;
     }

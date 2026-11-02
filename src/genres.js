@@ -703,6 +703,102 @@
                     systemContent: ''
                 }
             }
+        },
+        {
+            id: 'hollywood-celebrity',
+            label: 'Hollywood & Celebrity',
+            icon: '🎬',
+            promptDescriptor: 'fame and public image, red carpets and paparazzi, private life versus persona, studio machinery, scandal and the spotlight',
+            charDescription: 'This is a Hollywood and celebrity setting — public figures navigating fame, the gap between on-screen persona and private self, red carpets, paparazzi, and the price of being in the spotlight. Descriptions should explore image management, the machinery of celebrity, and the tension between public performance and private truth.',
+            worldDescription: 'Build a world of studio lots, award shows, red-carpet premieres, celebrity neighborhoods, and publicity machinery where image is currency. Describe the glittering surface and the costly upkeep behind it, where reputation is built and lost in headlines.',
+            scenarioDescription: 'Frame a scenario around a breaking scandal, award-season pressure, a career-defining role, a public relationship, or private life colliding with public persona. Let the stakes involve reputation, identity, and what the spotlight demands in return.',
+            extraCompendiumCategories: ['Public Image & Persona', 'Scandals & Rumors', 'Projects & Roles', 'Entourage & Team', 'Paparazzi & Media'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Hollywood & Celebrity Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Lean into the contrast between public image and private self — the performance for cameras and the moment when the mask slips. Use sensory details of red carpets, flashing bulbs, closed-door hotel suites, and studio backlots. Let reputation and perception drive the character\'s choices. Write about {length}.',
+                    systemContent: 'You are a Hollywood and celebrity co-author. Write prose that captures the tension between public persona and private truth. Treat fame as both glamour and burden, and make the machinery of celebrity feel palpable.'
+                },
+                rewrite: {
+                    title: 'Hollywood & Celebrity Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its Hollywood voice. Deepen the gap between public image and private reality, sharpen image-management details, and make the cost of the spotlight more tangible. Keep the same plot and dialogue.',
+                    systemContent: 'You are a Hollywood and celebrity editing assistant. Polish for image-versus-reality tension and the texture of fame.'
+                },
+                summary: {
+                    title: 'Hollywood & Celebrity Summary Prompt',
+                    content: 'Analyze this Hollywood and celebrity scene. Examine the interplay of persona and truth, how reputation shapes character choices, the role of media and public perception, and what the spotlight reveals or conceals.',
+                    systemContent: 'You are a Hollywood and celebrity literary analyst. Examine image management, persona, and the cost of fame.'
+                },
+                workshop: {
+                    title: 'Hollywood & Celebrity Workshop Prompt',
+                    content: 'You are a Hollywood and celebrity writing workshop assistant. Help the author craft compelling public personas, explore the private self beneath the spotlight, and build stories where reputation and identity are the central stakes.',
+                    systemContent: ''
+                }
+            }
+        },
+        {
+            id: 'social-media-influencer',
+            label: 'Social Media & Influencers',
+            icon: '📱',
+            promptDescriptor: 'content creation, follower counts and virality, brand deals, online persona versus real life, the algorithm, and streaming culture',
+            charDescription: 'This is a social media and influencer setting — content creators, streamers, and online personalities navigating follower counts, brand deals, and the gap between curated persona and real life. Descriptions should explore engagement as validation, parasocial dynamics, and the pressure to stay visible.',
+            worldDescription: 'Build a world of streaming setups, collab houses, convention centers, brand deals, and comment sections where content is currency and engagement is validation. Describe feeds that never sleep, metrics that define worth, and the endless performance required to stay relevant.',
+            scenarioDescription: 'Frame a scenario around going viral, brand-deal negotiation, a stream marathon, cancel culture, creator drama, or meeting fans IRL. Let the stakes involve follower counts, sponsorships, mental health, and the cost of being constantly online.',
+            extraCompendiumCategories: ['Content & Niches', 'Platforms & Algorithms', 'Brand Deals', 'Fan Communities', 'Collabs & Crews'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Social Media & Influencer Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Lean into the contrast between curated online persona and offline reality — the perfect thumbnail versus the messy moment behind the camera. Use sensory details of ring lights, streaming setups, notification pings, and brand packages. Let engagement metrics and audience reaction drive the character\'s choices. Write about {length}.',
+                    systemContent: 'You are a social media and influencer co-author. Write prose that captures the tension between performed digital identity and private life. Treat the algorithm, follower counts, and parasocial connection as palpable forces shaping the story.'
+                },
+                rewrite: {
+                    title: 'Social Media & Influencer Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its influencer voice. Deepen the gap between online persona and offline reality, sharpen content-creation and algorithm details, and make the pressure to stay visible more tangible. Keep the same plot and dialogue.',
+                    systemContent: 'You are a social media and influencer editing assistant. Polish for online-versus-offline tension and the texture of creator culture.'
+                },
+                summary: {
+                    title: 'Social Media & Influencer Summary Prompt',
+                    content: 'Analyze this social media and influencer scene. Examine the interplay of performed persona and private self, how engagement metrics shape character choices, the role of the algorithm and audience, and what being constantly online reveals or costs.',
+                    systemContent: 'You are a social media and influencer literary analyst. Examine creator culture, parasocial dynamics, and the cost of visibility.'
+                },
+                workshop: {
+                    title: 'Social Media & Influencer Workshop Prompt',
+                    content: 'You are a social media and influencer writing workshop assistant. Help the author craft compelling online personas, explore the private self behind the feed, and build stories where visibility, engagement, and digital identity are the central stakes.',
+                    systemContent: ''
+                }
+            }
+},
+        {
+            id: 'political-business',
+            label: 'Political & Business',
+            icon: '💼',
+            promptDescriptor: 'power, influence, elections, corporate intrigue, wealth and the machinations of power',
+            charDescription: 'This is a political and business setting — politicians, business leaders, and power brokers navigating campaigns, elections, lobbying, and the pursuit of wealth and influence. Descriptions should capture the tension between idealism and opportunism, the weight of policy, and the cost of ambition.',
+            worldDescription: 'Build a world of political campaigns, corporate empires, legislative chambers, lobbying offices, and wealth concentration. Describe the machinery of power, the influence of money in politics, and the social structures that define who gets heard and who is sidelined.',
+            scenarioDescription: 'Frame a scenario around an election campaign, corporate takeover, lobbying effort, policy battle, diplomatic crisis, or wealth redistribution fight. Let the stakes involve power, influence, ideology, and the personal cost of pursuing or maintaining power.',
+            extraCompendiumCategories: ['Elections', 'Lobbying', 'Corporations', 'Policy', 'Wealth & Inequality'],
+            defaultPrompts: {
+                prose: {
+                    title: 'Political & Business Prose Prompt',
+                    content: 'Write the next scene continuing from the provided text. Lean into the tension between idealism and opportunism — the speech draft and the backroom deal, the policy proposal and the amendment in the night. Use sensory details of campaign trail rallies, boardroom tables, legislative hearings, and fundraiser galas. Let power dynamics and ideological conflict drive the character\'s choices. Write about {length}.',
+                    systemContent: 'You are a political and business co-author. Write prose that captures the texture of power and influence. Make the machinery of politics and corporate strategy feel palpable, and explore the human cost of ambition.'
+                },
+                rewrite: {
+                    title: 'Political & Business Rewrite Prompt',
+                    content: 'Rewrite the selected text to strengthen its political and business voice. Deepen the intrigue of campaigns and deal-making, sharpen the policy details, and make the weight of ideological conflict more tangible. Keep the same plot and dialogue.',
+                    systemContent: 'You are a political and business editing assistant. Polish for power dynamics, ideological depth, and the cost of ambition.'
+                },
+                summary: {
+                    title: 'Political & Business Summary Prompt',
+                    content: 'Analyze this political and business scene. Examine how power and influence shift, the role of ideology and wealth, the effectiveness of campaigns and deal-making, and what the pursuit of power reveals about character and society.',
+                    systemContent: 'You are a political and business literary analyst. Examine power, ideology, and the cost of ambition.'
+                },
+                workshop: {
+                    title: 'Political & Business Workshop Prompt',
+                    content: 'You are a political and business writing workshop assistant. Help the author craft compelling political campaigns and corporate strategies, explore the tension between principle and pragmatism, and build stories where power, influence, and ambition are the central stakes.',
+                    systemContent: ''
+                }
+            }
         }
     ];
 

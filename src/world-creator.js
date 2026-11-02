@@ -270,7 +270,9 @@
         { id: 'custom', label: 'Custom Instruction', message: '' }
     ];
 
-    const WORLD_SYSTEM_PROMPT = 'You are a worldbuilding assistant helping to develop detailed, immersive worlds for creative writing. Your role is to help flesh out a world based on selected traits, notes, and the user\'s directions.\n\nWhen asked to expand on a world:\n- Write in vivid, descriptive prose — show the world, don\'t just list facts\n- Connect traits together into a coherent, believable setting\n- Suggest how geography, society, and power systems interact\n- Build lore that feels lived-in and consistent\n- Keep descriptions evocative but concise (2-4 paragraphs per topic)\n- Do not add major new elements unless the user asks you to\n\nIf the user provides specific traits, weave them naturally into the description rather than just listing them.';
+    const WORLD_SYSTEM_PROMPT = `You are a worldbuilding assistant for {genreLabels}. Build the world through specific, lived-in details that the character would encounter. Describe landscapes shaped by history and culture, communities with their own rules and textures, and the material realities of daily life—food, tools, architecture, climate, and social systems. Make the fantastical or speculative feel natural within its internal logic. The world should feel tangible enough to touch, smell, and walk through.`;
+
+    const WORLD_COMPENDIUM_TEMPLATE = `Generate a world compendium entry for the {category} category. Include: physical description, cultural significance, history, and how this element shapes daily life and story events. {genreSentence}`;
 
     const USER_TRAITS_KEY = 'ww_world_creator_user_traits';
     let userTraits = {};
@@ -486,6 +488,7 @@
         WORLD_TRAIT_CATEGORIES,
         DEFAULT_INSTRUCTION_TEMPLATES,
         WORLD_SYSTEM_PROMPT,
+        WORLD_COMPENDIUM_TEMPLATE,
         buildCompendiumEntry,
         getTraitLabel,
         getTraitHint,

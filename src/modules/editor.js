@@ -211,21 +211,47 @@
 
                 // If a rewrite prompt is selected, use it
                 let rewritePrompt = '';
+                let rewriteSystem = '';
                 if (app.selectedRewritePromptId) {
                     const selected = app.prompts.find(p => p.id === app.selectedRewritePromptId);
-                    if (selected && selected.content) {
-                        rewritePrompt = selected.content;
+                    if (selected) {
+                        rewritePrompt = selected.content || '';
+                        // For rewrite: content is the user message, systemContent is the system
+                        rewriteSystem = selected.systemContent || '';
                     }
                 }
 
-                // Build the full prompt
-                let prompt = rewritePrompt || 'Rewrite the following passage to be more vivid and polished while preserving its meaning and details. Keep roughly the same length.';
-                const editorLang = app?.language || app?.currentProject?.language || 'English';
-                if (editorLang !== 'English') {
-                    prompt += '\n\nWrite entirely in ' + editorLang + '.';
+                // Auto-select a built-in rewrite prompt if none selected
+                if (!app.selectedRewritePromptId) {
+                    const builtIn = app.prompts.filter(p => p.category === 'rewrite' && p.builtin);
+                    if (builtIn.length > 0) {
+                        // Try to find a genre-matching built-in first
+                        const genreIds = app.currentProject?.genres || [];
+                        let match = builtIn.find(p => genreIds.includes(p.genreId));
+                        if (!match) match = builtIn[0];
+                        if (match) {
+                            app.selectedRewritePromptId = match.id;
+                            const selected = app.prompts.find(p => p.id === match.id);
+                            if (selected) {
+                                rewritePrompt = selected.content || '';
+                                rewriteSystem = selected.systemContent || '';
+                                if (typeof app.saveSelectedRewritePrompt === 'function') {
+                                    app.saveSelectedRewritePrompt(match.id);
+                                }
+                            }
+                        }
+                    }
                 }
-                prompt += '\n\nORIGINAL TEXT:\n' + app.rewriteOriginalText + '\n\nREWRITTEN TEXT:';
-                app.rewritePromptPreview = prompt;
+
+                const editorLang = app?.language || app?.currentProject?.language || 'English';
+                const langDirective = editorLang !== 'English' ? `\n\nWrite entirely in ${editorLang}.` : '';
+
+                // Build the full prompt with proper system/user structure
+                const fullSystem = (rewriteSystem || 'You are a line editor. Revise the passage to make it stronger without changing meaning, voice, or what happens.') + langDirective;
+                const userText = rewritePrompt || 'Rewrite the following passage. Preserve events, dialogue intent, character voice, POV, and tense. Tighten padding; never cut substance. Output only the rewritten passage.';
+
+                let prompt = (fullSystem ? `<|im_start|>system\n${fullSystem}<|im_end|>\n` : '') + `<|im_start|>user\n${userText}\n\nORIGINAL TEXT:\n` + app.rewriteOriginalText + `\n\nREWRITTEN TEXT:<|im_end|>\n<|im_start|>assistant\n`;
+                app.rewritePromptPreview = fullSystem + '\n\n' + userText + '\n\nORIGINAL TEXT:\n' + app.rewriteOriginalText + '\n\nREWRITTEN TEXT:';
                 return prompt;
             } catch (e) {
                 console.error('buildRewritePrompt error', e);

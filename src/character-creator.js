@@ -1067,7 +1067,19 @@
         { id: 'custom', label: 'Custom Instruction', message: '' }
     ];
 
-    const CHARACTER_SYSTEM_PROMPT = 'You are a character creation assistant helping to develop detailed characters for creative writing. Your role is to help flesh out a character based on selected traits, backstory notes, and the user\'s directions.\n\nWhen asked to expand on a character:\n- Write in vivid, narrative prose - show the character, don\'t just list traits\n- Connect traits together into a coherent personality\n- Suggest how the character might speak, move, and react\n- Build a compelling backstory that explains why they are the way they are\n- Keep descriptions evocative but concise (2-4 paragraphs per topic)\n- Do not add new traits or backstory elements unless the user asks you to\n\nIf the user provides specific traits, weave them naturally into the description rather than just listing them.';
+    const CHARACTER_SYSTEM_PROMPT = `You are a character creation assistant for {genreLabels}. Write vivid, narrative prose that shows the character through their actions, speech, and choices rather than listing traits. Connect selected traits into a coherent personality, suggest how they move and react, and build a backstory that explains who they are. Keep descriptions evocative but concise (2-4 paragraphs per topic). Do not add new traits or backstory elements unless the user asks you to. If the user provides specific traits, weave them naturally into the description rather than just listing them.`;
+
+    const WORLD_SYSTEM_PROMPT = `You are a worldbuilding assistant for {genreLabels}. Build the world through specific, lived-in details that the character would encounter. Describe landscapes shaped by history and culture, communities with their own rules and textures, and the material realities of daily life—food, tools, architecture, climate, and social systems. Make the fantastical or speculative feel natural within its internal logic. The world should feel tangible enough to touch, smell, and walk through.`;
+
+    const SCENARIO_SYSTEM_PROMPT = `You are a scenario development assistant for {genreLabels}. Frame a situation driven by clear stakes and compelling pressure. Design the inciting incident, identify what forces are at work, and clarify the rules and consequences that shape the characters' choices. Let the scenario emerge from the interplay between character desire and world constraints. Provide concrete, actionable details rather than abstract premises.`;
+
+    const COMPENDIUM_SYSTEM_PROMPT = `You are a compendium entry assistant for {genreLabels}. Generate content that fits naturally within the established world and story. Include specific, memorable details rather than generic templates. Ensure entries are consistent with each other and with the story's internal rules. Write with the same voice and level of detail you'd find in a well-crafted novel.`;
+
+    const CHARACTER_COMPENDIUM_TEMPLATE = `Generate a character compendium entry for the {category} category. Include: appearance details, personality traits with motivations, relevant backstory elements, and how this character fits into the story world.`;
+
+    const WORLD_COMPENDIUM_TEMPLATE = `Generate a world compendium entry for the {category} category. Include: physical description, cultural significance, history, and how this element shapes daily life and story events.`;
+
+    const SCENARIO_COMPENDIUM_TEMPLATE = `Generate a scenario compendium entry for the {category} category. Include: the situation setup, key characters involved, central conflict or goal, and how this scenario creates meaningful pressure for the story.`;
 
     const USER_TRAITS_KEY = 'ww_char_creator_user_traits';
     let userTraits = {};
@@ -1347,6 +1359,12 @@
         TRAIT_CATEGORIES,
         DEFAULT_INSTRUCTION_TEMPLATES,
         CHARACTER_SYSTEM_PROMPT,
+        WORLD_SYSTEM_PROMPT,
+        SCENARIO_SYSTEM_PROMPT,
+        COMPENDIUM_SYSTEM_PROMPT,
+        CHARACTER_COMPENDIUM_TEMPLATE,
+        WORLD_COMPENDIUM_TEMPLATE,
+        SCENARIO_COMPENDIUM_TEMPLATE,
         buildCompendiumEntry,
         getTraitLabel,
         getTraitHint,

@@ -205,8 +205,6 @@ window.ChatMode = {
         if (typeof app.loadCompendiumCounts === 'function') await app.loadCompendiumCounts();
     },
 
-    // ========== Character Selection ==========
-
     showAvatarLightbox(app, entry) {
         if (!entry || !entry.imageUrl) return;
         app.avatarLightboxEntry = entry;

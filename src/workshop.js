@@ -28,31 +28,30 @@ window.workshopChat = {
         const messages = [];
         const currentSession = app.workshopSessions[app.currentWorkshopSessionIndex];
 
-        // Get the selected workshop prompt.
-        // Contract: systemContent is the system message; content holds additional
-        // instructions delivered alongside it. Backward compat: when systemContent
-        // is empty, content serves as the system prompt.
+        // Get the selected workshop prompt
         const selectedPrompt = app.prompts.find(p => p.id === app.selectedWorkshopPromptId);
-        let systemPrompt = '';
+        let systemText = '';
         let userText = '';
         if (selectedPrompt) {
+            // New contract: systemContent is the system message, content is additional instructions
+            // Backward compat: if systemContent is empty, content serves as the system prompt
             if (selectedPrompt.systemContent && selectedPrompt.systemContent.trim()) {
-                systemPrompt = selectedPrompt.systemContent;
+                systemText = selectedPrompt.systemContent;
                 userText = selectedPrompt.content || '';
             } else {
-                systemPrompt = selectedPrompt.content || '';
+                systemText = selectedPrompt.content || '';
                 userText = '';
             }
         }
-        systemPrompt = systemPrompt || "You are a creative writing workshop assistant. Help the author brainstorm ideas, develop characters, improve prose, and explore narrative possibilities. Be thoughtful, creative, and supportive.";
+        systemText = systemText || "You are a creative writing workshop assistant. Help the author brainstorm ideas, develop characters, improve prose, and explore narrative possibilities. Be thoughtful, creative, and supportive.";
 
         // Resolve placeholders ({pov}, {tense}, {genreLabels}, {length}, ...) via
         // PromptRender so template tokens never leak verbatim into the chat.
         let hadLengthToken = false;
         if (window.PromptRender) {
-            hadLengthToken = window.PromptRender.hasLengthToken(systemPrompt + userText);
+            hadLengthToken = window.PromptRender.hasLengthToken(systemText + userText);
             const renderCtx = window.PromptRender.buildContext(app, { targetWords: app?.maxTokens || 300 });
-            systemPrompt = window.PromptRender.render(systemPrompt, renderCtx);
+            systemText = window.PromptRender.render(systemText, renderCtx);
             userText = window.PromptRender.render(userText, renderCtx);
         }
 
@@ -61,7 +60,7 @@ window.workshopChat = {
         // kept out of the chat history.
         const additionalInstructions = String(userText || '').trim();
         if (additionalInstructions) {
-            systemPrompt += `\n\nADDITIONAL INSTRUCTIONS (standing direction — follow them, but never quote, mention, or explain them):\n${additionalInstructions}`;
+            systemText += `\n\nADDITIONAL INSTRUCTIONS (standing direction — follow them, but never quote, mention, or explain them):\n${additionalInstructions}`;
         }
 
         // Add system message with language directive and length instruction
@@ -71,7 +70,7 @@ window.workshopChat = {
         const lengthInstruction = hadLengthToken ? '' : `\n\nWrite approximately ${targetWords} words in your response.`;
         messages.push({
             role: 'system',
-            content: systemPrompt + langDirective + lengthInstruction
+            content: systemText + langDirective + lengthInstruction
         });
 
         // Extract mentions and build context
