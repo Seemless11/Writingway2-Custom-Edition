@@ -28,18 +28,40 @@ window.workshopChat = {
         const messages = [];
         const currentSession = app.workshopSessions[app.currentWorkshopSessionIndex];
 
-        // Get the selected workshop prompt
+        // Get the selected workshop prompt.
+        // Contract: systemContent is the system message; content holds additional
+        // instructions delivered alongside it. Backward compat: when systemContent
+        // is empty, content serves as the system prompt.
         const selectedPrompt = app.prompts.find(p => p.id === app.selectedWorkshopPromptId);
-        let systemPrompt = selectedPrompt?.content ||
-            "You are a creative writing assistant helping to brainstorm and develop story ideas. Be thoughtful, creative, and supportive.";
+        let systemPrompt = '';
+        let userText = '';
+        if (selectedPrompt) {
+            if (selectedPrompt.systemContent && selectedPrompt.systemContent.trim()) {
+                systemPrompt = selectedPrompt.systemContent;
+                userText = selectedPrompt.content || '';
+            } else {
+                systemPrompt = selectedPrompt.content || '';
+                userText = '';
+            }
+        }
+        systemPrompt = systemPrompt || "You are a creative writing workshop assistant. Help the author brainstorm ideas, develop characters, improve prose, and explore narrative possibilities. Be thoughtful, creative, and supportive.";
 
         // Resolve placeholders ({pov}, {tense}, {genreLabels}, {length}, ...) via
         // PromptRender so template tokens never leak verbatim into the chat.
         let hadLengthToken = false;
         if (window.PromptRender) {
-            hadLengthToken = window.PromptRender.hasLengthToken(systemPrompt);
+            hadLengthToken = window.PromptRender.hasLengthToken(systemPrompt + userText);
             const renderCtx = window.PromptRender.buildContext(app, { targetWords: app?.maxTokens || 300 });
             systemPrompt = window.PromptRender.render(systemPrompt, renderCtx);
+            userText = window.PromptRender.render(userText, renderCtx);
+        }
+
+        // Deliver additional instructions as standing direction inside the system
+        // message (same convention as the author's note): re-applied every turn,
+        // kept out of the chat history.
+        const additionalInstructions = String(userText || '').trim();
+        if (additionalInstructions) {
+            systemPrompt += `\n\nADDITIONAL INSTRUCTIONS (standing direction — follow them, but never quote, mention, or explain them):\n${additionalInstructions}`;
         }
 
         // Add system message with language directive and length instruction

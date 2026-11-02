@@ -19,6 +19,8 @@
                 tense: app.newProjectTense || 'past',
                 language: app.newProjectLanguage || 'English',
                 povCharacter: app.newProjectPovCharacter || '',
+                authorsNote: '',
+                authorsNoteEnabled: true,
                 created: new Date(),
                 modified: new Date(),
                 updatedAt: now
@@ -108,11 +110,14 @@
          * @param {Object} app - Alpine app instance
          */
         async loadProjects(app) {
-            app.projects = (await db.projects.toArray()).sort((a, b) => {
-                const aTime = a.updatedAt ? new Date(a.updatedAt).getTime() : (a.modified ? new Date(a.modified).getTime() : 0);
-                const bTime = b.updatedAt ? new Date(b.updatedAt).getTime() : (b.modified ? new Date(b.modified).getTime() : 0);
+            const projects = await db.projects.toArray();
+            // Sort by modified (fallback to created for legacy projects), most recent first
+            projects.sort((a, b) => {
+                const aTime = a.modified ? new Date(a.modified).getTime() : (a.created ? new Date(a.created).getTime() : 0);
+                const bTime = b.modified ? new Date(b.modified).getTime() : (b.created ? new Date(b.created).getTime() : 0);
                 return bTime - aTime;
             });
+            app.projects = projects;
         },
 
         /**
@@ -129,6 +134,8 @@
                 app.tense = app.currentProject.tense || 'past';
                 app.language = app.currentProject.language || 'English';
                 app.povCharacter = app.currentProject.povCharacter || '';
+                app.authorsNote = app.currentProject.authorsNote || '';
+                app.authorsNoteEnabled = app.currentProject.authorsNoteEnabled !== false;
                 await app.loadChapters();
                 if (app.scenes.length > 0) {
                     const lastSceneId = localStorage.getItem('writingway:lastScene:' + app.currentProject.id);
@@ -203,6 +210,8 @@
                 app.tense = proj.tense || 'past';
                 app.language = proj.language || 'English';
                 app.povCharacter = proj.povCharacter || '';
+                app.authorsNote = proj.authorsNote || '';
+                app.authorsNoteEnabled = proj.authorsNoteEnabled !== false;
                 try { localStorage.setItem('writingway:lastProject', proj.id); } catch (e) { }
 
                 // Load critical data in parallel (scenes/chapters, prompts, workshop sessions)
@@ -216,6 +225,13 @@
                 try { await this.loadSelectedProsePrompt(app); } catch (e) { /* ignore */ }
                 // Load context panel (localStorage, synchronous, fast)
                 try { app.loadContextPanel(); } catch (e) { console.error('Failed to load context panel:', e); }
+
+                // Restart auto-backup now that a project is selected
+                try {
+                    if (window.BackupManager && typeof window.BackupManager.startAutoBackup === 'function') {
+                        window.BackupManager.startAutoBackup(app);
+                    }
+                } catch (e) { console.warn('Failed to start auto-backup:', e); }
 
                 // Show the last active scene
                 if (app.scenes.length > 0) {

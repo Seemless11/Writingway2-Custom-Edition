@@ -2,7 +2,7 @@
  * Prompt template rendering.
  *
  * One place for resolving the placeholders the app supports in prompt text:
- *   {length} {pov} {povName} {povCharacter} {tense} {language} {genres} {genreLabels}
+ *   {length} {pov} {povName} {povCharacter} {tense} {language} {genres} {genreLabels} {authorsNote}
  *
  * Applied to both the system and user fields of every prompt category so a
  * placeholder can never leak through to the model again.
@@ -77,6 +77,19 @@
         const tenseKey = asText(opts.tense || (app && app.tense)).trim().toLowerCase();
         const language = asText(opts.language || (app && app.language) || (project && project.language)).trim() || 'English';
 
+        // Project-wide Author's Note, injected into every generation prompt. An
+        // explicit opts value wins (so generation can pass the active note even
+        // before it is persisted); otherwise fall back to the project record.
+        // A disabled or blank note resolves to an empty string.
+        let authorsNote;
+        if (opts.authorsNote !== undefined) {
+            authorsNote = asText(opts.authorsNote).trim();
+        } else if (project && project.authorsNote && project.authorsNoteEnabled !== false) {
+            authorsNote = asText(project.authorsNote).trim();
+        } else {
+            authorsNote = '';
+        }
+
         return {
             length: buildLengthInstruction(targetWords),
             pov,
@@ -86,6 +99,7 @@
             language,
             genres: genreSentence,
             genreLabels: labels.length > 0 ? labels.join(' & ') : 'general fiction',
+            authorsNote,
             targetWords
         };
     }
@@ -101,7 +115,7 @@
         let out = asText(text);
         if (!out || !context) return out;
 
-        const keys = ['length', 'pov', 'povName', 'povCharacter', 'tense', 'language', 'genres', 'genreLabels'];
+        const keys = ['length', 'pov', 'povName', 'povCharacter', 'tense', 'language', 'genres', 'genreLabels', 'authorsNote'];
         for (const key of keys) {
             const value = context[key];
             if (value === undefined || value === null) continue;

@@ -57,6 +57,7 @@
 <script defer src="src/app/ai.js"></script>
 <script defer src="src/app/summaries.js"></script>
 <script defer src="src/app/context-panel.js"></script>
+<script defer src="src/app/authors-note.js"></script>
 <script defer src="src/app/projects.js"></script>
 <script defer src="src/app/compendium.js"></script>
 <script defer src="src/app/lorebook.js"></script>
@@ -1135,6 +1136,9 @@
 
                                                     <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
                                                         title="Context Panel" style="font-size:12px;padding:3px 7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></button>
+                                                    <button class="btn btn-secondary" @click="openAuthorsNote()"
+                                                        title="Author's Note — standing style, tone and direction injected into every generation"
+                                                        :style="'font-size:12px;padding:3px 7px;' + (hasActiveAuthorsNote() ? 'border-color:var(--accent);color:var(--accent);font-weight:600;' : '')">✒️</button>
                                                     <button class="btn btn-secondary" @click="openCompendium()"
                                                         title="Compendium" style="font-size:12px;padding:3px 7px;">📖</button>
                                                     <button class="btn btn-secondary" @click="showEmbeddedWorkshop = !showEmbeddedWorkshop; if (showEmbeddedWorkshop && (!workshopSessions || workshopSessions.length === 0)) { workshopSessions = [window.workshopChat.createNewSession($data)]; saveWorkshopSessions(); }"
@@ -1240,6 +1244,9 @@
                                                 </select>
                                                 <button class="btn btn-secondary" @click="showContextPanel = !showContextPanel"
                                                     title="Context Panel" style="font-size:11px;padding:2px 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20"/><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17"/></svg></button>
+                                                <button class="btn btn-secondary" @click="openAuthorsNote()"
+                                                    title="Author's Note — standing style, tone and direction injected into every generation"
+                                                    :style="'font-size:11px;padding:2px 6px;' + (hasActiveAuthorsNote() ? 'border-color:var(--accent);color:var(--accent);font-weight:600;' : '')">✒️</button>
                                                 <button class="btn btn-secondary" @click="showSceneOptions = !showSceneOptions"
                                                     title="Scene options" style="font-size:11px;padding:2px 6px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
                                                 <button class="btn btn-secondary" @click="loadPromptHistory(); showPromptHistory = true"
@@ -3514,6 +3521,41 @@
                     </div>
                     <div class="modal-footer">
                         <button class="btn btn-primary" @click="showNoUpdateDialog = false">OK</button>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <!-- Author's Note Modal -->
+        <template x-if="showAuthorsNote">
+            <div class="modal-overlay" @click.self="showAuthorsNote = false" @keydown.escape.window="showAuthorsNote = false">
+                <div class="modal" style="max-width:520px;">
+                    <div class="modal-header">
+                        <h3 style="margin:0;">✒️ Author's Note</h3>
+                        <button class="btn btn-secondary" @click="showAuthorsNote = false">Close</button>
+                    </div>
+                    <div class="modal-body" style="display:flex;flex-direction:column;gap:12px;">
+                        <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.5;">
+                            A standing direction injected into <strong>every</strong> generation for this project — use it to set theme, tone, style, pacing or narrative direction without writing it into each beat. The model follows it but never quotes or mentions it.
+                        </p>
+                        <textarea x-model="authorsNoteDraft" rows="7"
+                            placeholder="e.g. Keep a bleak, literary tone. Slow, sensory prose. Hold unresolved tension; avoid tidy resolutions. Close third-person interiority throughout."
+                            style="width:100%;padding:10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;color:var(--text-primary);font-family:inherit;font-size:13px;resize:vertical;line-height:1.5;"
+                            @keydown.ctrl.enter.prevent="saveAuthorsNote()"
+                            @keydown.meta.enter.prevent="saveAuthorsNote()"></textarea>
+                        <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--text-tertiary);">
+                            <span x-text="(authorsNoteDraft || '').length + ' characters'"></span>
+                            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--text-primary);">
+                                <input type="checkbox" x-model="authorsNoteEnabled" @change="onAuthorsNoteEnabledChange()" style="width:14px;height:14px;cursor:pointer;">
+                                Include in prompts
+                            </label>
+                        </div>
+                        <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;">
+                            <span x-show="authorsNoteSaveStatus" x-text="authorsNoteSaveStatus" style="font-size:11px;color:var(--accent);margin-right:auto;"></span>
+                            <button class="btn btn-secondary" @click="clearAuthorsNote()"
+                                x-show="(authorsNoteDraft || '').length > 0 || !!authorsNote">Clear</button>
+                            <button class="btn btn-primary" @click="saveAuthorsNote()">Save</button>
+                        </div>
                     </div>
                 </div>
             </div>

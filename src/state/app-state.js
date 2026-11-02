@@ -238,6 +238,13 @@ function createAppState() {
         tense: 'past',
         language: 'English',
 
+        // ========== Author's Note (project-wide standing direction) ==========
+        authorsNote: '',
+        authorsNoteEnabled: true,
+        showAuthorsNote: false,
+        authorsNoteDraft: '',
+        authorsNoteSaveStatus: '',
+
         // ========== Scene Summary Panel ==========
         showSummaryPanel: false,
         summaryText: '',

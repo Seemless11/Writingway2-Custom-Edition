@@ -373,6 +373,23 @@
         }
     }
 
+    /**
+     * Format the project-wide Author's Note as a standing-direction block.
+     * Returns '' when there is no active note, or when the prompt template
+     * already contains an {authorsNote} placeholder — in that case the author
+     * placed it deliberately and we must not inject a second copy.
+     * @param {Object} options - buildPrompt/buildFlowPrompt options
+     * @returns {string}
+     */
+    function authorsNoteBlock(options) {
+        const note = String((options && options.authorsNote) || '').trim();
+        if (!note) return '';
+        const proseHasToken = /\{authorsNote\}/i.test(options.prosePrompt || '');
+        const systemHasToken = /\{authorsNote\}/i.test(options.systemPrompt || '');
+        if (proseHasToken || systemHasToken) return '';
+        return `\n\nAUTHOR'S NOTE (standing direction — follow it, but never quote, mention, or explain it):\n${note}`;
+    }
+
     function buildPrompt(beat, sceneContext, options = {}) {
         try {
             console.debug('[buildPrompt] received prosePrompt:', JSON.stringify(options.prosePrompt));
@@ -395,7 +412,8 @@
                 pov: options.pov,
                 povName: options.povCharacter,
                 tense: options.tense,
-                language: options.language
+                language: options.language,
+                authorsNote: options.authorsNote
             })
             : null;
 
@@ -418,7 +436,8 @@
                     .replace(/\{pov\}/gi, options.pov || '3rd person limited')
                     .replace(/\{length\}/gi, lengthInstruction)
                     .replace(/\{genres\}/gi, genreSentence)
-                    .replace(/\{language\}/gi, langText);
+                    .replace(/\{language\}/gi, langText)
+                    .replace(/\{authorsNote\}/gi, String(options.authorsNote || '').trim());
         } else {
             systemPrompt = `${povName} / ${tenseText} / ${povText}${langText !== 'English' ? ` / ${langText}` : ''}${genreSentence} You are a creative writing assistant. The author provides a BEAT (what happens next) and you expand it into vivid, engaging prose. Write ${lengthInstruction} that bring the beat to life. Match the author's tone and style. Use sensory details. Show, don't tell.`;
         }
@@ -446,7 +465,8 @@
                     .replace(/\{pov\}/gi, povText)
                     .replace(/\{length\}/gi, lengthInstruction)
                     .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
-                    .replace(/\{language\}/gi, langText);
+                    .replace(/\{language\}/gi, langText)
+                    .replace(/\{authorsNote\}/gi, String(options.authorsNote || '').trim());
             if (options.preview) {
                 proseTemplateText = `\n\n${renderedProsePrompt}`;
             } else {
@@ -506,6 +526,7 @@
             : /\{length\}/i.test(options.prosePrompt || '');
         const appendLength = !proseHasLength;
 
+        userContent += authorsNoteBlock(options);
         userContent += `\n\nBEAT TO EXPAND:\n${cleanedBeat}\n\n` + (appendLength ? `Write ${lengthInstruction} continuing from here:` : 'Continue from here.');
 
         // Return object with both messages array (for APIs) and string format (for local)
@@ -1457,7 +1478,8 @@
                 pov: options.pov,
                 povName: options.povCharacter,
                 tense: options.tense,
-                language: options.language
+                language: options.language,
+                authorsNote: options.authorsNote
             })
             : null;
 
@@ -1475,7 +1497,8 @@
                     .replace(/\{pov\}/gi, povText)
                     .replace(/\{length\}/gi, lengthInstruction)
                     .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
-                    .replace(/\{language\}/gi, langText);
+                    .replace(/\{language\}/gi, langText)
+                    .replace(/\{authorsNote\}/gi, String(options.authorsNote || '').trim());
             if (genreSentence) {
                 systemPrompt += genreSentence;
             }
@@ -1494,10 +1517,22 @@
 
         let proseTemplateText = '';
         if (options.prosePrompt && typeof options.prosePrompt === 'string' && options.prosePrompt.trim()) {
+            // Render supported placeholders (including {authorsNote}) the same way
+            // buildPrompt does, so a custom template can place the note itself.
+            const renderedProsePrompt = window.PromptRender?.render
+                ? window.PromptRender.render(options.prosePrompt.trim(), ctx || { length: lengthInstruction, pov: options.pov, povName: options.povCharacter, tense: tenseText, language: langText, genres: genreSentence, genreLabels: ctx?.genreLabels || '', authorsNote: String(options.authorsNote || '').trim() })
+                : options.prosePrompt.trim()
+                    .replace(/\{povName\}/gi, povName)
+                    .replace(/\{tense\}/gi, tenseText)
+                    .replace(/\{pov\}/gi, povText)
+                    .replace(/\{length\}/gi, lengthInstruction)
+                    .replace(/\{genres\}/gi, genreSentence ? genreSentence.trim() : '')
+                    .replace(/\{language\}/gi, langText)
+                    .replace(/\{authorsNote\}/gi, String(options.authorsNote || '').trim());
             if (options.preview) {
-                proseTemplateText = `\n\n${options.prosePrompt.trim()}`;
+                proseTemplateText = `\n\n${renderedProsePrompt}`;
             } else {
-                proseTemplateText = `\n\n--- PROMPT TEMPLATE START ---\n${options.prosePrompt.trim()}\n--- PROMPT TEMPLATE END ---`;
+                proseTemplateText = `\n\n--- PROMPT TEMPLATE START ---\n${renderedProsePrompt}\n--- PROMPT TEMPLATE END ---`;
             }
         }
 
@@ -1540,6 +1575,7 @@
         cleanedBeat = cleanedBeat.replace(/#\[([^\]]+)\]/g, '');
         cleanedBeat = cleanedBeat.replace(/\s+/g, ' ').trim();
 
+        userContent += authorsNoteBlock(options);
         if (cleanedBeat) {
             userContent += `\n\nContinue the story from here, weaving the following naturally into the prose — do not announce it or break the flow:\n\n${cleanedBeat}`;
         } else {
@@ -1604,7 +1640,7 @@
             panelContext.sceneSummaries.forEach(s => sceneMap.set(s.title, s));
             beatSceneSummaries.forEach(s => sceneMap.set(s.title, s));
             const sceneSummaries = Array.from(sceneMap.values());
-            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, language: app.language || app.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres };
+            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, language: app.language || app.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres, authorsNote: (app.authorsNoteEnabled !== false ? String(app.authorsNote || '').trim() : '') };
             let prompt = buildFlowPrompt(beatText || '', sceneContent, genOpts);
             try {
                 await db.promptHistory.add({
@@ -1788,7 +1824,7 @@
             panelContext.sceneSummaries.forEach(s => sceneMap.set(s.title, s));
             beatSceneSummaries.forEach(s => sceneMap.set(s.title, s));
             const sceneSummaries = Array.from(sceneMap.values());
-            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, language: app.language || app.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres };
+            const genOpts = { povCharacter: app.povCharacter, pov: app.pov, tense: app.tense, language: app.language || app.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: app.maxTokens, projectGenres: app.currentProject?.genres, authorsNote: (app.authorsNoteEnabled !== false ? String(app.authorsNote || '').trim() : '') };
             let prompt = buildPrompt(beatText, sceneContent, genOpts);
             // Save prompt to history
             try {

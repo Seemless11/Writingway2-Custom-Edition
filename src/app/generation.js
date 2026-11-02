@@ -61,7 +61,7 @@ Object.assign(window.AppMethods, {
                     if (window.Generation && typeof window.Generation.buildPrompt === 'function') {
                         // DEBUG: log resolved prose info and options
                         try { console.debug('[preview] proseInfo=', proseInfo); } catch (e) { }
-                        const optsPreview = { povCharacter: this.povCharacter, pov: this.pov, tense: this.tense, language: this.language || this.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: this.maxTokens, preview: true };
+                        const optsPreview = { povCharacter: this.povCharacter, pov: this.pov, tense: this.tense, language: this.language || this.currentProject?.language || 'English', prosePrompt: prosePromptText, systemPrompt: systemPromptText, compendiumEntries: compEntries, sceneSummaries: sceneSummaries, maxTokens: this.maxTokens, projectGenres: this.currentProject?.genres, authorsNote: (this.authorsNoteEnabled !== false ? String(this.authorsNote || '').trim() : ''), preview: true };
                         try { console.debug('[preview] buildPrompt opts:', { proseType: typeof optsPreview.prosePrompt, len: optsPreview.prosePrompt ? optsPreview.prosePrompt.length : 0 }); } catch (e) { }
                         try { console.debug('[preview] prosePrompt raw:', JSON.stringify(optsPreview.prosePrompt)); } catch (e) { }
                         prompt = window.Generation.buildPrompt(beatText, this.currentScene?.content || '', optsPreview);

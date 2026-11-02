@@ -38,6 +38,7 @@
     "modals/prompt-history.html",
     "modals/update-dialog.html",
     "modals/no-update.html",
+    "modals/authors-note.html",
     "modals/scene-model-settings.html",
     "modals/context-panel.html",
     "workshop/chat-template.html",
