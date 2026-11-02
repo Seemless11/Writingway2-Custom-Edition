@@ -223,6 +223,24 @@ db.version(11).stores({
     }
 });
 
+// Performance fix (v12): stop indexing the full scene prose. `content.text`
+// held the entire manuscript inside an IndexedDB secondary index, so every
+// save paid index-maintenance on the whole text. No code path ever queries by
+// text — dropping it from the index spec (Dexie rebuilds indexes, data is
+// untouched) removes that cost.
+db.version(12).stores({
+    projects: 'id, name, created, modified, updatedAt',
+    chapters: 'id, projectId, title, order, created, modified, updatedAt',
+    scenes: 'id, projectId, chapterId, title, order, created, modified, updatedAt',
+    content: 'sceneId, wordCount, updatedAt',
+    prompts: 'id, [category+title], [projectId+category+title], projectId, category, title, created, modified, updatedAt',
+    codex: 'id, projectId, title, created, modified, updatedAt',
+    compendium: 'id, [projectId+category], projectId, category, title, modified, tags, updatedAt',
+    promptHistory: 'id, projectId, sceneId, timestamp, beat, prompt',
+    workshopSessions: 'id, [projectId+createdAt], projectId, name, createdAt, updatedAt',
+    settings: 'key'
+});
+
 // Expose the global Dexie instance for debugging and console usage
 try { window.db = window.db || db; } catch (e) { /* ignore in non-browser env */ }
 
