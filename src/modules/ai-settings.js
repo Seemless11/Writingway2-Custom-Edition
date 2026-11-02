@@ -5,6 +5,27 @@
         return !!(app && app.runtimeInfo && app.runtimeInfo.localAIAvailable);
     }
 
+    /**
+     * Persist AI settings. When the local app server is reachable, the API key
+     * is stored server-side (settings/secrets.json — gitignored, never backed
+     * up) and kept OUT of localStorage; only non-secret preferences remain in
+     * localStorage. Falls back to the previous behavior (key included in
+     * localStorage) when the server is unavailable, e.g. when opened over
+     * file://.
+     */
+    async function persistAISettings(settings) {
+        if (window.SecretStore && window.SecretStore.available()) {
+            const ok = await window.SecretStore.save({ aiApiKey: settings.apiKey || '' });
+            if (ok) {
+                const withoutKey = Object.assign({}, settings);
+                delete withoutKey.apiKey;
+                localStorage.setItem('writingway:aiSettings', JSON.stringify(withoutKey));
+                return;
+            }
+        }
+        localStorage.setItem('writingway:aiSettings', JSON.stringify(settings));
+    }
+
     const AISettings = {
         /**
          * Fetch available models from the current provider
@@ -197,7 +218,7 @@
                     seed: app.seed,
                     modelPresets: app.modelPresets || {}
                 };
-                localStorage.setItem('writingway:aiSettings', JSON.stringify(settings));
+                persistAISettings(settings).catch(e => console.error('Failed to persist AI settings:', e));
             } catch (e) {
                 console.error('Failed to save generation params:', e);
             }
@@ -235,7 +256,7 @@
                     seed: app.seed,
                     modelPresets: app.modelPresets || {}
                 };
-                localStorage.setItem('writingway:aiSettings', JSON.stringify(settings));
+                persistAISettings(settings).catch(e => console.error('Failed to save AI settings:', e));
 
                 // Test connection
                 app.showModelLoading = true;
@@ -446,6 +467,23 @@
                     app.minP = settings.minP !== undefined ? settings.minP : 0.0;
                     app.seed = settings.seed !== undefined ? settings.seed : null;
                     app.modelPresets = settings.modelPresets || {};
+
+                    // Server-side secrets: prefer the API key stored by the local
+                    // app server and scrub any legacy plaintext copy from
+                    // localStorage (one-time migration on first load).
+                    if (window.SecretStore && window.SecretStore.available()) {
+                        try {
+                            const secrets = await window.SecretStore.loadAll();
+                            if (secrets.aiApiKey !== undefined) app.aiApiKey = secrets.aiApiKey || '';
+                            if (settings.apiKey) {
+                                if (secrets.aiApiKey === undefined) {
+                                    await window.SecretStore.save({ aiApiKey: settings.apiKey });
+                                }
+                                delete settings.apiKey;
+                                localStorage.setItem('writingway:aiSettings', JSON.stringify(settings));
+                            }
+                        } catch (e) { /* keep whatever we have */ }
+                    }
 
                     // Fetch fresh model list if we have API credentials (or LM Studio which doesn't need a key)
                     if (app.aiMode === 'api' && (app.aiApiKey || app.aiProvider === 'lmstudio' || app.aiProvider === 'koboldcpp')) {

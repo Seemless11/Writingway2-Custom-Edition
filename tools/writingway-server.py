@@ -35,6 +35,9 @@ SNAPSHOTS_DIR = BACKUPS_DIR / "all"
 SNAPSHOT_INDEX_PATH = SNAPSHOTS_DIR / "index.json"
 MAX_SNAPSHOTS = 2
 IMAGES_DIR = ROOT / "images"
+SECRETS_DIR = ROOT / "settings"
+SECRETS_PATH = SECRETS_DIR / "secrets.json"
+MAX_SECRETS_BODY_BYTES = 64 * 1024
 SAFE_PROJECT_ID = re.compile(r"^[A-Za-z0-9_-]{1,200}$")
 SAFE_IMAGE_NAME = re.compile(r"^[A-Za-z0-9._-]{1,200}$")
 MODELS_DIR = ROOT / "models"
@@ -475,6 +478,9 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/library":
             self.handle_library()
             return
+        if parsed.path == "/api/secrets":
+            self.handle_get_secrets()
+            return
         if parsed.path == "/api/load-project":
             self.handle_load_project(parsed.query)
             return
@@ -507,6 +513,9 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
             return
         if self.path.startswith("/api/upload-image"):
             self.handle_upload_image(urlparse(self.path).query)
+            return
+        if self.path == "/api/secrets":
+            self.handle_save_secrets()
             return
         self.respond_json(HTTPStatus.NOT_FOUND, {"ok": False, "error": "Not found"})
 
@@ -747,6 +756,74 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
                 HTTPStatus.INTERNAL_SERVER_ERROR,
                 {"ok": False, "error": str(exc)},
             )
+
+    def handle_get_secrets(self):
+        """Returns locally stored secrets (same-origin only; nothing is sent cross-origin
+        because no CORS headers are ever emitted)."""
+        try:
+            if not SECRETS_PATH.exists():
+                self.respond_json(HTTPStatus.OK, {"ok": True, "secrets": {}})
+                return
+            with SECRETS_PATH.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.respond_json(HTTPStatus.OK, {"ok": True, "secrets": data if isinstance(data, dict) else {}})
+        except Exception as exc:
+            self.respond_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
+
+    def handle_save_secrets(self):
+        """Merge-writes a partial secrets payload to settings/secrets.json."""
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid Content-Length"})
+            return
+        if length <= 0:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Request body is required"})
+            return
+        if length > MAX_SECRETS_BODY_BYTES:
+            self.respond_json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": "Request body too large"})
+            return
+        try:
+            raw = self.rfile.read(length)
+            payload = json.loads(raw.decode("utf-8"))
+        except json.JSONDecodeError:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid JSON"})
+            return
+        if not isinstance(payload, dict):
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid payload"})
+            return
+        # Only string-valued secret fields are accepted
+        clean = {str(k)[:100]: str(v)[:20000] for k, v in payload.items() if isinstance(k, str) and isinstance(v, str)}
+        try:
+            SECRETS_DIR.mkdir(parents=True, exist_ok=True)
+            current = {}
+            if SECRETS_PATH.exists():
+                try:
+                    with SECRETS_PATH.open("r", encoding="utf-8") as f:
+                        current = json.load(f)
+                    if not isinstance(current, dict):
+                        current = {}
+                except (OSError, ValueError):
+                    current = {}
+            current.update(clean)
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=str(SECRETS_DIR),
+                delete=False,
+                suffix=".tmp",
+            ) as tmp_file:
+                json.dump(current, tmp_file, ensure_ascii=False, indent=2)
+                tmp_file.write("\n")
+                temp_name = tmp_file.name
+            os.replace(temp_name, SECRETS_PATH)
+            try:
+                os.chmod(SECRETS_PATH, 0o600)
+            except OSError:
+                pass  # best effort on platforms without POSIX permissions
+            self.respond_json(HTTPStatus.OK, {"ok": True})
+        except Exception as exc:
+            self.respond_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"ok": False, "error": str(exc)})
 
     def read_json_payload(self) -> dict | None:
         try:

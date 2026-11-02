@@ -22,7 +22,8 @@ const API_STUBS = {
         llamaInstallChoices: []
     },
     '/api/list-snapshots': { ok: true, snapshots: [] },
-    '/api/library': { ok: true, projects: [] }
+    '/api/library': { ok: true, projects: [] },
+    '/api/secrets': { ok: true, secrets: {} }
 };
 
 http.createServer((req, res) => {
@@ -32,6 +33,11 @@ http.createServer((req, res) => {
     if (Object.prototype.hasOwnProperty.call(API_STUBS, p)) {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
         res.end(JSON.stringify(API_STUBS[p]));
+        return;
+    }
+    if (p === '/api/secrets' && req.method === 'POST') {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ ok: true }));
         return;
     }
 

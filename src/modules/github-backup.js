@@ -2,6 +2,30 @@
 // Supports GitHub Gist backups today and local filesystem versioning via the app server.
 
 (function () {
+    /**
+     * Persist backup settings. When the local app server is reachable, the
+     * GitHub token is stored server-side (settings/secrets.json — gitignored)
+     * and kept OUT of localStorage; falls back to the previous behavior when
+     * the server is unavailable.
+     */
+    function persistBackupSettings(settings) {
+        if (window.SecretStore && window.SecretStore.available()) {
+            window.SecretStore.save({ githubToken: settings.token || '' }).then(ok => {
+                if (ok) {
+                    const withoutToken = Object.assign({}, settings);
+                    delete withoutToken.token;
+                    localStorage.setItem('writingway:backupSettings', JSON.stringify(withoutToken));
+                } else {
+                    localStorage.setItem('writingway:backupSettings', JSON.stringify(settings));
+                }
+            }).catch(() => {
+                localStorage.setItem('writingway:backupSettings', JSON.stringify(settings));
+            });
+            return;
+        }
+        localStorage.setItem('writingway:backupSettings', JSON.stringify(settings));
+    }
+
     const BACKUP_INTERVAL = 5 * 60 * 1000;
     const LOCAL_BACKUP_CREATE_ENDPOINT = '/api/create-backup';
     const LOCAL_BACKUP_LIST_ENDPOINT = '/api/list-backups';
@@ -517,18 +541,46 @@
                     username: app.githubUsername,
                     lastBackupTime: app.lastBackupTime
                 };
-                localStorage.setItem('writingway:backupSettings', JSON.stringify(settings));
+                persistBackupSettings(settings);
             } catch (e) {
                 console.error('Failed to save backup settings:', e);
             }
         },
 
-        loadBackupSettings(app) {
+        async loadBackupSettings(app) {
+            let settings = null;
             try {
                 const saved = localStorage.getItem('writingway:backupSettings');
-                if (!saved) return;
+                if (saved) {
+                    settings = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.error('Failed to load backup settings:', e);
+            }
 
-                const settings = JSON.parse(saved);
+            // Server-side secrets: prefer the token stored by the local app
+            // server and scrub any legacy plaintext copy from localStorage.
+            if (window.SecretStore && window.SecretStore.available()) {
+                try {
+                    const secrets = await window.SecretStore.loadAll();
+                    if (secrets.githubToken !== undefined && settings) {
+                        settings.token = secrets.githubToken || '';
+                        const withoutToken = Object.assign({}, settings);
+                        delete withoutToken.token;
+                        localStorage.setItem('writingway:backupSettings', JSON.stringify(withoutToken));
+                    } else if (settings && settings.token) {
+                        const migrated = await window.SecretStore.save({ githubToken: settings.token });
+                        if (migrated) {
+                            const withoutToken = Object.assign({}, settings);
+                            delete withoutToken.token;
+                            localStorage.setItem('writingway:backupSettings', JSON.stringify(withoutToken));
+                        }
+                    }
+                } catch (e) { /* keep whatever we have */ }
+            }
+
+            if (!settings) return;
+            {
                 app.backupProvider = settings.provider || 'github';
                 app.backupEnabled = settings.enabled || false;
                 app.githubToken = settings.token || '';
@@ -536,13 +588,8 @@
                 app.githubUsername = settings.username || '';
                 app.lastBackupTime = settings.lastBackupTime || null;
 
-                if (app.backupEnabled && this.isProviderConfigured(app) && providerAvailable(app.backupProvider)) {
-                    setTimeout(() => {
-                        this.startAutoBackup(app);
-                    }, 5000);
-                }
-            } catch (e) {
-                console.error('Failed to load backup settings:', e);
+                // Don't start auto-backup here - wait for project selection
+                // (startAutoBackup is called from selectProject in project-manager.js)
             }
         }
     };

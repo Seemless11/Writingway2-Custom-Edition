@@ -23,6 +23,8 @@ todo.md
 .claude/
 # Update staging folder
 .update/
+# Local secrets (API keys / tokens — never commit)
+settings/
 # Node modules
 node_modules/
 .claude/
