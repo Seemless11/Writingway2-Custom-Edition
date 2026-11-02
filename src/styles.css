@@ -45,7 +45,7 @@ input[disabled], button[disabled], select[disabled], textarea[disabled] {
     --color-muted: #44403C;
     --color-fg: #EDEDE9;
     --color-fg-secondary: #A8A29E;
-    --color-fg-muted: #78716C;
+    --color-fg-muted: #A8A29E;
     --color-primary: #A8A29E;
     --color-accent: #D97706;
     --accent-rgb: 217 119 6;
@@ -84,6 +84,16 @@ input[disabled], button[disabled], select[disabled], textarea[disabled] {
     --border: var(--color-border);
     --success: var(--color-success);
     --warning: var(--color-warning);
+
+    /* Additional legacy aliases referenced by views/panels but never defined
+       (previously resolved to invalid var() → transparent/invisible controls) */
+    --input-bg: var(--color-surface);
+    --border-primary: var(--color-border);
+    --bg-hover: rgba(255, 255, 255, 0.06);
+    --accent-amber: var(--color-accent);
+    --accent-blue: #4A9EFF;
+    --danger: var(--color-destructive);
+    --danger-color: var(--color-destructive);
 }
 
 [x-cloak] { display: none !important; }
@@ -96,7 +106,7 @@ html.light-mode,
     --color-muted: #F6F6F6;
     --color-fg: #0F172A;
     --color-fg-secondary: #57534E;
-    --color-fg-muted: #A8A29E;
+    --color-fg-muted: #78716C;
     --color-primary: #78716C;
     --color-accent: #D97706;
     --accent-rgb: 217 119 6;
@@ -105,6 +115,7 @@ html.light-mode,
     --color-success: #22C55E;
     --color-warning: #F59E0B;
     --color-destructive: #DC2626;
+    --bg-hover: rgba(0, 0, 0, 0.05);
     /* Shadow (lighter for light bg) */
     --shadow-sm: 0 1px 2px rgba(0,0,0,0.08);
     --shadow-md: 0 4px 12px rgba(0,0,0,0.1);
@@ -673,9 +684,9 @@ body {
 
 /* Block variant for stacked layout */
 .comp-image-block {
-    /* ensure the stacked block variant is a true square and overrides the default preview sizing */
+    /* portrait 2:3 ratio to match character cards (e.g., 400x600, 512x768) */
     width: 240px;
-    height: 240px;
+    height: 360px;
     max-width: 100%;
     display: block;
     margin: 0 auto;
@@ -684,7 +695,7 @@ body {
 /* stronger selector to ensure block variant forces square sizing */
 .comp-image-preview.comp-image-block {
     width: 240px !important;
-    height: 240px !important;
+    height: 360px !important;
 }
 
 .comp-editor-body {
@@ -1275,7 +1286,7 @@ html.light-mode .backup-warning-banner,
 .generate-btn {
     padding: 12px 24px;
     background: var(--accent);
-    color: white;
+    color: #1C1917;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -1437,7 +1448,8 @@ html.light-mode .backup-warning-banner,
 
 .btn-primary {
     background: var(--accent);
-    color: white;
+    /* Dark text on the amber button: white fails contrast (3.2:1), dark passes (5.5:1) */
+    color: #1C1917;
 }
 
 .btn-primary:hover {
@@ -1500,7 +1512,7 @@ html.light-mode .backup-warning-banner,
 .rewrite-btn {
     padding: 8px 12px;
     background: var(--accent);
-    color: white;
+    color: #1C1917;
     border: none;
     border-radius: 6px;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
@@ -1779,7 +1791,7 @@ html.light-mode .backup-warning-banner,
 
 .workshop-session-item.active {
     background: var(--accent);
-    color: white;
+    color: #1C1917;
     border-color: var(--accent);
 }
 
@@ -1921,7 +1933,7 @@ html.light-mode .backup-warning-banner,
 
 .workshop-message-user .workshop-message-content {
     background: var(--accent);
-    color: white;
+    color: #1C1917;
     border-bottom-right-radius: 4px;
 }
 
