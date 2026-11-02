@@ -14,15 +14,26 @@ import sys
 import json
 import urllib.request
 import urllib.error
+import zipfile
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from pathlib import Path
 
 # Configuration
 HOST = '127.0.0.1'
 PORT = 8001
-REPO_OWNER = 'aomukai'
-REPO_NAME = 'Writingway2'
+# Must match src/update-checker.js (repoOwner/repoName) so the version dialog
+# always describes the same repository the updater downloads from.
+REPO_OWNER = 'Seemless11'
+REPO_NAME = 'Writingway2-Custom-Edition'
 BRANCH = 'main'
+
+# The app page (port 8000) calls this server from the browser; 8000 and 8001
+# are different origins, so the app origin is explicitly allowed and nothing
+# else. Every other website is rejected.
+APP_ORIGINS = {'http://127.0.0.1:8000', 'http://localhost:8000'}
+ALLOWED_HOSTS = {f'127.0.0.1:{PORT}', f'localhost:{PORT}', '127.0.0.1', 'localhost'}
+MAX_UPDATE_ZIP_BYTES = 1024 * 1024 * 1024        # 1 GB staged archive cap
+MAX_UPDATE_ENTRY_BYTES = 512 * 1024 * 1024       # per-file cap inside the zip
 
 # Paths (relative to the project root)
 SCRIPT_DIR = Path(__file__).parent
@@ -30,6 +41,61 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 UPDATE_DIR = PROJECT_ROOT / '.update'
 LATEST_ZIP = UPDATE_DIR / 'latest.zip'
 READY_JSON = UPDATE_DIR / 'ready.json'
+
+
+def host_allowed(headers) -> bool:
+    """Block DNS-rebinding: the Host header must be local."""
+    host = (headers.get('Host') or '').strip().lower()
+    if not host:
+        return True
+    return host in ALLOWED_HOSTS
+
+
+def origin_allowed(headers) -> bool:
+    """Allow same-app origins and header-less non-browser clients."""
+    sec_fetch_site = (headers.get('Sec-Fetch-Site') or '').strip().lower()
+    if sec_fetch_site and sec_fetch_site not in {'same-origin', 'none'}:
+        return False
+    origin = (headers.get('Origin') or '').strip()
+    if not origin:
+        return True
+    return origin in APP_ORIGINS
+
+
+def send_cors_headers(handler):
+    """Attach CORS headers only for the app origin (never '*')."""
+    origin = (handler.headers.get('Origin') or '').strip()
+    if origin in APP_ORIGINS:
+        handler.send_header('Access-Control-Allow-Origin', origin)
+        handler.send_header('Vary', 'Origin')
+        handler.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        handler.send_header('Access-Control-Allow-Headers', 'Content-Type')
+
+
+def validate_update_zip(path):
+    """
+    Verify the staged archive before it is marked ready: intact zip, no
+    path-traversal entries, sane sizes. Returns (ok, message).
+    """
+    try:
+        with zipfile.ZipFile(path, 'r') as zf:
+            bad = zf.testzip()
+            if bad is not None:
+                return False, f'Corrupt entry in update archive: {bad}'
+            total = 0
+            for info in zf.infolist():
+                normalized = info.filename.replace('\\', '/')
+                parts = Path(normalized).parts
+                if normalized.startswith('/') or '..' in parts or (len(normalized) > 1 and normalized[1] == ':'):
+                    return False, f'Unsafe path in update archive: {info.filename}'
+                if info.file_size > MAX_UPDATE_ENTRY_BYTES:
+                    return False, f'Entry too large in update archive: {info.filename}'
+                total += info.file_size
+            if total > MAX_UPDATE_ZIP_BYTES:
+                return False, 'Update archive is too large'
+    except zipfile.BadZipFile:
+        return False, 'Downloaded update is not a valid zip archive'
+    return True, ''
 
 
 def ensure_update_dir():
@@ -86,6 +152,8 @@ def download_update():
 
     try:
         download_url, source = get_download_url()
+        if not download_url.startswith('https://'):
+            return False, 'Refusing non-HTTPS download URL'
         print(f'[Updater] Downloading from {source}: {download_url}')
 
         req = urllib.request.Request(
@@ -120,6 +188,15 @@ def download_update():
         # Verify the zip file exists and has content
         if not LATEST_ZIP.exists() or LATEST_ZIP.stat().st_size < 1000:
             return False, 'Download failed: File too small or empty'
+
+        # Validate the archive before staging it for apply-on-restart
+        ok, message = validate_update_zip(LATEST_ZIP)
+        if not ok:
+            try:
+                LATEST_ZIP.unlink()
+            except OSError:
+                pass
+            return False, message
 
         # Write ready.json to signal update is staged
         with open(READY_JSON, 'w') as f:
@@ -168,27 +245,30 @@ class UpdateHandler(BaseHTTPRequestHandler):
     """HTTP request handler for the updater service."""
 
     def _send_json(self, data, status=200):
-        """Send a JSON response with CORS headers."""
+        """Send a JSON response (CORS only for the app origin)."""
         response = json.dumps(data).encode('utf-8')
         self.send_response(status)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', len(response))
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        send_cors_headers(self)
         self.end_headers()
         self.wfile.write(response)
 
     def do_OPTIONS(self):
-        """Handle CORS preflight requests."""
+        """Handle CORS preflight requests (app origin only)."""
+        if not host_allowed(self.headers) or not origin_allowed(self.headers):
+            self.send_response(403)
+            self.end_headers()
+            return
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        send_cors_headers(self)
         self.end_headers()
 
     def do_GET(self):
         """Handle GET requests."""
+        if not host_allowed(self.headers):
+            self._send_json({'error': 'Forbidden'}, 403)
+            return
         if self.path == '/update/status':
             ready = check_status()
             self._send_json({'ready': ready})
@@ -199,6 +279,9 @@ class UpdateHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         """Handle POST requests."""
+        if not host_allowed(self.headers) or not origin_allowed(self.headers):
+            self._send_json({'error': 'Cross-site request blocked'}, 403)
+            return
         if self.path == '/update/download':
             success, message = download_update()
             if success:

@@ -40,6 +40,41 @@ SAFE_IMAGE_NAME = re.compile(r"^[A-Za-z0-9._-]{1,200}$")
 MODELS_DIR = ROOT / "models"
 LLAMA_DIR = ROOT / "llama"
 LLAMA_RELEASE_API = "https://api.github.com/repos/ggml-org/llama.cpp/releases/latest"
+
+# --- Request hardening -------------------------------------------------------
+# The server listens on localhost only, but a website open in the user's
+# browser can still POST to it (no-preflight "simple requests"). Browsers
+# attach Origin/Sec-Fetch-Site/Host headers on those requests, so we validate:
+#   * Host must be local (blocks DNS rebinding, where an attacker page serves
+#     127.0.0.1 under its own domain and gains same-origin access).
+#   * State-changing POSTs must be same-origin (blocks drive-by CSRF).
+# Non-browser clients (curl, the launchers, health checks) send neither header
+# and remain allowed.
+ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}", "127.0.0.1", "localhost"}
+ALLOWED_ORIGINS = {f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}"}
+MAX_JSON_BODY_BYTES = 256 * 1024 * 1024  # full-project saves can be large
+MAX_IMAGE_BYTES = 25 * 1024 * 1024
+# Uploads that the browser would render as active content (stored XSS when
+# opened from this origin). The app only stores raster images.
+BLOCKED_IMAGE_EXTS = {".svg", ".svgz", ".html", ".htm", ".xhtml", ".xml"}
+
+
+def host_allowed(headers) -> bool:
+    host = (headers.get("Host") or "").strip().lower()
+    if not host:
+        return True
+    return host in ALLOWED_HOSTS
+
+
+def origin_allowed(headers) -> bool:
+    sec_fetch_site = (headers.get("Sec-Fetch-Site") or "").strip().lower()
+    if sec_fetch_site and sec_fetch_site not in {"same-origin", "none"}:
+        return False
+    origin = (headers.get("Origin") or "").strip()
+    if not origin:
+        return True
+    return origin in ALLOWED_ORIGINS
+
 HTTP_HEADERS = {
     "User-Agent": "Writingway/2.0",
     "Accept": "application/vnd.github+json",
@@ -58,8 +93,8 @@ def sanitize_filename(value: str) -> str:
 
 def project_filename(project: dict) -> str:
     project_id = str(project.get("id") or "").strip()
-    if not project_id:
-        raise ValueError("Project id is required")
+    if not project_id or not SAFE_PROJECT_ID.match(project_id):
+        raise ValueError("Invalid project id")
     safe_name = sanitize_filename(str(project.get("name") or "project"))
     return f"{safe_name}--{project_id}.json"
 
@@ -407,6 +442,9 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        if not host_allowed(self.headers):
+            self.respond_json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "Forbidden"})
+            return
         parsed = urlparse(self.path)
 
         if parsed.path == "/api/health":
@@ -446,6 +484,9 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        if not host_allowed(self.headers) or not origin_allowed(self.headers):
+            self.respond_json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "Cross-site request blocked"})
+            return
         if self.path == "/api/save-project":
             self.handle_save_project()
             return
@@ -571,6 +612,9 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         if not name or not SAFE_IMAGE_NAME.match(name):
             self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid image name"})
             return
+        if Path(name).suffix.lower() in BLOCKED_IMAGE_EXTS:
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Image type not allowed"})
+            return
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
@@ -578,6 +622,9 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
             return
         if length <= 0:
             self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "No image data"})
+            return
+        if length > MAX_IMAGE_BYTES:
+            self.respond_json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": "Image too large"})
             return
         try:
             data = self.rfile.read(length)
@@ -621,6 +668,11 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", mime)
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            if ext == "svg":
+                # Stored SVGs predate the upload block; sandbox them so direct
+                # navigation can never execute embedded scripts.
+                self.send_header("Content-Security-Policy", "sandbox")
             self.end_headers()
             self.wfile.write(data)
         except Exception as exc:
@@ -636,6 +688,9 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
         if length <= 0:
             self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Request body is required"})
             return
+        if length > MAX_JSON_BODY_BYTES:
+            self.respond_json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": "Request body too large"})
+            return
 
         try:
             raw = self.rfile.read(length)
@@ -649,11 +704,15 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
             self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Missing project payload"})
             return
 
+        project_id = str(project.get("id") or "").strip()
+        if not project_id or not SAFE_PROJECT_ID.match(project_id):
+            self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Invalid project id"})
+            return
+
         try:
             PROJECTS_DIR.mkdir(parents=True, exist_ok=True)
             filename = project_filename(project)
             target = PROJECTS_DIR / filename
-            project_id = str(project.get("id"))
 
             for existing in PROJECTS_DIR.glob(f"*--{project_id}.json"):
                 if existing != target and existing.exists():
@@ -698,6 +757,10 @@ class WritingwayHandler(SimpleHTTPRequestHandler):
 
         if length <= 0:
             self.respond_json(HTTPStatus.BAD_REQUEST, {"ok": False, "error": "Request body is required"})
+            return None
+
+        if length > MAX_JSON_BODY_BYTES:
+            self.respond_json(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, {"ok": False, "error": "Request body too large"})
             return None
 
         try:
