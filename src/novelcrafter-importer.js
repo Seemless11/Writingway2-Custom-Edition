@@ -1,5 +1,4 @@
-// Novelcrafter Importer - DEBUG VERSION 3
-console.log('=== NOVELCRAFTER IMPORTER LOADED v3 (DIRECT CHECK) ===');
+// Novelcrafter Importer
 (
     function () {
         const NovelcrafterImporter = {
@@ -378,14 +377,11 @@ console.log('=== NOVELCRAFTER IMPORTER LOADED v3 (DIRECT CHECK) ===');
             },
 
             async importCodexFromZip(zip, projectId) {
-                console.log('=== CODEX IMPORT START ===');
                 const allFiles = Object.keys(zip.files);
-                console.log('All files in ZIP:', allFiles.length);
                 let imported = 0;
                 const categoryCounts = {};
 
                 const jsonFiles = allFiles.filter(f => f.endsWith('.json'));
-                console.log('JSON files found:', jsonFiles.length, jsonFiles);
 
                 for (const jsonFile of jsonFiles) {
                     const mf = zip.file(jsonFile);
@@ -401,17 +397,13 @@ console.log('=== NOVELCRAFTER IMPORTER LOADED v3 (DIRECT CHECK) ===');
 
                         // Phase 2.2: Extract category dynamically
                         let category = this.extractCategory(metadata, jsonFile);
-                        console.log('DEBUG', jsonFile, '-> category:', category, 'type:', attrs.type);
 
                         const contentFile = this.findContentFile(zip, jsonFile);
-                        console.log('DEBUG contentFile found:', !!contentFile);
                         let body = '';
 
                         if (contentFile) {
                             const entryText = await contentFile.async('text');
                             body = this.stripFrontmatter(entryText);
-                        } else {
-                            console.log('No content file found for:', jsonFile);
                         }
 
                         const entryId = Date.now().toString() + '-nc-' + Math.random().toString(36).slice(2, 7);

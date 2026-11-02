@@ -1168,9 +1168,9 @@
             }
         }
 
-        // Debug logging for API requests
-        console.log('🚀 API Request to:', provider);
-        console.log('📨 Messages being sent:', JSON.stringify(messages, null, 2));
+        // Debug logging for API requests (never log full message bodies — they
+        // can contain the user's entire manuscript and burned tokens)
+        console.log('🚀 API Request to:', provider, `(${messages.length} messages)`);
         if (useProviderDefaults) {
             console.log('⚙️ Using provider defaults (temperature not specified; max_tokens always sent)');
         } else {
@@ -1198,7 +1198,6 @@
         if (contentType?.includes('application/json') && !contentType?.includes('text/event-stream')) {
             console.log('📦 Non-streaming response detected (likely thinking model)');
             const data = await response.json();
-            console.log('📄 Full response data:', JSON.stringify(data, null, 2));
 
             // Extract content and finish_reason from non-streaming response
             let content = null;
@@ -1327,11 +1326,6 @@
                         });
                     }
 
-                    // Debug: Log the first chunk to see what we're receiving
-                    if (!hasReceivedContent && !sawReasoning) {
-                        console.log('🔍 First chunk received:', JSON.stringify(data, null, 2));
-                    }
-
                     // Extract token based on provider format
                     let token = null;
                     if (provider === 'openrouter' || provider === 'openai' || provider === 'nanogpt' || provider === 'lmstudio' || provider === 'custom') {
@@ -1356,9 +1350,6 @@
                         }
                         if (delta) {
                             token = delta.content || null;
-                            if (!hasReceivedContent && delta && !isReasoningChunk) {
-                                console.log('🔍 Delta object:', JSON.stringify(delta, null, 2));
-                            }
                         }
 
                         // Some models put the complete message in the first chunk
