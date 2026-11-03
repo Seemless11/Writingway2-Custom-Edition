@@ -3,10 +3,6 @@
         { id: 'fantasy', label: 'Fantasy', icon: '⚔️' }
     ];
 
-    function GENRE_DESCRIPTIONS(id) {
-        return window.GenreDefs ? window.GenreDefs.getWorldDescription([id]) : '';
-    }
-
     const WORLD_TRAIT_CATEGORIES = [
         {
             id: 'setting',
@@ -484,7 +480,6 @@
 
     window.WorldCreator = {
         GENRES,
-        GENRE_DESCRIPTIONS,
         WORLD_TRAIT_CATEGORIES,
         DEFAULT_INSTRUCTION_TEMPLATES,
         WORLD_SYSTEM_PROMPT,

@@ -356,13 +356,17 @@ Object.assign(window.AppMethods, {
                         promptMessages.push({ role: 'system', content: 'Additional notes about the character:\n' + this.charCreatorNotes });
                     }
 
-                    // GENRE SHEET from creation facts (role, institutions, logistics, money, kit)
+                    // GENRE SHEET from creation facts (role, institutions, logistics, money, kit).
+                    // Equal weight: each selected genre keeps its own labeled facts.
                     if (window.PromptPacks && activeGenres.length > 0) {
-                        const merged = window.PromptPacks.mergePacks(activeGenres.map(g => g.id));
-                        const creation = merged.creation || [];
-                        if (creation.length > 0) {
+                        const pack = window.PromptPacks.buildPack(activeGenres.map(g => g.id));
+                        const sections = (pack.sections || []).filter(s => (s.creation || []).length > 0);
+                        if (sections.length > 0) {
                             const sheet = ['GENRE SHEET — ' + genreLabels + ':'];
-                            for (const fact of creation) sheet.push('- ' + fact);
+                            for (const s of sections) {
+                                if (pack.isMulti) sheet.push(s.label + ':');
+                                for (const fact of s.creation) sheet.push('- ' + fact);
+                            }
                             promptMessages.push({ role: 'system', content: sheet.join('\n') });
                         }
                     }

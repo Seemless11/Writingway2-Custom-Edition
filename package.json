@@ -15,7 +15,7 @@
         "smoke": "node tests/smoke.js",
         "handler": "node tests/handler-coverage.js",
         "method": "node tests/method-coverage.js",
-        "unit": "node tests/gen-buildPrompt.js && node tests/gen-buildPrompt-impersonate.js && node tests/unit-charactercard-import.js && node tests/unit-trim.js && node tests/unit-chat-trim.js && node tests/unit-reasoning.js && node tests/unit-db-snapshot.js && node tests/unit-compendium.js && node tests/unit-migration.js && node tests/unit-normalizeOrders.js && node tests/unit-prompt-packs.js && node tests/unit-prompt-render.js && node tests/unit-saveScene.js",
+        "unit": "node tests/gen-buildPrompt.js && node tests/gen-buildPrompt-impersonate.js && node tests/unit-charactercard-import.js && node tests/unit-trim.js && node tests/unit-chat-trim.js && node tests/unit-reasoning.js && node tests/unit-db-snapshot.js && node tests/unit-compendium.js && node tests/unit-migration.js && node tests/unit-normalizeOrders.js && node tests/unit-prompt-packs.js && node tests/unit-prompt-render.js && node tests/unit-genre-blend.js && node tests/unit-saveScene.js",
         "ui": "node tests/ui-generation.js && node tests/ui-generation-retry.js && node tests/ui-move-scene.js && node tests/ui-sidebar.js && node tests/ui-impersonate.js && node tests/ui-projects.js",
         "test": "npm run build:check && npm run smoke && npm run handler && npm run method && npm run unit && npm run ui"
     }

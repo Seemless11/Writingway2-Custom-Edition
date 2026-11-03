@@ -9,7 +9,7 @@
  * Loaded after genres.js and before prompts.js.
  */
 (function () {
-    const VERSION = 3;
+    const VERSION = 4;
 
     const SHARED_PROSE_CRAFT = [
         'Enter the passage in motion — no throat-clearing and no recap of what the reader already saw.',
@@ -1411,31 +1411,65 @@
     }
 
     /**
-     * Merge one or more genre packs into a single pack.
-     * The first genre supplies the dominant voice; additional genres accent it.
+     * Normalize one genre pack (or GENERAL_PACK) into a render section.
+     * Every list field is guaranteed to be an array so a partial pack cannot
+     * crash the renderer.
      */
-    function mergePacks(genreIds) {
-        const ids = Array.isArray(genreIds) ? genreIds.filter(Boolean) : [];
-        const packs = ids.map(id => GENRE_PACKS[id]).filter(Boolean);
-        if (packs.length === 0) return Object.assign({}, GENERAL_PACK);
-        if (packs.length === 1) return packs[0];
-
-        const primary = packs[0];
+    function toSection(id, pack) {
         return {
-            label: packs.map(p => p.label).join(' & '),
-            creation: unique(packs.flatMap(p => p.creation ?? [])).slice(0, 8),
-            voice: packs.map(p => p.voice).join(' '),
-            engines: unique(packs.flatMap(p => p.engines)).slice(0, 5),
-            craftMoves: unique(packs.flatMap(p => p.craftMoves)).slice(0, 8),
-            dialogue: packs.map(p => p.dialogue).join(' '),
-            imagery: unique(packs.flatMap(p => p.imagery)).slice(0, 5),
-            avoid: unique([...packs.flatMap(p => p.avoid), ...SHARED_AVOID]).slice(0, 8),
-            rewriteFocus: unique(packs.flatMap(p => p.rewriteFocus ?? [])).slice(0, 7),
-            summaryFocus: unique(packs.flatMap(p => p.summaryFocus ?? [])).slice(0, 6),
-            workshopAgenda: unique(packs.flatMap(p => p.workshopAgenda)).slice(0, 6),
-            _primary: primary.label
+            id,
+            label: pack.label,
+            voice: pack.voice || '',
+            dialogue: pack.dialogue || '',
+            engines: pack.engines || [],
+            craftMoves: pack.craftMoves || [],
+            imagery: pack.imagery || [],
+            avoid: pack.avoid || [],
+            rewriteFocus: pack.rewriteFocus || [],
+            summaryFocus: pack.summaryFocus || [],
+            workshopAgenda: pack.workshopAgenda || [],
+            creation: pack.creation || []
         };
     }
+
+    /**
+     * Build the render pack for one or more genres.
+     *
+     * Equal weight: each known genre becomes its own section and contributes
+     * its full content. There is no primary genre and no cap. Unknown ids are
+     * dropped; duplicate ids are collapsed; zero known genres fall back to the
+     * General Fiction pack as a single section.
+     *
+     * @param {Array<string>} genreIds
+     * @returns {{label: string, ids: Array<string>, isMulti: boolean, sections: Array<Object>, creation: Array<string>}}
+     */
+    function buildPack(genreIds) {
+        const raw = Array.isArray(genreIds) ? genreIds : [];
+        const ids = [...new Set(raw.filter(id => id && GENRE_PACKS[id]))];
+
+        if (ids.length === 0) {
+            return {
+                label: GENERAL_PACK.label,
+                ids: [],
+                isMulti: false,
+                sections: [toSection('general', GENERAL_PACK)],
+                creation: unique(GENERAL_PACK.creation || [])
+            };
+        }
+
+        const sections = ids.map(id => toSection(id, GENRE_PACKS[id]));
+        return {
+            label: sections.map(s => s.label).join(' & '),
+            ids,
+            isMulti: sections.length > 1,
+            sections,
+            creation: unique(sections.flatMap(s => s.creation))
+        };
+    }
+
+    // Backwards-compatible alias. Older callers expected a flat merged pack;
+    // buildPack now returns a structured multi-section pack instead.
+    const mergePacks = buildPack;
 
     const TEMPLATES = {
         prose: {
@@ -1560,25 +1594,58 @@ Genre failure modes to watch for:
         return `${labels} ${kindLabel} Prompt`;
     }
 
-    function fillTemplate(text, pack, kind) {
-        const avoid = unique([...pack.avoid, ...SHARED_AVOID]);
-        const continuity = unique([...(pack.continuity || SHARED_CONTINUITY), ...SHARED_CONTINUITY]);
+    /**
+     * Render a text field across sections.
+     * Single section → the value verbatim (so single-genre output is unchanged).
+     * Multiple sections → a labeled block per genre for equal weight.
+     */
+    function sectionText(sections, field) {
+        if (sections.length <= 1) return sections[0][field] || '';
+        return '\n' + sections.map(s => `${s.label}: ${s[field] || ''}`).join('\n');
+    }
+
+    /** Render a list field as bullets, grouped per genre when multi. */
+    function sectionList(sections, field) {
+        if (sections.length <= 1) return list(sections[0][field]);
+        return '\n' + sections.map(s => `${s.label}:\n${list(s[field])}`).join('\n');
+    }
+
+    /** Render a list field inline, prefixed per genre when multi. */
+    function sectionInline(sections, field) {
+        if (sections.length <= 1) return inline(sections[0][field]);
+        return sections.map(s => `${s.label}: ${inline(s[field])}`).join(' | ');
+    }
+
+    /**
+     * Render the avoid field. Single section reproduces the historical
+     * pack-avoid + shared-avoid union; multi renders each genre's own avoid
+     * list, then the shared list once under "General".
+     */
+    function sectionAvoid(sections) {
+        if (sections.length <= 1) return list(unique([...sections[0].avoid, ...SHARED_AVOID]));
+        const blocks = sections.map(s => `${s.label}:\n${list(unique(s.avoid))}`);
+        blocks.push(`General:\n${list(SHARED_AVOID)}`);
+        return '\n' + blocks.join('\n');
+    }
+
+    function fillTemplate(text, pack) {
+        const sections = pack.sections;
         const values = {
             '{genreLabels}': pack.label || 'General Fiction',
-            '{voice}': pack.voice,
-            '{engines}': list(pack.engines),
-            '{enginesInline}': inline(pack.engines),
-            '{craftMoves}': list(pack.craftMoves),
-            '{dialogue}': pack.dialogue,
-            '{imagery}': list(pack.imagery),
-            '{imageryInline}': inline(pack.imagery),
-            '{avoid}': list(avoid),
-            '{continuity}': list(continuity),
+            '{voice}': sectionText(sections, 'voice'),
+            '{engines}': sectionList(sections, 'engines'),
+            '{enginesInline}': sectionInline(sections, 'engines'),
+            '{craftMoves}': sectionList(sections, 'craftMoves'),
+            '{dialogue}': sectionText(sections, 'dialogue'),
+            '{imagery}': sectionList(sections, 'imagery'),
+            '{imageryInline}': sectionInline(sections, 'imagery'),
+            '{avoid}': sectionAvoid(sections),
+            '{continuity}': list(unique(SHARED_CONTINUITY)),
             '{sharedProseCraft}': list(SHARED_PROSE_CRAFT),
             '{sharedRewriteCraft}': list(SHARED_REWRITE_CRAFT),
-            '{rewriteFocus}': list(pack.rewriteFocus),
-            '{summaryFocus}': list(pack.summaryFocus),
-            '{workshopAgenda}': list(pack.workshopAgenda)
+            '{rewriteFocus}': sectionList(sections, 'rewriteFocus'),
+            '{summaryFocus}': sectionList(sections, 'summaryFocus'),
+            '{workshopAgenda}': sectionList(sections, 'workshopAgenda')
         };
 
         let out = text;
@@ -1596,13 +1663,14 @@ Genre failure modes to watch for:
      */
     function compose(genreIds, kind) {
         const template = TEMPLATES[kind] || TEMPLATES.prose;
-        const pack = mergePacks(genreIds);
+        const pack = buildPack(genreIds);
         const category = kind === 'summaryAnalysis' ? 'summary' : kind;
         const result = {
             category,
             title: titleFor(genreIds, kind),
-            content: fillTemplate(template.content, pack, kind).trim(),
-            systemContent: fillTemplate(template.system, pack, kind).trim()
+            content: fillTemplate(template.content, pack).trim(),
+            systemContent: fillTemplate(template.system, pack).trim(),
+            genreIds: pack.ids.slice()
         };
         if (kind === 'summary') result.defaultFor = 'summary';
         return result;
@@ -1648,6 +1716,7 @@ Genre failure modes to watch for:
         SHARED_CONTINUITY,
         SHARED_AVOID,
         SHARED_REWRITE_CRAFT,
+        buildPack,
         mergePacks,
         compose,
         composeCore,

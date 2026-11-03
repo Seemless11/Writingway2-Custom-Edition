@@ -67,9 +67,17 @@
             ? window.GenreDefs.getPromptDescriptor(genreIds)
             : [];
 
-        const genreSentence = labels.length > 0
-            ? `This is a ${labels.join(' & ')} story. Write with ${descriptors.join(', and ')}.`
-            : '';
+        // One or two genres read naturally as a list. Three or more become
+        // "A, and B, and C", so label each register instead.
+        let genreSentence = '';
+        if (labels.length > 0) {
+            if (descriptors.length >= 3 && descriptors.length === labels.length) {
+                const blend = descriptors.map((d, i) => `${labels[i]}: ${d}`).join('; ');
+                genreSentence = `This is a ${labels.join(' & ')} story. Blend these genre registers — ${blend}.`;
+            } else {
+                genreSentence = `This is a ${labels.join(' & ')} story. Write with ${descriptors.join(', and ')}.`;
+            }
+        }
 
         const targetWords = Number(opts.targetWords || (app && app.maxTokens) || 300);
         const povName = asText(opts.povName || (app && app.povCharacter)).trim() || 'the protagonist';

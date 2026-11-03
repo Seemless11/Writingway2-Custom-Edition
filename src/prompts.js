@@ -26,6 +26,14 @@
         return hash.toString(16);
     }
 
+    // A builtin row counts as user-edited when its content no longer matches the
+    // hash recorded at seed time. Rows with no contentHash (pre-hash V1 defaults)
+    // are treated as untouched so legacy defaults still migrate.
+    function isUserEdited(prompt) {
+        if (!prompt || !prompt.builtin || !prompt.contentHash) return false;
+        return contentHash(prompt.content || '', prompt.systemContent || '') !== prompt.contentHash;
+    }
+
     // One-time snapshot of every prompt row before a pack-version migration.
     async function snapshotPrompts() {
         try {
@@ -50,7 +58,7 @@
                         .first();
                     if (!existing || (existing.builtin && (!existing.content || existing.content.trim() === ''))) {
                         const id = existing ? existing.id : Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
-                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, defaultFor: prompt.defaultFor || '', contentHash: contentHash(prompt.content || '', prompt.systemContent || ''), modified: new Date() };
+                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, genreIds: Array.isArray(prompt.genreIds) ? prompt.genreIds.slice() : [], defaultFor: prompt.defaultFor || '', contentHash: contentHash(prompt.content || '', prompt.systemContent || ''), modified: new Date() };
                         if (!existing) { payload.id = id; payload.projectId = GLOBAL_PROJECT_ID; payload.created = new Date(); avatar(payload); console.log('[Prompts] Seeded global:', prompt.title); }
                         else { await db.prompts.update(id, payload); console.log('[Prompts] Updated global:', prompt.title); }
                     }
@@ -75,7 +83,7 @@
                     const existing = await db.prompts.where({ projectId: app.currentProject.id, category: prompt.category, title: prompt.title }).first();
                     if (!existing || (existing.builtin && (!existing.content || existing.content.trim() === ''))) {
                         const id = existing ? existing.id : Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
-                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, genreId: prompt.genreId || '', defaultFor: prompt.defaultFor || '', contentHash: contentHash(prompt.content || '', prompt.systemContent || ''), modified: new Date() };
+                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, genreIds: Array.isArray(prompt.genreIds) ? prompt.genreIds.slice() : [], defaultFor: prompt.defaultFor || '', contentHash: contentHash(prompt.content || '', prompt.systemContent || ''), modified: new Date() };
                         if (!existing) { payload.id = id; payload.projectId = app.currentProject.id; payload.created = new Date(); await db.prompts.add(payload); console.log('[Prompts] Seeded:', prompt.title); }
                         else { await db.prompts.update(id, payload); console.log('[Prompts] Updated:', prompt.title); }
                     }
@@ -87,7 +95,7 @@
                     const existing = await db.prompts.where({ projectId: app.currentProject.id, category: prompt.category, title: prompt.title }).first();
                     if (!existing || (existing.builtin && (!existing.content || existing.content.trim() === ''))) {
                         const id = existing ? existing.id : Date.now().toString() + '-' + Math.random().toString(36).slice(2, 8);
-                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, genreId: 'general', defaultFor: prompt.defaultFor || '', contentHash: contentHash(prompt.content || '', prompt.systemContent || ''), modified: new Date() };
+                        const payload = { category: prompt.category, title: prompt.title, content: prompt.content || '', systemContent: prompt.systemContent || '', builtin: true, packVersion: window.PromptPacks.VERSION || 2, genreIds: [], defaultFor: prompt.defaultFor || '', contentHash: contentHash(prompt.content || '', prompt.systemContent || ''), modified: new Date() };
                         if (!existing) { payload.id = id; payload.projectId = app.currentProject.id; payload.created = new Date(); await db.prompts.add(payload); console.log('[Prompts] Seeded (general):', prompt.title); }
                         else { await db.prompts.update(id, payload); console.log('[Prompts] Updated (general):', prompt.title); }
                     }
@@ -116,13 +124,14 @@
 
             const globalPrompts = await db.prompts.where('projectId').equals(GLOBAL_PROJECT_ID).toArray();
             for (const p of globalPrompts) {
-                if (p.builtin && (p.packVersion || 1) < VERSION_NUM) {
+                if (p.builtin && (p.packVersion || 1) < VERSION_NUM && !isUserEdited(p)) {
                     const replacement = window.PromptPacks?.compose?.([], p.category);
                     if (replacement) {
                         await db.prompts.update(p.id, {
                             content: replacement.content || '',
                             systemContent: replacement.systemContent || '',
                             packVersion: VERSION_NUM,
+                            genreIds: Array.isArray(replacement.genreIds) ? replacement.genreIds.slice() : [],
                             contentHash: contentHash(replacement.content || '', replacement.systemContent || ''),
                             modified: new Date()
                         });
@@ -133,7 +142,7 @@
 
             const projectPrompts = await db.prompts.where('projectId').equals(app.currentProject.id).toArray();
             for (const p of projectPrompts) {
-                if (p.builtin && (p.packVersion || 1) < VERSION_NUM) {
+                if (p.builtin && (p.packVersion || 1) < VERSION_NUM && !isUserEdited(p)) {
                     const genreSet = window.PromptPacks?.composeSet?.(app.currentProject.genres);
                     if (genreSet) {
                         const replacement = Object.values(genreSet).find(r => r.category === p.category && r.title === p.title);
@@ -142,6 +151,7 @@
                                 content: replacement.content || '',
                                 systemContent: replacement.systemContent || '',
                                 packVersion: VERSION_NUM,
+                                genreIds: Array.isArray(replacement.genreIds) ? replacement.genreIds.slice() : [],
                                 contentHash: contentHash(replacement.content || '', replacement.systemContent || ''),
                                 modified: new Date()
                             });

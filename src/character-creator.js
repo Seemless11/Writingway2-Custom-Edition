@@ -3,10 +3,6 @@
         { id: 'fantasy', label: 'Fantasy', icon: '⚔️' }
     ];
 
-    function GENRE_DESCRIPTIONS(id) {
-        return window.GenreDefs ? window.GenreDefs.getCharDescription(id) : '';
-    }
-
     const TRAIT_CATEGORIES = [
         {
             id: 'appearance',
@@ -1355,7 +1351,6 @@
 
     window.CharacterCreator = {
         GENRES,
-        GENRE_DESCRIPTIONS,
         TRAIT_CATEGORIES,
         DEFAULT_INSTRUCTION_TEMPLATES,
         CHARACTER_SYSTEM_PROMPT,

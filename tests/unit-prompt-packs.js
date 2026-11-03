@@ -79,7 +79,7 @@ function assertEqual(actual, expected, message) {
 }
 
 console.log('=== PromptPacks.VERSION ===');
-assertEqual(window.PromptPacks.VERSION, 3, 'VERSION is 3');
+assertEqual(window.PromptPacks.VERSION, 4, 'VERSION is 4');
 
 console.log('\n=== PromptPacks.GENRE_PACKS ===');
 assert(window.PromptPacks.GENRE_PACKS.fantasy !== undefined, 'fantasy pack exists');
@@ -152,28 +152,56 @@ const composedWorkshop = window.PromptPacks.compose(['fantasy'], 'workshop');
 assert(composedWorkshop !== undefined, 'compose: returns composed workshop prompt');
 assert(composedWorkshop.category === 'workshop', 'compose: workshop category');
 
-console.log('\n=== PromptPacks.mergePacks ===');
+console.log('\n=== PromptPacks.buildPack (equal-weight sections) ===');
 
-// Test single genre
-const single = window.PromptPacks.mergePacks(['fantasy']);
-assert(single.voice.length > 0, 'mergePacks: single genre has voice');
-assert(single.craftMoves.length > 0, 'mergePacks: single genre has craftMoves');
-assert(single.avoid.length > 0, 'mergePacks: single genre has avoid');
-assert(Array.isArray(single.creation) && single.creation.length > 0, 'mergePacks: single genre has creation');
+// Single genre → one section, fields preserved
+const single = window.PromptPacks.buildPack(['fantasy']);
+assert(!single.isMulti, 'buildPack: single genre is not multi');
+assert(single.sections.length === 1, 'buildPack: single genre has one section');
+assert(single.sections[0].voice.length > 0, 'buildPack: single genre section has voice');
+assert(single.sections[0].craftMoves.length > 0, 'buildPack: single genre section has craftMoves');
+assert(single.sections[0].avoid.length > 0, 'buildPack: single genre section has avoid');
+assert(Array.isArray(single.sections[0].creation) && single.sections[0].creation.length > 0, 'buildPack: single genre section has creation');
+assert(single.label === 'Fantasy', 'buildPack: single genre label');
 
-// Test multi-genre
-const multi = window.PromptPacks.mergePacks(['fantasy', 'horror']);
-assert(multi.voice.includes('wonder'), 'mergePacks: multi-genre uses first pack voice');
-assert(multi.craftMoves.length <= 8, 'mergePacks: craftMoves limited to 8 items');
-assert(multi.avoid.length <= 8, 'mergePacks: avoid limited to 8 items');
-assert(multi.creation.length > 0 && multi.creation.length <= 8, 'mergePacks: creation carried and limited to 8 items');
-assert(multi.creation.length === new Set(multi.creation).size, 'mergePacks: dedupes creation');
-assert(multi.rewriteFocus.length <= 6, 'mergePacks: rewriteFocus limited to 6 items');
-assert(multi.summaryFocus.length <= 6, 'mergePacks: summaryFocus limited to 6 items');
+// Multi genre → one section per genre, in selection order
+const multi = window.PromptPacks.buildPack(['fantasy', 'horror']);
+assert(multi.isMulti, 'buildPack: multi-genre isMulti');
+assert(multi.sections.length === 2, 'buildPack: multi-genre has one section per genre');
+assert(multi.sections.map(s => s.id).join(',') === 'fantasy,horror', 'buildPack: multi-genre preserves selection order');
+assert(multi.label === 'Fantasy & Horror', 'buildPack: multi-genre label joins with &');
+assert(multi.sections[0].voice.includes('wonder'), 'buildPack: first section keeps its own voice');
+assert(multi.sections[1].voice.includes('claustrophobic'), 'buildPack: second section keeps its own voice');
 
-// Test deduping
-const dupe = window.PromptPacks.mergePacks(['fantasy', 'fantasy']);
-assert(dupe.craftMoves.length === new Set(dupe.craftMoves).size, 'mergePacks: dedupes craftMoves');
+// Equal weight: every genre contributes its full creation payload (no cap)
+const fantasyFact = window.PromptPacks.GENRE_PACKS.fantasy.creation[0];
+const horrorFact = window.PromptPacks.GENRE_PACKS.horror.creation[0];
+assert(multi.creation.includes(fantasyFact), 'buildPack: multi includes first genre creation');
+assert(multi.creation.includes(horrorFact), 'buildPack: multi includes second genre creation');
+assert(multi.creation.length === new Set(multi.creation).size, 'buildPack: multi creation dedupes');
+
+const three = window.PromptPacks.buildPack(['fantasy', 'horror', 'romance']);
+const sumThree = three.sections.reduce((n, s) => n + s.creation.length, 0);
+assert(three.sections.length === 3, 'buildPack: three genres has three sections');
+assert(three.creation.length === sumThree, `buildPack: no cap — all three genres' creation retained (${three.creation.length})`);
+assert(three.creation.length > 8, 'buildPack: three genres exceeds the old cap of 8');
+
+// Unknown / duplicate / empty ids
+const unknown = window.PromptPacks.buildPack(['fantasy', 'nope']);
+assert(unknown.sections.length === 1 && unknown.label === 'Fantasy', 'buildPack: unknown id dropped');
+const dupe = window.PromptPacks.buildPack(['fantasy', 'fantasy']);
+assert(dupe.sections.length === 1 && !dupe.isMulti, 'buildPack: duplicate id collapsed');
+const none = window.PromptPacks.buildPack([]);
+assert(none.sections.length === 1 && none.label === 'General Fiction', 'buildPack: empty falls back to General Fiction');
+
+// Rendering: multi-genre prose is per-genre labeled and carries genreIds
+const proseMulti = window.PromptPacks.compose(['fantasy', 'horror'], 'prose');
+assert(proseMulti.systemContent.includes('Fantasy:'), 'compose: multi prose system labels first genre');
+assert(proseMulti.systemContent.includes('Horror:'), 'compose: multi prose system labels second genre');
+assert(Array.isArray(proseMulti.genreIds) && proseMulti.genreIds.length === 2, 'compose: multi stores genreIds');
+const proseSingle = window.PromptPacks.compose(['fantasy'], 'prose');
+assert(!proseSingle.systemContent.includes('Fantasy:'), 'compose: single prose is not labeled (unchanged shape)');
+assert(proseSingle.genreIds.length === 1, 'compose: single stores genreIds');
 
 console.log('\n=== PromptPacks.composeCore ===');
 // composeCore uses empty genre array (general fiction)

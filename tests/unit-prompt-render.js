@@ -99,6 +99,13 @@ assert(ctx.genres.includes('This is a Fantasy & Mystery story'), 'buildContext: 
 assert(ctx.genres.includes('magic systems and epic scope'), 'buildContext: fantasy descriptor');
 assert(ctx.genres.includes('intrigue, clues, and gradual revelation'), 'buildContext: mystery descriptor');
 
+// Test 3b: three or more genres are labeled per register (no "a, and b, and c")
+const ctx3 = window.PromptRender.buildContext(mockApp, { genreIds: ['fantasy', 'mystery', 'romance'] });
+assert(ctx3.genres.includes('This is a Fantasy & Mystery & Romance story'), 'buildContext: 3-genre labels');
+assert(ctx3.genres.includes('Fantasy: magic systems and epic scope'), 'buildContext: 3-genre first register labeled');
+assert(ctx3.genres.includes('Romance: emotional tension and relationship dynamics'), 'buildContext: 3-genre last register labeled');
+assert(ctx3.genres.includes('Mystery: intrigue, clues, and gradual revelation'), 'buildContext: 3-genre middle register labeled');
+
 // Test 4: Fallback when no genreIds
 const ctxNoGenre = window.PromptRender.buildContext(mockApp, {
     genreIds: [],

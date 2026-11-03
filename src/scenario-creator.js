@@ -3,10 +3,6 @@
         { id: 'fantasy', label: 'Fantasy', icon: '⚔️' }
     ];
 
-    function GENRE_DESCRIPTIONS(id) {
-        return window.GenreDefs ? window.GenreDefs.getScenarioDescription([id]) : '';
-    }
-
     const SCENARIO_TRAIT_CATEGORIES = [
         {
             id: 'conflict',
@@ -406,7 +402,6 @@
 
     window.ScenarioCreator = {
         GENRES,
-        GENRE_DESCRIPTIONS,
         SCENARIO_TRAIT_CATEGORIES,
         DEFAULT_INSTRUCTION_TEMPLATES,
         SCENARIO_SYSTEM_PROMPT,

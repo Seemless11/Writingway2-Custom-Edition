@@ -192,11 +192,16 @@ Object.assign(window.AppMethods, {
                     systemPrompt = systemPrompt.replace(/\{genreLabels\}/gi, scenarioGenreLabels);
                     promptMessages.push({ role: 'system', content: systemPrompt });
 
-                    // Setting / mechanics context (promptDescriptor) for the scenario builder
+                    // Setting / mechanics context (promptDescriptor) for the scenario builder.
+                    // Equal weight: label each genre's descriptor when multiple are selected.
                     if (window.GenreDefs && scenarioCreatorGenres.length > 0) {
-                        const descriptors = window.GenreDefs.getPromptDescriptor(scenarioCreatorGenres);
-                        if (descriptors.length > 0) {
-                            promptMessages.push({ role: 'system', content: 'Setting mechanics — ' + scenarioGenreLabels + ': ' + descriptors.join(', and ') + '.' });
+                        const mechanics = activeScenarioGenres
+                            .map(g => ({ label: g.label, desc: window.GenreDefs.getPromptDescriptor([g.id])[0] || '' }))
+                            .filter(x => x.desc);
+                        if (mechanics.length > 1) {
+                            promptMessages.push({ role: 'system', content: 'Setting mechanics:\n- ' + mechanics.map(x => x.label + ': ' + x.desc).join('\n- ') + '.' });
+                        } else if (mechanics.length === 1) {
+                            promptMessages.push({ role: 'system', content: 'Setting mechanics — ' + mechanics[0].label + ': ' + mechanics[0].desc + '.' });
                         }
                     }
                     const traitSource = traitOverride || this.scenarioCreatorSelectedTraits;

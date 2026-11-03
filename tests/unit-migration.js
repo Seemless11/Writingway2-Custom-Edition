@@ -15,14 +15,14 @@ const promptsCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'prompts.j
 
 const window = {
     PromptPacks: {
-        VERSION: 3,
+        VERSION: 4,
         composeSet: (genres) => [
-            { category: 'prose', title: 'Fantasy Prose Prompt', content: 'V2 prose content', systemContent: 'V2 prose system', defaultFor: 'prose', genreId: 'fantasy' },
-            { category: 'summary', title: 'Fantasy Continuity Recap Prompt', content: 'V2 summary content', systemContent: 'V2 summary system', defaultFor: 'summary', genreId: 'fantasy' },
-            { category: 'workshop', title: 'Fantasy Workshop Prompt', content: 'V2 workshop content', systemContent: 'V2 workshop system', defaultFor: '', genreId: 'fantasy' },
-            { category: 'rewrite', title: 'Fantasy Rewrite Prompt', content: 'V2 rewrite content', systemContent: 'V2 rewrite system', defaultFor: '', genreId: 'fantasy' }
+            { category: 'prose', title: 'Fantasy Prose Prompt', content: 'V2 prose content', systemContent: 'V2 prose system', defaultFor: 'prose', genreIds: ['fantasy'] },
+            { category: 'summary', title: 'Fantasy Continuity Recap Prompt', content: 'V2 summary content', systemContent: 'V2 summary system', defaultFor: 'summary', genreIds: ['fantasy'] },
+            { category: 'workshop', title: 'Fantasy Workshop Prompt', content: 'V2 workshop content', systemContent: 'V2 workshop system', defaultFor: '', genreIds: ['fantasy'] },
+            { category: 'rewrite', title: 'Fantasy Rewrite Prompt', content: 'V2 rewrite content', systemContent: 'V2 rewrite system', defaultFor: '', genreIds: ['fantasy'] }
         ],
-        compose: (ids, cat) => ({ category: cat, content: `V2 ${cat} content`, systemContent: `V2 ${cat} system` }),
+        compose: (ids, cat) => ({ category: cat, content: `V2 ${cat} content`, systemContent: `V2 ${cat} system`, genreIds: Array.isArray(ids) ? ids : [] }),
         getPack: (cat) => ({ category: cat, content: `V2 ${cat} content`, systemContent: `V2 ${cat} system` })
     },
     GenreDefs: {
@@ -72,6 +72,20 @@ function assertEqual(actual, expected, message) {
     }
 }
 
+function assertArrayEqual(actual, expected, message) {
+    const a = JSON.stringify(actual);
+    const e = JSON.stringify(expected);
+    if (a === e) {
+        console.log(`✓ ${message}`);
+        passed++;
+    } else {
+        console.error(`✗ ${message}`);
+        console.error(`  Expected: ${e}`);
+        console.error(`  Actual:   ${a}`);
+        failed++;
+    }
+}
+
 console.log('=== isPromptUntouched Tests ===');
 
 // Test 1: Exact V1 prose content
@@ -103,6 +117,22 @@ const v1Rewrite = { builtin: true, category: 'rewrite', content: V1_PROSE_CONTEN
 assert(isPromptUntouched(v1Rewrite) === false, 'isPromptUntouched: returns false for rewrite with V1 prose content');
 
 console.log('\n=== Migration Logic Simulation ===');
+
+// Mirrors prompts.js: a builtin row is edited when its content no longer matches
+// the hash recorded at seed time.
+function contentHash(content, systemContent) {
+    let hash = 0;
+    const str = (content || '') + '\n' + (systemContent || '');
+    for (let i = 0; i < str.length; i++) {
+        hash = ((hash << 5) - hash) + str.charCodeAt(i);
+        hash = hash & hash;
+    }
+    return hash.toString(16);
+}
+function isUserEdited(prompt) {
+    if (!prompt || !prompt.builtin || !prompt.contentHash) return false;
+    return contentHash(prompt.content || '', prompt.systemContent || '') !== prompt.contentHash;
+}
 
 // Simulate the upgrade process
 async function simulateUpgrade() {
@@ -156,34 +186,36 @@ async function simulateUpgrade() {
     const now = new Date();
     db.prompts.data = [
         // Global prompts
-        { id: 'g1', projectId: '__global__', category: 'prose', title: 'Default Prose Prompt', content: V1_PROSE_CONTENT, systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // untouched V1
-        { id: 'g2', projectId: '__global__', category: 'summary', title: 'Default Summary Prompt', content: V1_SUMMARY_CONTENT, systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // untouched V1
-        { id: 'g3', projectId: '__global__', category: 'workshop', title: 'Default Workshop Prompt', content: V1_WORKSHOP_CONTENT, systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // untouched V1
-        { id: 'g4', projectId: '__global__', category: 'prose', title: 'Custom Global Prose', content: V1_PROSE_CONTENT + ' My tweaks.', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // edited V1
+        { id: 'g1', projectId: '__global__', category: 'prose', title: 'Default Prose Prompt', content: V1_PROSE_CONTENT, systemContent: '', builtin: true, packVersion: 1, contentHash: contentHash(V1_PROSE_CONTENT, ''), created: now, modified: now }, // untouched V1
+        { id: 'g2', projectId: '__global__', category: 'summary', title: 'Default Summary Prompt', content: V1_SUMMARY_CONTENT, systemContent: '', builtin: true, packVersion: 1, contentHash: contentHash(V1_SUMMARY_CONTENT, ''), created: now, modified: now }, // untouched V1
+        { id: 'g3', projectId: '__global__', category: 'workshop', title: 'Default Workshop Prompt', content: V1_WORKSHOP_CONTENT, systemContent: '', builtin: true, packVersion: 1, contentHash: contentHash(V1_WORKSHOP_CONTENT, ''), created: now, modified: now }, // untouched V1
+        { id: 'g4', projectId: '__global__', category: 'prose', title: 'Custom Global Prose', content: V1_PROSE_CONTENT + ' My tweaks.', systemContent: '', builtin: true, packVersion: 1, contentHash: contentHash(V1_PROSE_CONTENT, ''), created: now, modified: now }, // edited V1 (hash no longer matches)
         { id: 'g5', projectId: '__global__', category: 'prose', title: 'User Prompt', content: 'My custom prompt', systemContent: '', builtin: false, created: now, modified: now }, // custom
 
         // Project prompts (fantasy)
-        { id: 'p1', projectId: 'proj1', category: 'prose', title: 'Fantasy Prose Prompt', content: 'V1 fantasy prose content', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // not exact V1 (genre-specific)
-        { id: 'p2', projectId: 'proj1', category: 'summary', title: 'Fantasy Continuity Recap Prompt', content: 'V1 fantasy summary content', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // not exact V1
+        { id: 'p1', projectId: 'proj1', category: 'prose', title: 'Fantasy Prose Prompt', content: 'V1 fantasy prose content', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // legacy: no contentHash → treated untouched
+        { id: 'p2', projectId: 'proj1', category: 'summary', title: 'Fantasy Continuity Recap Prompt', content: 'V1 fantasy summary content', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // legacy
         { id: 'p3', projectId: 'proj1', category: 'prose', title: 'My Fantasy Prompt', content: 'My custom fantasy prompt', systemContent: '', builtin: false, created: now, modified: now } // custom
     ];
 
     const currentProject = { id: 'proj1', genres: ['fantasy'] };
     const GLOBAL_PROJECT_ID = '__global__';
 
-    // Simulate auto-upgrade: every builtin row with packVersion < VERSION gets replaced.
-    // Non-builtin rows are never touched.
+    // Simulate auto-upgrade: builtin rows with packVersion < VERSION that the
+    // user has NOT edited get replaced. Non-builtin and edited rows are kept.
     const VERSION_NUM = window.PromptPacks.VERSION;
 
     const globalPrompts = await db.prompts.where('projectId').equals(GLOBAL_PROJECT_ID).toArray();
     for (const p of globalPrompts) {
-        if (p.builtin && (p.packVersion || 1) < VERSION_NUM) {
+        if (p.builtin && (p.packVersion || 1) < VERSION_NUM && !isUserEdited(p)) {
             const replacement = window.PromptPacks.getPack(p.category);
             if (replacement) {
                 await db.prompts.update(p.id, {
                     content: replacement.content || '',
                     systemContent: replacement.systemContent || '',
                     packVersion: VERSION_NUM,
+                    genreIds: Array.isArray(replacement.genreIds) ? replacement.genreIds.slice() : [],
+                    contentHash: contentHash(replacement.content || '', replacement.systemContent || ''),
                     modified: new Date()
                 });
             }
@@ -192,7 +224,7 @@ async function simulateUpgrade() {
 
     const projectPrompts = await db.prompts.where('projectId').equals(currentProject.id).toArray();
     for (const p of projectPrompts) {
-        if (p.builtin && (p.packVersion || 1) < VERSION_NUM) {
+        if (p.builtin && (p.packVersion || 1) < VERSION_NUM && !isUserEdited(p)) {
             const genreSet = window.PromptPacks.composeSet(currentProject.genres);
             if (genreSet) {
                 const replacement = genreSet.find(r => r.category === p.category && r.title === p.title);
@@ -201,6 +233,8 @@ async function simulateUpgrade() {
                         content: replacement.content || '',
                         systemContent: replacement.systemContent || '',
                         packVersion: VERSION_NUM,
+                        genreIds: Array.isArray(replacement.genreIds) ? replacement.genreIds.slice() : [],
+                        contentHash: contentHash(replacement.content || '', replacement.systemContent || ''),
                         modified: new Date()
                     });
                 }
@@ -214,23 +248,29 @@ async function simulateUpgrade() {
 
     // All builtin V1 rows (g1-g4) should be upgraded, including the edited one (g4).
     assertEqual(updatedGlobal.find(d => d.id === 'g1').content, 'V2 prose content', 'g1 upgraded to V2');
-    assertEqual(updatedGlobal.find(d => d.id === 'g1').packVersion, 3, 'g1 packVersion updated to 3');
+    assertEqual(updatedGlobal.find(d => d.id === 'g1').packVersion, 4, 'g1 packVersion updated to 4');
     assertEqual(updatedGlobal.find(d => d.id === 'g2').content, 'V2 summary content', 'g2 upgraded to V2');
     assertEqual(updatedGlobal.find(d => d.id === 'g3').content, 'V2 workshop content', 'g3 upgraded to V2');
-    assertEqual(updatedGlobal.find(d => d.id === 'g4').content, 'V2 prose content', 'g4 upgraded (auto-upgrade overwrites edits)');
-    assertEqual(updatedGlobal.find(d => d.id === 'g4').packVersion, 3, 'g4 packVersion updated to 3');
+
+    // g4 was edited → must survive the version bump untouched
+    assertEqual(updatedGlobal.find(d => d.id === 'g4').content, V1_PROSE_CONTENT + ' My tweaks.', 'g4 edited row NOT overwritten');
+    assertEqual(updatedGlobal.find(d => d.id === 'g4').packVersion, 1, 'g4 packVersion left at 1');
 
     // g5 should NOT be upgraded (not builtin)
     assertEqual(updatedGlobal.find(d => d.id === 'g5').content, 'My custom prompt', 'g5 NOT upgraded (custom)');
 
-    // p1, p2 should be upgraded (builtin, packVersion 1 < 3)
+    // p1, p2 should be upgraded (builtin, packVersion 1 < 4, legacy: no contentHash)
     assertEqual(updatedProject.find(d => d.id === 'p1').content, 'V2 prose content', 'p1 upgraded to V2');
-    assertEqual(updatedProject.find(d => d.id === 'p1').packVersion, 3, 'p1 packVersion updated to 3');
+    assertEqual(updatedProject.find(d => d.id === 'p1').packVersion, 4, 'p1 packVersion updated to 4');
+    assertArrayEqual(updatedProject.find(d => d.id === 'p1').genreIds, ['fantasy'], 'p1 genreIds recorded on upgrade');
     assertEqual(updatedProject.find(d => d.id === 'p2').content, 'V2 summary content', 'p2 upgraded to V2');
-    assertEqual(updatedProject.find(d => d.id === 'p2').packVersion, 3, 'p2 packVersion updated to 3');
+    assertEqual(updatedProject.find(d => d.id === 'p2').packVersion, 4, 'p2 packVersion updated to 4');
 
     // p3 should NOT be upgraded (custom)
     assertEqual(updatedProject.find(d => d.id === 'p3').content, 'My custom fantasy prompt', 'p3 NOT upgraded (custom)');
+
+    // A second run must be a no-op (hashes now match after upgrade)
+    assert(!isUserEdited(updatedProject.find(d => d.id === 'p1')), 'p1 not flagged edited after upgrade');
 
     console.log('  All migration assertions passed!');
 }

@@ -227,7 +227,8 @@
                     if (builtIn.length > 0) {
                         // Try to find a genre-matching built-in first
                         const genreIds = app.currentProject?.genres || [];
-                        let match = builtIn.find(p => genreIds.includes(p.genreId));
+                        let match = builtIn.find(p => Array.isArray(p.genreIds) && p.genreIds.some(id => genreIds.includes(id)));
+                        if (!match) match = builtIn.find(p => p.genreId && genreIds.includes(p.genreId));
                         if (!match) match = builtIn[0];
                         if (match) {
                             app.selectedRewritePromptId = match.id;
