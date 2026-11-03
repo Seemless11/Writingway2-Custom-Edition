@@ -321,6 +321,12 @@ Object.assign(window.AppMethods, {
                     if (charCreatorLang !== 'English') {
                         charCreatorSystemPrompt += '\n\nIMPORTANT: Write all responses entirely in ' + charCreatorLang + '.';
                     }
+
+                    const activeGenres = (this.charCreatorGenres || ['fantasy'])
+                        .map(id => (window.CharacterCreator.GENRES || []).find(g => g.id === id))
+                        .filter(Boolean);
+                    const genreLabels = activeGenres.map(g => g.label).join(' & ') || 'general fiction';
+                    charCreatorSystemPrompt = charCreatorSystemPrompt.replace(/\{genreLabels\}/gi, genreLabels);
                     promptMessages.push({ role: 'system', content: charCreatorSystemPrompt });
 
                     const traitSource = traitOverride || this.charCreatorSelectedTraits;
@@ -350,16 +356,15 @@ Object.assign(window.AppMethods, {
                         promptMessages.push({ role: 'system', content: 'Additional notes about the character:\n' + this.charCreatorNotes });
                     }
 
-                    const activeGenres = (this.charCreatorGenres || ['fantasy'])
-                        .map(id => (window.CharacterCreator.GENRES || []).find(g => g.id === id))
-                        .filter(Boolean);
-                    if (activeGenres.length > 0) {
-                        const labels = activeGenres.map(g => g.label);
-                        const descs = activeGenres.map(g => {
-                            const d = window.GenreDefs ? window.GenreDefs.getCharDescription(g.id) : '';
-                            return d || 'Tailor descriptions to fit this genre.';
-                        });
-                        promptMessages.push({ role: 'system', content: 'The story genre' + (activeGenres.length > 1 ? 's are ' : ' is ') + labels.join(' + ') + '. ' + descs.join(' ') });
+                    // GENRE SHEET from creation facts (role, institutions, logistics, money, kit)
+                    if (window.PromptPacks && activeGenres.length > 0) {
+                        const merged = window.PromptPacks.mergePacks(activeGenres.map(g => g.id));
+                        const creation = merged.creation || [];
+                        if (creation.length > 0) {
+                            const sheet = ['GENRE SHEET — ' + genreLabels + ':'];
+                            for (const fact of creation) sheet.push('- ' + fact);
+                            promptMessages.push({ role: 'system', content: sheet.join('\n') });
+                        }
                     }
 
                     const recentHistory = this.charCreatorChatHistory.slice(0, -1);

@@ -79,7 +79,7 @@ function assertEqual(actual, expected, message) {
 }
 
 console.log('=== PromptPacks.VERSION ===');
-assertEqual(window.PromptPacks.VERSION, 2, 'VERSION is 2');
+assertEqual(window.PromptPacks.VERSION, 3, 'VERSION is 3');
 
 console.log('\n=== PromptPacks.GENRE_PACKS ===');
 assert(window.PromptPacks.GENRE_PACKS.fantasy !== undefined, 'fantasy pack exists');
@@ -95,6 +95,28 @@ assert(fantasyPack.avoid !== undefined, 'fantasy pack has avoid');
 assert(fantasyPack.rewriteFocus !== undefined, 'fantasy pack has rewriteFocus');
 assert(fantasyPack.summaryFocus !== undefined, 'fantasy pack has summaryFocus');
 assert(fantasyPack.workshopAgenda !== undefined, 'fantasy pack has workshopAgenda');
+assert(Array.isArray(fantasyPack.creation) && fantasyPack.creation.length > 0, 'fantasy pack has creation facts');
+
+// Every pack must carry the full live contract. compose() renders each of these
+// into a prompt section, so an empty list becomes an empty section in the app.
+const PACK_LIST_FIELDS = ['engines', 'craftMoves', 'imagery', 'avoid', 'rewriteFocus', 'summaryFocus', 'workshopAgenda', 'creation'];
+const PACK_TEXT_FIELDS = ['label', 'voice', 'dialogue'];
+for (const [id, pack] of Object.entries(window.PromptPacks.GENRE_PACKS)) {
+    for (const field of PACK_TEXT_FIELDS) {
+        assert(typeof pack[field] === 'string' && pack[field].trim().length > 0, `${id}: ${field} is a non-empty string`);
+    }
+    for (const field of PACK_LIST_FIELDS) {
+        assert(Array.isArray(pack[field]) && pack[field].length > 0, `${id}: ${field} is a non-empty list`);
+    }
+}
+
+const generalPack = window.PromptPacks.GENERAL_PACK;
+for (const field of PACK_TEXT_FIELDS) {
+    assert(typeof generalPack[field] === 'string' && generalPack[field].trim().length > 0, `general: ${field} is a non-empty string`);
+}
+for (const field of PACK_LIST_FIELDS) {
+    assert(Array.isArray(generalPack[field]) && generalPack[field].length > 0, `general: ${field} is a non-empty list`);
+}
 
 console.log('\n=== PromptPacks.GENERAL_PACK ===');
 assert(window.PromptPacks.GENERAL_PACK !== undefined, 'GENERAL_PACK exists');
@@ -137,12 +159,15 @@ const single = window.PromptPacks.mergePacks(['fantasy']);
 assert(single.voice.length > 0, 'mergePacks: single genre has voice');
 assert(single.craftMoves.length > 0, 'mergePacks: single genre has craftMoves');
 assert(single.avoid.length > 0, 'mergePacks: single genre has avoid');
+assert(Array.isArray(single.creation) && single.creation.length > 0, 'mergePacks: single genre has creation');
 
 // Test multi-genre
 const multi = window.PromptPacks.mergePacks(['fantasy', 'horror']);
 assert(multi.voice.includes('wonder'), 'mergePacks: multi-genre uses first pack voice');
 assert(multi.craftMoves.length <= 8, 'mergePacks: craftMoves limited to 8 items');
 assert(multi.avoid.length <= 8, 'mergePacks: avoid limited to 8 items');
+assert(multi.creation.length > 0 && multi.creation.length <= 8, 'mergePacks: creation carried and limited to 8 items');
+assert(multi.creation.length === new Set(multi.creation).size, 'mergePacks: dedupes creation');
 assert(multi.rewriteFocus.length <= 6, 'mergePacks: rewriteFocus limited to 6 items');
 assert(multi.summaryFocus.length <= 6, 'mergePacks: summaryFocus limited to 6 items');
 

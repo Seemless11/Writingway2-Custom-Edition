@@ -183,7 +183,22 @@ Object.assign(window.AppMethods, {
                     let systemPrompt = window.ScenarioCreator.getSystemPrompt();
                     const lang = this.language || this.currentProject?.language || 'English';
                     if (lang !== 'English') systemPrompt += '\n\nIMPORTANT: Write all responses entirely in ' + lang + '.';
+
+                    const scenarioCreatorGenres = this.scenarioCreatorGenres || [];
+                    const activeScenarioGenres = scenarioCreatorGenres
+                        .map(id => (window.ScenarioCreator.GENRES || []).find(g => g.id === id))
+                        .filter(Boolean);
+                    const scenarioGenreLabels = activeScenarioGenres.map(g => g.label).join(' & ') || 'general fiction';
+                    systemPrompt = systemPrompt.replace(/\{genreLabels\}/gi, scenarioGenreLabels);
                     promptMessages.push({ role: 'system', content: systemPrompt });
+
+                    // Setting / mechanics context (promptDescriptor) for the scenario builder
+                    if (window.GenreDefs && scenarioCreatorGenres.length > 0) {
+                        const descriptors = window.GenreDefs.getPromptDescriptor(scenarioCreatorGenres);
+                        if (descriptors.length > 0) {
+                            promptMessages.push({ role: 'system', content: 'Setting mechanics — ' + scenarioGenreLabels + ': ' + descriptors.join(', and ') + '.' });
+                        }
+                    }
                     const traitSource = traitOverride || this.scenarioCreatorSelectedTraits;
                     const traitParts = [];
                     for (const cat of window.ScenarioCreator.SCENARIO_TRAIT_CATEGORIES) {

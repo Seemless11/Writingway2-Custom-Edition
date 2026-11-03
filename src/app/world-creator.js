@@ -201,7 +201,22 @@ Object.assign(window.AppMethods, {
                     let systemPrompt = window.WorldCreator.getSystemPrompt();
                     const lang = this.language || this.currentProject?.language || 'English';
                     if (lang !== 'English') systemPrompt += '\n\nIMPORTANT: Write all responses entirely in ' + lang + '.';
+
+                    const worldCreatorGenres = this.worldCreatorGenres || [];
+                    const activeWorldGenres = worldCreatorGenres
+                        .map(id => (window.WorldCreator.GENRES || []).find(g => g.id === id))
+                        .filter(Boolean);
+                    const worldGenreLabels = activeWorldGenres.map(g => g.label).join(' & ') || 'general fiction';
+                    systemPrompt = systemPrompt.replace(/\{genreLabels\}/gi, worldGenreLabels);
                     promptMessages.push({ role: 'system', content: systemPrompt });
+
+                    // Setting / mechanics context (promptDescriptor) for the world builder
+                    if (window.GenreDefs && worldCreatorGenres.length > 0) {
+                        const descriptors = window.GenreDefs.getPromptDescriptor(worldCreatorGenres);
+                        if (descriptors.length > 0) {
+                            promptMessages.push({ role: 'system', content: 'Setting mechanics — ' + worldGenreLabels + ': ' + descriptors.join(', and ') + '.' });
+                        }
+                    }
                     const traitSource = traitOverride || this.worldCreatorSelectedTraits;
                     const traitParts = [];
                     for (const cat of window.WorldCreator.WORLD_TRAIT_CATEGORIES) {

@@ -15,13 +15,14 @@ const promptsCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'prompts.j
 
 const window = {
     PromptPacks: {
-        VERSION: 2,
+        VERSION: 3,
         composeSet: (genres) => [
             { category: 'prose', title: 'Fantasy Prose Prompt', content: 'V2 prose content', systemContent: 'V2 prose system', defaultFor: 'prose', genreId: 'fantasy' },
             { category: 'summary', title: 'Fantasy Continuity Recap Prompt', content: 'V2 summary content', systemContent: 'V2 summary system', defaultFor: 'summary', genreId: 'fantasy' },
             { category: 'workshop', title: 'Fantasy Workshop Prompt', content: 'V2 workshop content', systemContent: 'V2 workshop system', defaultFor: '', genreId: 'fantasy' },
             { category: 'rewrite', title: 'Fantasy Rewrite Prompt', content: 'V2 rewrite content', systemContent: 'V2 rewrite system', defaultFor: '', genreId: 'fantasy' }
         ],
+        compose: (ids, cat) => ({ category: cat, content: `V2 ${cat} content`, systemContent: `V2 ${cat} system` }),
         getPack: (cat) => ({ category: cat, content: `V2 ${cat} content`, systemContent: `V2 ${cat} system` })
     },
     GenreDefs: {
@@ -163,23 +164,26 @@ async function simulateUpgrade() {
 
         // Project prompts (fantasy)
         { id: 'p1', projectId: 'proj1', category: 'prose', title: 'Fantasy Prose Prompt', content: 'V1 fantasy prose content', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // not exact V1 (genre-specific)
-        { id: 'p2', projectId: 'proj1', category: 'summary', title: 'Fantasy Summary Prompt', content: 'V1 fantasy summary content', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // not exact V1
+        { id: 'p2', projectId: 'proj1', category: 'summary', title: 'Fantasy Continuity Recap Prompt', content: 'V1 fantasy summary content', systemContent: '', builtin: true, packVersion: 1, created: now, modified: now }, // not exact V1
         { id: 'p3', projectId: 'proj1', category: 'prose', title: 'My Fantasy Prompt', content: 'My custom fantasy prompt', systemContent: '', builtin: false, created: now, modified: now } // custom
     ];
 
     const currentProject = { id: 'proj1', genres: ['fantasy'] };
     const GLOBAL_PROJECT_ID = '__global__';
 
-    // Simulate upgrade
+    // Simulate auto-upgrade: every builtin row with packVersion < VERSION gets replaced.
+    // Non-builtin rows are never touched.
+    const VERSION_NUM = window.PromptPacks.VERSION;
+
     const globalPrompts = await db.prompts.where('projectId').equals(GLOBAL_PROJECT_ID).toArray();
     for (const p of globalPrompts) {
-        if (isPromptUntouched(p)) {
+        if (p.builtin && (p.packVersion || 1) < VERSION_NUM) {
             const replacement = window.PromptPacks.getPack(p.category);
             if (replacement) {
                 await db.prompts.update(p.id, {
                     content: replacement.content || '',
                     systemContent: replacement.systemContent || '',
-                    packVersion: window.PromptPacks.VERSION,
+                    packVersion: VERSION_NUM,
                     modified: new Date()
                 });
             }
@@ -188,7 +192,7 @@ async function simulateUpgrade() {
 
     const projectPrompts = await db.prompts.where('projectId').equals(currentProject.id).toArray();
     for (const p of projectPrompts) {
-        if (isPromptUntouched(p)) {
+        if (p.builtin && (p.packVersion || 1) < VERSION_NUM) {
             const genreSet = window.PromptPacks.composeSet(currentProject.genres);
             if (genreSet) {
                 const replacement = genreSet.find(r => r.category === p.category && r.title === p.title);
@@ -196,7 +200,7 @@ async function simulateUpgrade() {
                     await db.prompts.update(p.id, {
                         content: replacement.content || '',
                         systemContent: replacement.systemContent || '',
-                        packVersion: window.PromptPacks.VERSION,
+                        packVersion: VERSION_NUM,
                         modified: new Date()
                     });
                 }
@@ -208,21 +212,22 @@ async function simulateUpgrade() {
     const updatedGlobal = db.prompts.data.filter(d => d.projectId === '__global__');
     const updatedProject = db.prompts.data.filter(d => d.projectId === 'proj1');
 
-    // g1, g2, g3 should be upgraded
+    // All builtin V1 rows (g1-g4) should be upgraded, including the edited one (g4).
     assertEqual(updatedGlobal.find(d => d.id === 'g1').content, 'V2 prose content', 'g1 upgraded to V2');
-    assertEqual(updatedGlobal.find(d => d.id === 'g1').packVersion, 2, 'g1 packVersion updated to 2');
+    assertEqual(updatedGlobal.find(d => d.id === 'g1').packVersion, 3, 'g1 packVersion updated to 3');
     assertEqual(updatedGlobal.find(d => d.id === 'g2').content, 'V2 summary content', 'g2 upgraded to V2');
     assertEqual(updatedGlobal.find(d => d.id === 'g3').content, 'V2 workshop content', 'g3 upgraded to V2');
-
-    // g4 should NOT be upgraded (edited)
-    assertEqual(updatedGlobal.find(d => d.id === 'g4').content, V1_PROSE_CONTENT + ' My tweaks.', 'g4 NOT upgraded (edited)');
+    assertEqual(updatedGlobal.find(d => d.id === 'g4').content, 'V2 prose content', 'g4 upgraded (auto-upgrade overwrites edits)');
+    assertEqual(updatedGlobal.find(d => d.id === 'g4').packVersion, 3, 'g4 packVersion updated to 3');
 
     // g5 should NOT be upgraded (not builtin)
     assertEqual(updatedGlobal.find(d => d.id === 'g5').content, 'My custom prompt', 'g5 NOT upgraded (custom)');
 
-    // p1, p2 are genre-specific V1 (not exact V1 match) so NOT upgraded
-    assertEqual(updatedProject.find(d => d.id === 'p1').content, 'V1 fantasy prose content', 'p1 NOT upgraded (not exact V1)');
-    assertEqual(updatedProject.find(d => d.id === 'p2').content, 'V1 fantasy summary content', 'p2 NOT upgraded (not exact V1)');
+    // p1, p2 should be upgraded (builtin, packVersion 1 < 3)
+    assertEqual(updatedProject.find(d => d.id === 'p1').content, 'V2 prose content', 'p1 upgraded to V2');
+    assertEqual(updatedProject.find(d => d.id === 'p1').packVersion, 3, 'p1 packVersion updated to 3');
+    assertEqual(updatedProject.find(d => d.id === 'p2').content, 'V2 summary content', 'p2 upgraded to V2');
+    assertEqual(updatedProject.find(d => d.id === 'p2').packVersion, 3, 'p2 packVersion updated to 3');
 
     // p3 should NOT be upgraded (custom)
     assertEqual(updatedProject.find(d => d.id === 'p3').content, 'My custom fantasy prompt', 'p3 NOT upgraded (custom)');
