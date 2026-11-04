@@ -207,6 +207,7 @@
                     maxTokens: app.maxTokens,
                     useProviderDefaults: app.useProviderDefaults || false,
                     forceNonStreaming: app.forceNonStreaming || false,
+                    autoExtendShortScenes: app.autoExtendShortScenes || false,
                     reasoningEffort: app.reasoningEffort || 'low',
                     reasoningBudget: app.reasoningBudget !== undefined ? app.reasoningBudget : 4000,
                     topP: app.topP,
@@ -245,6 +246,7 @@
                     maxTokens: app.maxTokens,
                     useProviderDefaults: app.useProviderDefaults || false,
                     forceNonStreaming: app.forceNonStreaming || false,
+                    autoExtendShortScenes: app.autoExtendShortScenes || false,
                     reasoningEffort: app.reasoningEffort || 'low',
                     reasoningBudget: app.reasoningBudget !== undefined ? app.reasoningBudget : 4000,
                     topP: app.topP,
@@ -457,6 +459,7 @@
                     app.maxTokens = settings.maxTokens !== undefined ? settings.maxTokens : 300;
                     app.useProviderDefaults = settings.useProviderDefaults || false;
                     app.forceNonStreaming = settings.forceNonStreaming || false;
+                    app.autoExtendShortScenes = settings.autoExtendShortScenes || false;
                     app.reasoningEffort = settings.reasoningEffort || 'low';
                     app.reasoningBudget = settings.reasoningBudget !== undefined ? settings.reasoningBudget : 4000;
                     app.topP = settings.topP !== undefined ? settings.topP : 0.9;

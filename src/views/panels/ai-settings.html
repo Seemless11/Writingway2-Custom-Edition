@@ -194,6 +194,21 @@
                         </p>
                     </div>
 
+                    <!-- Auto-extend short generations (off by default) -->
+                    <div style="margin-bottom:16px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" x-model="autoExtendShortScenes" @change="saveGenerationParams()"
+                                style="width:16px;height:16px;cursor:pointer;">
+                            <span style="font-size:13px;color:var(--text-primary);">
+                                Auto-extend short generations
+                            </span>
+                        </label>
+                        <p style="font-size:11px;color:var(--text-secondary);margin:4px 0 0 0;padding-left:24px;">
+                            When on, a passage that stops short of the target length is automatically continued.
+                            Off by default, because the extra pass can re-generate and repeat the beat.
+                        </p>
+                    </div>
+
                     <!-- Reasoning Effort (reasoning/thinking models only) -->
                     <div x-show="aiMode === 'api'" style="margin-bottom:16px;">
                         <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-primary);">

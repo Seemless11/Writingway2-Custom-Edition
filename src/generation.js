@@ -656,7 +656,22 @@
         return result;
     }
 
-    const CONTINUE_INSTRUCTION = 'Continue writing from exactly where you left off. Do not repeat anything that has already been written. Finish the current sentence, then stop at a natural ending point.';
+    const CONTINUE_INSTRUCTION = 'Continue writing from exactly where you left off. The beat has already been delivered; do not repeat or re-narrate anything that has already been written. Finish the current sentence, then stop at a natural ending point.';
+
+    // Markers the beat/flow prompt builders append after the scene context. The
+    // continuation must not re-send the beat, or the model tends to deliver it a
+    // second time.
+    const BEAT_MARKERS = ['\n\nBEAT TO EXPAND:', '\n\nContinue the story from here'];
+
+    function stripBeatInstruction(content) {
+        if (typeof content !== 'string') return content;
+        let cut = content.length;
+        for (const marker of BEAT_MARKERS) {
+            const i = content.indexOf(marker);
+            if (i !== -1 && i < cut) cut = i;
+        }
+        return cut < content.length ? content.slice(0, cut) : content;
+    }
 
     /**
      * Build a continuation prompt. Two cases:
@@ -675,7 +690,7 @@
         const remaining = Math.max(40, Math.round(Number(opts.remainingWords) || 0));
         const instruction = truncated
             ? CONTINUE_INSTRUCTION
-            : `Continue the scene from exactly where it stopped. Do not repeat anything that has already been written. Add roughly ${remaining} more words of new prose that move the scene forward, then stop at a natural ending point.`;
+            : `Continue the scene from exactly where it stopped. The beat has already been delivered; do not repeat or re-narrate anything that has already been written. Add roughly ${remaining} more words of new prose that move the story past the last line, then stop at a natural ending point.`;
         let messages = null;
         if (Array.isArray(prompt)) {
             messages = prompt;
@@ -683,8 +698,13 @@
             messages = prompt.messages;
         }
         if (messages) {
+            // Drop the beat from the original user turn so the model cannot
+            // re-deliver it; the system prompt and scene context are kept.
+            const context = messages.map(m =>
+                m.role === 'user' ? { ...m, content: stripBeatInstruction(m.content) } : m
+            );
             const next = [
-                ...messages,
+                ...context,
                 { role: 'assistant', content: partialText },
                 { role: 'user', content: instruction }
             ];
@@ -759,7 +779,11 @@
                 console.warn('⚠️ Reasoning model hit its token budget during thinking; skipping auto-resume.');
                 break;
             }
-            const needsTopUp = !truncated && words < minWords && words >= topUpFloor;
+            // Auto-extend is opt-in. When off, only a genuine mid-sentence
+            // truncation resumes; a natural short stop is left for the user, so
+            // the model never re-generates an already-complete passage.
+            const autoExtend = app?.autoExtendShortScenes === true;
+            const needsTopUp = autoExtend && !truncated && words < minWords && words >= topUpFloor;
             if (!truncated && !needsTopUp) break;
             // No progress since the previous stream: another pass would only
             // repeat text (or spin forever), so stop here.
@@ -1634,6 +1658,11 @@
         }
         if (!beatText && app.aiStatus !== 'ready') return;
         if (!beatText && !sceneContent) return;
+        // Re-entrancy guard: a second trigger while a generation is in flight
+        // would start an overlapping stream whose tokens append a duplicate
+        // passage. The buttons are hidden during generation, but a fast
+        // double-trigger can still slip through.
+        if (app.isGenerating) return;
         app.isGenerating = true;
         // Capture the target scene up front so tokens are never appended to a
         // different scene if the user switches scenes mid-generation.
@@ -1801,6 +1830,9 @@
     async function generateFromBeat(app) {
         const beatText = app.getCurrentBeat();
         if (!beatText || app.aiStatus !== 'ready') return;
+        // Re-entrancy guard: never start an overlapping generation; concurrent
+        // streams would append two passages to the same scene.
+        if (app.isGenerating) return;
         app.isGenerating = true;
         // Capture the target scene up front so tokens are never appended to a
         // different scene if the user switches scenes mid-generation.

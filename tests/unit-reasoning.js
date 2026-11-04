@@ -363,7 +363,59 @@ const rEmptySentinel = () => ({ content: '', reasoning: '', reasoning_details: [
     if (!s || s.reasoning_effort !== 'low') fail(`scenario G: o3-mini off must fall back to low, got ${JSON.stringify(s && s.reasoning_effort)}`, 37);
     console.log('scenario F/G passed: OpenAI off maps to none when supported, low otherwise.');
 
-    console.log('unit-reasoning test passed: reasoning isolation, status, headroom, resume guard.');
+    // ---- Scenario H: a natural short stop must NOT auto-extend when the opt-in
+    // setting is off. (Regression: this used to fire a second stream that
+    // re-delivered the beat, producing the scene twice.)
+    await resetScene(page);
+    await page.evaluate(() => {
+      const app = window.__test.getApp();
+      app.aiProvider = 'openai';
+      app.aiModel = 'gpt-4o-mini';
+      app.maxTokens = 300;
+      app.autoExtendShortScenes = false;
+    });
+    const shortPassage = ' ' + Array.from({ length: 150 }, (_, i) => 'w' + i).join(' ');
+    await installStub(page, [[
+      sse(rContent(shortPassage)),
+      sse(rEmptySentinel(), 'stop'),
+      DONE
+    ]]);
+    await page.evaluate(async () => { await window.__test.triggerGenerate('She runs out the door.'); });
+    await waitForGenActions(page);
+    s = await page.evaluate(() => ({
+      reqCount: window.__reqBodies.length,
+      lastGenText: window.__test.getApp().lastGenText
+    }));
+    if (s.reqCount !== 1) fail(`scenario H: natural short stop must not auto-extend when off (expected 1 request, got ${s.reqCount})`, 40);
+    if (s.lastGenText !== shortPassage) fail('scenario H: single-pass text mismatch', 41);
+    console.log('scenario H passed: short stop left alone with auto-extend off.');
+
+    // ---- Scenario I: with auto-extend ON, a short stop resumes — and the
+    // continuation must strip the beat so the model cannot re-deliver it.
+    await resetScene(page);
+    await page.evaluate(() => { window.__test.getApp().autoExtendShortScenes = true; });
+    const moreProse = ' ' + Array.from({ length: 100 }, (_, i) => 'm' + i).join(' ');
+    await installStub(page, [
+      [sse(rContent(shortPassage)), sse(rEmptySentinel(), 'stop'), DONE],
+      [sse(rContent(moreProse)), sse(rEmptySentinel(), 'stop'), DONE]
+    ]);
+    await page.evaluate(async () => { await window.__test.triggerGenerate('She runs out the door.'); });
+    await waitForGenActions(page);
+    s = await page.evaluate(() => ({
+      reqCount: window.__reqBodies.length,
+      lastGenText: window.__test.getApp().lastGenText,
+      second: window.__reqBodies[1] || null
+    }));
+    if (s.reqCount !== 2) fail(`scenario I: short stop must resume when auto-extend is on (expected 2 requests, got ${s.reqCount})`, 42);
+    if (s.lastGenText !== shortPassage + moreProse) fail('scenario I: resumed text mismatch', 43);
+    const secondMsgs = s.second && Array.isArray(s.second.messages) ? s.second.messages : [];
+    const secondText = secondMsgs.map(m => m.content).join('\n');
+    if (secondText.includes('BEAT TO EXPAND')) fail('scenario I: continuation must strip the beat from the prompt', 44);
+    if (!secondText.includes('already been delivered')) fail('scenario I: continuation must carry the anti-repeat instruction', 45);
+    await page.evaluate(() => { window.__test.getApp().autoExtendShortScenes = false; });
+    console.log('scenario I passed: opt-in auto-extend resumes without re-sending the beat.');
+
+    console.log('unit-reasoning test passed: reasoning isolation, status, headroom, resume guard, auto-extend.');
     await browser.close();
     process.exit(0);
   } catch (err) {

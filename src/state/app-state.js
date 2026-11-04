@@ -532,6 +532,10 @@ function createAppState() {
         maxTokens: 300,
         useProviderDefaults: false, // Don't send temperature/maxTokens, let provider use their defaults
         forceNonStreaming: false, // Force non-streaming mode for models that don't support it
+        // When on, a passage that stops short of the target length is automatically
+        // continued with a second generation. Off by default: that extra pass can
+        // re-deliver the beat and repeat the scene.
+        autoExtendShortScenes: false,
         // Reasoning effort sent to reasoning models: 'auto' | 'off' | 'minimal' |
         // 'low' | 'medium' | 'high'. 'low' keeps chain-of-thought from eating a
         // prose-focused request's output budget.
